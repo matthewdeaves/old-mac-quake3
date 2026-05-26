@@ -38,6 +38,17 @@ case "$MACHINE" in
   *) echo "bench.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
 
+# Determinism: move the per-machine autoexec.cfg aside for the duration of the
+# bench so results reflect engine defaults + our cmdline cvars only (resolution,
+# timedemo). Per-machine tuning is a separate experiment; mixing it in would make
+# fps non-comparable across machines and non-attributable to code commits.
+# Restore on ANY exit so a crash/Ctrl-C can't leave the deployed config missing.
+restore_autoexec() {
+  ssh "$MACHINE" "cd $REMOTE_DIR && [ -f baseq3/autoexec.cfg.bench-aside ] && mv -f baseq3/autoexec.cfg.bench-aside baseq3/autoexec.cfg || true" 2>/dev/null || true
+}
+trap restore_autoexec EXIT
+ssh "$MACHINE" "cd $REMOTE_DIR && [ -f baseq3/autoexec.cfg ] && mv -f baseq3/autoexec.cfg baseq3/autoexec.cfg.bench-aside || true" 2>/dev/null || true
+
 # CSV header — atomic create (noclobber) so concurrent legs don't double-write.
 ( set -C; echo "timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps" > "$CSV" ) 2>/dev/null || true
 

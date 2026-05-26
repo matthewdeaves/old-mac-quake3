@@ -35,13 +35,14 @@ ioquake3 binary cannot run on a single one of our PPC Macs.
 
 Therefore the code baseline is pinned to the **last SDL 1.2 commit**:
 
-- branch **`oldmac-base`** @ **`4432a80a`** (2013-01-17 "Add vim stuff to
+- branch **`master`**, rooted at **`4432a80a`** (2013-01-17 "Add vim stuff to
   .gitignore"), the commit immediately before `f478761e "Use SDL 2 instead
-  of SDL 1.2"`. Its Makefile uses `sdl-config` and links
-  `code/libs/macosx/libSDL-1.2.0.dylib` — the same SDL 1.2.x world
+  of SDL 1.2"`. (This was originally branch `oldmac-base`; renamed to `master`
+  once the port diverged into its own repo.) Its Makefile uses `sdl-config` and
+  links `code/libs/macosx/libSDL-1.2.0.dylib` — the same SDL 1.2.x world
   QuakeSpasm lives in, so the QuakeSpasm cross-build recipe transfers.
-- `main` tracks upstream HEAD (SDL2/CMake) **for reference only** — never
-  build the PPC fleet from it.
+- The `upstream` remote (ioquake/ioq3) holds HEAD (SDL2/CMake) **for reference
+  only** — never build the PPC fleet from it; its push URL is disabled.
 - **Fallback** if `4432a80a` won't compile against the 10.3.9 SDK: the 1.36
   release era (`b003422d`, 2011-05) — older but the same SDL 1.2 line, and
   the version actually installed on the mini.

@@ -65,8 +65,9 @@ vsync cap, not a ceiling. (sawtooth, mini-g4 and imac-2019 are not yet benched.)
 Modern ioquake3 is **CMake + SDL2**, and SDL2 has *never* supported macOS 10.3
 or 10.4. The PowerPC fleet here runs **Panther 10.3.9** and **Tiger 10.4.11** —
 so a current ioquake3 binary won't launch on a single one of them. This port is
-therefore pinned to the **last SDL 1.2 commit** of ioquake3 (`oldmac-base`
-branch), the same SDL 1.2 world that still talks to a Rage 128 under Panther.
+therefore pinned to the **last SDL 1.2 commit** of ioquake3 (this repo's
+`master` branch is rooted there), the same SDL 1.2 world that still talks to a
+Rage 128 under Panther.
 
 Two booby-traps had to be defused to get the PPC slices running (both in
 [`MISTAKES.md`](MISTAKES.md)): the bundled `libSDLmain.a` and `libSDL-1.2.0.dylib`

@@ -15,7 +15,7 @@ has compiled yet** — your job is to make the pipeline real, then establish a
 baseline.
 
 **The load-bearing constraint (already decided, do not relitigate):** the code
-is pinned to branch **`oldmac-base` @ `4432a80a`**, the last SDL 1.2 commit.
+is pinned to branch **`master` (rooted at `4432a80a`)**, the last SDL 1.2 commit.
 Modern ioquake3 (HEAD) is CMake + SDL2, and SDL2 can't run on Panther 10.3.9
 or Tiger 10.4.11 — which is the entire PPC fleet. SDL 1.2 is mandatory. See
 `MISTAKES.md`. Fallback if 4432a80a won't build for Panther: the 1.36 era
@@ -73,7 +73,7 @@ abandoning the fat binary). Decide-and-ship on implementation details.
 
 ## Quick status snapshot (as of scaffold creation, 2026-05-26)
 
-- **Source:** `~/quake3`, branch `oldmac-base` @ `4432a80a` (last SDL 1.2).
+- **Source:** `~/quake3`, branch `master` (rooted at `4432a80a`) (last SDL 1.2).
   `main` = upstream HEAD (SDL2/CMake), reference only.
 - **Done:** project layout, `CLAUDE.md`, `MISTAKES.md`, all `scripts/` (v0),
   per-machine `autoexec-*.cfg`, `docs/`. baseq3 staged on mini-intel.

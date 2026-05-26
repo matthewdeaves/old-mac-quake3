@@ -5,7 +5,7 @@
 #
 # IMPORTANT: ioquake3 uses its own top-level `Makefile` (env-var driven),
 # NOT Quake/Makefile.darwin like QuakeSpasm. Baseline is the last SDL 1.2
-# commit (branch oldmac-base); see ../CLAUDE.md.
+# commit (branch master, rooted at 4432a80a); see ../CLAUDE.md.
 #
 # ⚠️ v0 DRAFT — the build pipeline has NOT been validated end-to-end. The
 #    two known-unresolved items are (1) a fat SDL 1.2 dylib for ppc750+

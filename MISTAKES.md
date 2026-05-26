@@ -21,9 +21,9 @@ machines being on Tiger (not Leopard) means even "G4-only" modern builds are
 out; the blocker is the OS/SDL pairing, not just the chip.
 
 **The fix (this one):** baseline pinned to the **last SDL 1.2 commit** `4432a80a`
-(2013-01-17), branch `oldmac-base`, right before `f478761e "Use SDL 2 instead
-of SDL 1.2"`. SDL 1.2 supports Panther/Tiger and is the same family
-QuakeSpasm uses. `main` keeps HEAD for reference only. See `CLAUDE.md`
+(2013-01-17), the root of branch `master`, right before `f478761e "Use SDL 2
+instead of SDL 1.2"`. SDL 1.2 supports Panther/Tiger and is the same family
+QuakeSpasm uses. The `upstream` remote keeps HEAD for reference only. See `CLAUDE.md`
 "THE load-bearing constraint".
 
 **Lesson:** for this fleet, "best port" is decided by the **OS + SDL + GPU**

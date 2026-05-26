@@ -1885,11 +1885,17 @@ $(B)/$(CLIENTBIN)_rend2-smp$(FULLBINEXT): $(Q3OBJ) $(Q3R2OBJ) $(Q3R2STRINGOBJ) $
 endif
 
 ifneq ($(strip $(LIBSDLMAIN)),)
-ifneq ($(strip $(LIBSDLMAINSRC)),)
-$(LIBSDLMAIN) : $(LIBSDLMAINSRC)
-	cp $< $@
+# oldmac port: build libSDLmain from source (code/libs/macosx/SDLMain.m) rather
+# than copying the prebuilt code/libs/macosx/libSDLmain.a. The prebuilt blob was
+# built for 10.4+ and dispatches objc_msgSend via a fixed absolute address
+# (bla 0xfffeff00) that is unmapped on Mac OS X 10.3.9 — so it SIGSEGVs in the
+# Cocoa bootstrap before main() on the G3. Compiling from source with the target
+# SDK / -mmacosx-version-min emits the correct dispatch for each slice. See MISTAKES.md.
+$(LIBSDLMAIN) : $(LIBSDIR)/macosx/SDLMain.m $(LIBSDIR)/macosx/SDLMain.h
+	$(CC) $(CFLAGS) -I$(SDLHDIR)/include -o $(B)/SDLMain.o -c $<
+	rm -f $@
+	ar cru $@ $(B)/SDLMain.o
 	ranlib $@
-endif
 endif
 
 

@@ -11,6 +11,13 @@ G3, Tiger on a G4, and Lion on Intel — all from a *single fat binary*.
 
 ---
 
+> ⚠️ **Status: early work in progress.** This repo so far is about *getting a
+> working build going* — a fat binary that compiles, launches and renders across
+> the fleet, plus a first benchmark baseline. **Per-machine optimisation and
+> visual tuning have not started yet.** The numbers below are stock-settings
+> baselines (not tuned), and only three of the six machines have been benched.
+> Expect this to change a lot.
+
 This is a port of [ioquake3](https://ioquake3.org/) tuned for vintage Apple
 hardware. One Mach-O bundle (`ppc750` + `ppc7400` + `x86_64`) drops onto every
 machine in the fleet and `dyld` picks the right slice at runtime. The headline:
@@ -93,6 +100,14 @@ pipeline (`scripts/make-icon.py`) turns a source PNG into a Panther→Sequoia
 | mini-g4 | G4 1.25 GHz | Radeon 9200 32 MB | Tiger 10.4.11 | ppc7400 |
 | mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | x86_64 |
 | imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7 | x86_64 |
+
+## Sister projects
+
+Same six-machine fleet, same cross-build-on-Lion tooling philosophy, older
+id engines:
+
+- **[old-mac-quakespasm](https://github.com/matthewdeaves/old-mac-quakespasm)** — Quake (QuakeSpasm) for PowerPC Macs. The mature template this port borrows from.
+- **[old-mac-quake2](https://github.com/matthewdeaves/old-mac-quake2)** — Quake II for PowerPC Macs.
 
 ## Credits & licence
 

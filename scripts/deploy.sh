@@ -13,9 +13,12 @@ set -euo pipefail
 
 MACHINE="${1:?usage: deploy.sh <yosemite|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019>}"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
+HERE="$(cd "$(dirname "$0")" && pwd)"
 FAT="$PROJ_LOCAL/build/ioquake3-fat"
 SDL_DYLIB="$PROJ_LOCAL/code/libs/macosx/libSDL-1.2.0.dylib"
 BUNDLE="$PROJ_LOCAL/scripts/bundle"
+APP="$PROJ_LOCAL/build/ioquake3.app"
+SBB="$BUNDLE/set-bundle-bit"     # fat (ppc+x86_64) Finder bundle-bit setter
 REMOTE_DIR="~/Desktop/quake3"
 
 case "$MACHINE" in
@@ -52,6 +55,21 @@ else
   echo "    (no scripts/bundle/autoexec-$MACHINE.cfg — skipping config)"
 fi
 
+# --- ioquake3.app bundle (icon + double-click play) ---------------------------
+# One fat-binary .app per machine. Sits at ~/Desktop/quake3/ioquake3.app; ioquake3
+# strips the bundle path (Sys_StripAppBundle) so fs_basepath = ~/Desktop/quake3,
+# finding the baseq3/ alongside. The raw ./ioquake3 above is kept for bench.sh.
+"$HERE/make-app.sh" >/dev/null
+echo "==> [$MACHINE] ship ioquake3.app -> $REMOTE_DIR/ioquake3.app"
+rsync -a --delete --partial --checksum $RSYNC_EXTRA "$APP/" "$MACHINE:$REMOTE_DIR/ioquake3.app/"
+ssh "$MACHINE" "chmod +x $REMOTE_DIR/ioquake3.app/Contents/MacOS/ioquake3"
+
+if [ -f "$SBB" ]; then
+  echo "==> [$MACHINE] set Finder bundle bit (so the .app shows the icon, not a folder)"
+  rsync -a --partial $RSYNC_EXTRA "$SBB" "$MACHINE:$REMOTE_DIR/.set-bundle-bit"
+  ssh "$MACHINE" "chmod +x $REMOTE_DIR/.set-bundle-bit && $REMOTE_DIR/.set-bundle-bit $REMOTE_DIR/ioquake3.app 2>&1 | sed 's/^/    /' || echo '    (bundle-bit set failed — non-fatal)'"
+fi
+
 echo "==> [$MACHINE] verify"
-ssh "$MACHINE" "cd $REMOTE_DIR && file ioquake3 | sed 's/^/    /' && ls -la baseq3/autoexec.cfg 2>/dev/null"
+ssh "$MACHINE" "cd $REMOTE_DIR && file ioquake3 | sed 's/^/    /' && echo '    app binary:' && file ioquake3.app/Contents/MacOS/ioquake3 | sed 's/^/    /' && ls -la baseq3/autoexec.cfg 2>/dev/null"
 echo "==> [$MACHINE] deployed."

@@ -1,0 +1,103 @@
+<div align="center">
+
+<img src="docs/images/ioquake3-icon-256.png" width="160" alt="ioquake3 old-Mac port icon">
+
+# ioquake3 — old-Mac port
+
+**Quake III Arena that actually runs on PowerPC Macs again** — Panther on a
+G3, Tiger on a G4, and Lion on Intel — all from a *single fat binary*.
+
+</div>
+
+---
+
+This is a port of [ioquake3](https://ioquake3.org/) tuned for vintage Apple
+hardware. One Mach-O bundle (`ppc750` + `ppc7400` + `x86_64`) drops onto every
+machine in the fleet and `dyld` picks the right slice at runtime. The headline:
+**Quake III rendering on a 449 MHz iMac G3 with a 16 MB Rage 128**, the machine
+that was at the *minimum spec* edge when Q3 shipped in 1999.
+
+<div align="center">
+
+| G3 · Panther · Rage 128 | G4 · Tiger · Radeon 9000 |
+|:---:|:---:|
+| ![Quake III on a G3](docs/images/screenshot-g3-yosemite.png) | ![Quake III on a G4](docs/images/screenshot-g4-quicksilver.png) |
+
+</div>
+
+## Framerate (v0 baseline)
+
+`four` timedemo, fullscreen, **default settings** (no per-machine tuning),
+median of runs 2 & 3:
+
+| Machine | CPU | GPU | OS | 640×480 | 1024×768 |
+|---|---|---|---|--:|--:|
+| yosemite | G3 449 MHz | Rage 128 16 MB | Panther 10.3.9 | **45** | **27** |
+| quicksilver | G4 733 MHz | Radeon 9000 64 MB | Tiger 10.4.11 | 61 | 60 |
+| mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | 238 | 105 |
+
+The **≥ 20 fps G3 floor and ≥ 60 fps G4 target are both met at stock settings.**
+In actual gameplay with per-machine tuning the G3 holds ~35 fps and the G4 ~96 fps
+(see the screenshots above). The G4's flat ~60 in the table is the display's
+vsync cap, not a ceiling. (sawtooth, mini-g4 and imac-2019 are not yet benched.)
+
+## Features
+
+- **One fat binary, whole fleet.** `ppc750` (G3, no AltiVec), `ppc7400`
+  (G4, AltiVec) and `x86_64` (Intel) slices in a single Mach-O.
+- **Runs on Mac OS X 10.3.9 → 10.7** (and modern macOS via the x86_64 slice).
+- **SDL 1.2**, the last SDL line that supports Panther and Tiger.
+- **Monolithic OpenGL1 renderer** — no `dlopen`, no GL2/GLSL renderer (useless
+  on a Rage 128 / GeForce 2 anyway).
+- **`ioquake3.app` bundle with a custom icon** that renders correctly all the
+  way from Panther's Finder to modern macOS (legacy-only `.icns`).
+- **Cross-build toolchain** producing all three slices from one Lion host.
+
+## Why a special port? (the load-bearing constraint)
+
+Modern ioquake3 is **CMake + SDL2**, and SDL2 has *never* supported macOS 10.3
+or 10.4. The PowerPC fleet here runs **Panther 10.3.9** and **Tiger 10.4.11** —
+so a current ioquake3 binary won't launch on a single one of them. This port is
+therefore pinned to the **last SDL 1.2 commit** of ioquake3 (`oldmac-base`
+branch), the same SDL 1.2 world that still talks to a Rage 128 under Panther.
+
+Two booby-traps had to be defused to get the PPC slices running (both in
+[`MISTAKES.md`](MISTAKES.md)): the bundled `libSDLmain.a` and `libSDL-1.2.0.dylib`
+were 10.4+ builds that dispatch `objc_msgSend` through a fixed address unmapped
+on 10.3.9 (instant SIGSEGV in the Cocoa bootstrap) — fixed by compiling SDLMain
+from source and swapping in a Panther-safe SDL 1.2.
+
+## Build & deploy
+
+The toolchain (`scripts/`) cross-builds on a Lion host and deploys to the fleet:
+
+```sh
+scripts/build-fat.sh                 # build all 3 slices -> build/ioquake3-fat
+scripts/make-app.sh                  # wrap it in build/ioquake3.app (+ icon)
+scripts/deploy.sh <machine>          # ship the .app + raw binary + config
+scripts/bench.sh <machine> four 1024x768   # one timedemo -> benchmarks/results.csv
+```
+
+Per-slice flags, the cpusubtype re-stamp, and the SDL story are documented in
+[`CLAUDE.md`](CLAUDE.md) and [`scripts/README.md`](scripts/README.md). The icon
+pipeline (`scripts/make-icon.py`) turns a source PNG into a Panther→Sequoia
+`.icns`.
+
+## Host matrix
+
+| Machine | CPU | GPU | macOS | Slice |
+|---|---|---|---|---|
+| yosemite | G3 449 MHz | Rage 128 16 MB | Panther 10.3.9 | ppc750 |
+| sawtooth | G4 500 MHz | GeForce2 MX 32 MB | Tiger 10.4.11 | ppc7400 |
+| quicksilver | G4 733 MHz | Radeon 9000 Pro 64 MB | Tiger 10.4.11 | ppc7400 |
+| mini-g4 | G4 1.25 GHz | Radeon 9200 32 MB | Tiger 10.4.11 | ppc7400 |
+| mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | x86_64 |
+| imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7 | x86_64 |
+
+## Credits & licence
+
+Built on [ioquake3](https://github.com/ioquake/ioq3) and id Software's Quake III
+Arena engine. Released under the **GPLv2** (see [`COPYING.txt`](COPYING.txt)).
+Game data (`baseq3` pk3s) is **not** included — you need a copy of Quake III
+Arena. This port adds the old-Mac build/deploy tooling and the SDL 1.2 / Panther
+fixes; the upstream engine readme is preserved in [`README`](README).

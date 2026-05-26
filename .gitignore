@@ -2,3 +2,9 @@ build
 Makefile.local
 *.swp
 *tags
+
+# --- old-Mac port additions ---
+/build/ioquake3-*
+/build/.build.lock
+.venv/
+benchmarks/results.csv.bak.*

@@ -406,7 +406,12 @@ ifeq ($(PLATFORM),darwin)
   BASE_CFLAGS = -Wall -Wimplicit -Wstrict-prototypes
 
   ifeq ($(ARCH),ppc)
-    BASE_CFLAGS += -arch ppc -faltivec -mmacosx-version-min=10.2
+    # oldmac port: arch / AltiVec / version-min are supplied per-target via
+    # CFLAGS in scripts/build.sh (g3 -> -arch ppc750, no AltiVec; g4 ->
+    # -arch ppc7400 -faltivec). The upstream hardcode "-arch ppc -faltivec"
+    # was wrong for us twice over: -arch ppc stamps a generic (subtype 0)
+    # Mach-O so the two ppc slices collide in lipo, and -faltivec emits
+    # AltiVec on the G3 (illegal instruction on a 750). See MISTAKES.md.
     OPTIMIZEVM += -O3
   endif
   ifeq ($(ARCH),ppc64)

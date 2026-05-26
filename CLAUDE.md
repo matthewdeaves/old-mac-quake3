@@ -6,21 +6,23 @@ Sister project to the **QuakeSpasm PPC port** (`~/quakespasm`) and the
 QuakeSpasm project is the mature template — when a tooling question isn't
 answered here, look at how `~/quakespasm` does it.
 
-> **STATUS: brand-new (started 2026-05-26). The toolchain in `scripts/` is
-> adapted from QuakeSpasm's but has NOT been validated end-to-end. The
-> engine has never been compiled for any target yet. The first job is to
-> make the build pipeline actually produce a running binary — see
-> `KICKOFF_PROMPT.md`.** Until then, treat every script here as a v0 draft.
+> **STATUS: build pipeline VALIDATED end-to-end (2026-05-26). The fat binary
+> (ppc750 + ppc7400 + x86_64) builds and runs on real hardware — G3 (Panther),
+> G4 (Tiger), and Lion — and a v0 baseline is in `benchmarks/results.csv`.
+> Two SDL/Panther fixes were required to make the PPC slices run (see
+> `MISTAKES.md`). Remaining: per-machine tuning (autoexec) from bench evidence,
+> and an `.app` bundle + icon. The `scripts/` are no longer v0 drafts.**
 
 ## Goal in one line
 
 Best-looking **ioquake3 (Quake III Arena)** for G3 Panther + G4 Tiger + Lion
 Intel, staying playable on each. Framerate targets: **≥ 60 fps on G4 / Lion,
-≥ 20 fps on G3** — but Q3A is markedly heavier than Q1, and the G3 (yosemite,
-449 MHz, Rage 128 16 MB) is at the edge of what ran Q3 in 1999, so the **G3
-floor is aspirational and must be proven by bench, not assumed.** imac-2019
-(Sequoia / Radeon Pro 580X) is a modern bench reference that separates
-CPU-bound from GPU-bound effects.
+≥ 20 fps on G3**. The G3 floor was feared aspirational — **now PROVEN by the v0
+baseline**: yosemite (G3 449 MHz, Rage 128) does `four` at **27 fps @ 1024×768
+and 45 fps @ 640×480 with default settings** (no tuning), clearing the floor.
+G4 (quicksilver, Radeon 9000) ~60 fps (vsync-capped — real headroom hidden),
+Lion (GMA 950) 105/238 fps. imac-2019 (Sequoia / Radeon Pro 580X) is a modern
+bench reference that separates CPU-bound from GPU-bound effects.
 
 ## THE load-bearing constraint: SDL 1.2, NOT SDL 2
 
@@ -77,27 +79,30 @@ PLATFORM=darwin ARCH=<ppc|x86_64> CC=<gcc-4.0|clang> \
   make
 ```
 
-- **g3:** `ARCH=ppc CC=gcc-4.0`, SDK `MacOSX10.3.9.sdk`, min 10.3, `-mcpu=750 -O3`
-- **g4:** `ARCH=ppc CC=gcc-4.0`, SDK `MacOSX10.4u.sdk`, min 10.4, `-mcpu=7400 -maltivec -mabi=altivec -mtune=7450 -O3`
+- **g3:** `ARCH=ppc CC=gcc-4.0`, SDK `MacOSX10.3.9.sdk`, `-arch ppc750 -mcpu=750 -mmacosx-version-min=10.3 -O3` (NO AltiVec — a 750 has no vector unit)
+- **g4:** `ARCH=ppc CC=gcc-4.0`, SDK `MacOSX10.4u.sdk`, `-arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=10.4 -O3`
 - **lion:** `ARCH=x86_64 CC=clang`, min 10.7, `-O3`
+- All slices build `USE_RENDERER_DLOPEN=0` (monolithic, opengl1 linked in; no
+  renderer dylib; skips rend2). The Makefile's hardcoded ppc `-arch ppc -faltivec`
+  was removed — `scripts/build.sh` supplies arch/AltiVec/version-min per target.
 
 Output lands in `build/release-darwin-<arch>/ioquake3.<arch>`. Both PPC slices
-are `ARCH=ppc` (subtype differs only via `-mcpu`), so they collide on the same
-filename — rename to `ioquake3-g3` / `ioquake3-g4` before lipo (mirrors
-QuakeSpasm's `quakespasm-g3/g4`). `CLIENTBIN=ioquake3`, `BASEGAME=baseq3`.
+are `ARCH=ppc`, so they collide on the same filename — `build.sh` renames to
+`ioquake3-g3` / `ioquake3-g4` and **re-stamps the Mach-O cpusubtype** (ppc750=9,
+ppc7400=10) post-link, because the generic bundled `libSDLmain`/crt make Apple
+ld stamp subtype 0; otherwise the two slices collide in lipo. `CLIENTBIN=ioquake3`,
+`BASEGAME=baseq3`.
 
-**Open build items (the new session resolves these first):**
-1. **Fat SDL 1.2 dylib.** ioquake3 links `libSDL-1.2.0.dylib`; we need it fat
-   (ppc750+ppc7400+x86_64). QuakeSpasm's `MacOSX/SDL.framework` (fat SDL
-   1.2.15) and `lion:~/sdl-archive/` are the source to adapt.
-2. **Building 2013 ioquake3 against the 10.3.9 SDK / gcc-4.0** — unproven;
-   may need source tweaks. Validate the g4 (10.4u) slice first — likeliest
-   to build — then attempt g3.
-3. **App vs raw binary.** `make-macosx.sh`/`make-macosx-ub.sh` build
-   `ioquake3.app`; for a sandbox a raw `ioquake3.<arch>` next to `baseq3/`
-   is simpler. Prove the raw binary first.
-4. **Game logic** ships as QVMs inside `baseq3/pak8.pk3` — no need to build
-   `cgame`/`qagame`/`ui` dylibs.
+**Build items — ALL RESOLVED (2026-05-26):**
+1. ✅ **SDL 1.2.** The bundled fat `libSDL-1.2.0.dylib` AND prebuilt `libSDLmain.a`
+   were 10.4+ builds that SIGSEGV on Panther (objc_msgSend via `bla 0xfffeff00`,
+   unmapped on 10.3.9). Fix: compile `code/libs/macosx/SDLMain.m` from source
+   (Makefile rule), and swap in QuakeSpasm's Panther-safe SDL 1.2.15. See `MISTAKES.md`.
+2. ✅ **Builds against 10.3.9 SDK / gcc-4.0** — no source tweaks needed beyond
+   the SDL fix; g3/g4/lion all compile.
+3. ✅ **Raw binary proven** on all three arches. `.app` bundle + icon is the
+   remaining nicety (one fat-binary `.app` for all machines).
+4. ✅ **Game logic** = QVMs inside `baseq3/pak8.pk3`; no game dylibs built.
 
 ## Game data + per-machine config
 

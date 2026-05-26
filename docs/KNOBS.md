@@ -51,6 +51,12 @@ can A/B contributions without a rebuild. Per-machine defaults live in
 
 ## To investigate (kickoff)
 
+- **`r_swapInterval` / vsync — confirmed relevant.** The v0 baseline showed
+  quicksilver (G4) pinned at ~60 fps at BOTH 1024×768 and 640×480, while
+  mini-intel (Lion) hit 105/238 fps. That flat ~60 on the G4 is vsync at the
+  60 Hz display refresh hiding real headroom. For benchmarking true GPU/CPU
+  cost, set `r_swapInterval 0` (vsync off); for play, vsync-on avoids tearing.
+  Bench `com_maxfps 0` does NOT defeat vsync — `r_swapInterval` is separate.
 - Which `r_mode` presets are usable per GPU; whether GMA 950 / Rage 128 need
   `r_colorbits 16`.
 - `com_maxfps` vs physics: Q3 jump heights depend on fps — keep consistent

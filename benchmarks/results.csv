@@ -5,3 +5,4 @@ timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps
 2026-05-26T17:05:58Z,7daf8be6,yosemite,four,1024x768,27.1,27.1,27.1,27.10
 2026-05-26T17:06:51Z,7daf8be6,quicksilver,four,640x480,60.9,60.8,60.3,60.55
 2026-05-26T17:08:39Z,7daf8be6,yosemite,four,640x480,44.8,44.9,44.8,44.85
+2026-06-05T17:16:05Z,dc2ff657,imac-g5,four,1440x900,89.4,89.4,89.4,89.40

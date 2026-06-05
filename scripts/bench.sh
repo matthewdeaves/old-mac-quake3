@@ -34,9 +34,25 @@ mkdir -p "$RAWDIR"
 
 case "$MACHINE" in
   yosemite) TMO=300 ;; sawtooth) TMO=240 ;; quicksilver|mini-g4) TMO=180 ;;
+  imac-g5) TMO=90 ;;
   mini-intel) TMO=90 ;; imac-2019) TMO=60 ;;
   *) echo "bench.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
+
+# imac-g5 R300 (Radeon 9600 / Leopard) safety: that driver HARD-HANGS the whole
+# OS on a non-native fullscreen mode SWITCH (power-button recovery only — NOT
+# SSH-recoverable). Requesting the panel's NATIVE resolution is a same-mode set
+# the driver survives cleanly. So on the G5 refuse any non-native res under
+# fullscreen. (Ref: the Q1 QuakeSpasm + Q2 port notes — same hardware.)
+if [ "$MACHINE" = imac-g5 ]; then
+  G5_NATIVE_RES="1440x900"        # built-in panel; same-mode capture only
+  if [ "$RES" != "$G5_NATIVE_RES" ]; then
+    echo "bench.sh: imac-g5 must bench at native $G5_NATIVE_RES — the R300 driver" >&2
+    echo "  hard-hangs the OS on a non-native fullscreen mode switch (power button)." >&2
+    echo "  Re-run: scripts/bench.sh imac-g5 $DEMO $G5_NATIVE_RES" >&2
+    exit 3
+  fi
+fi
 
 # Determinism: move the per-machine autoexec.cfg aside for the duration of the
 # bench so results reflect engine defaults + our cmdline cvars only (resolution,

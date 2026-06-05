@@ -455,6 +455,12 @@ extern	cvar_t	*cl_voip;
 void CL_Init (void);
 void CL_AddReliableCommand(const char *cmd, qboolean isDisconnectCmd);
 
+// watchlink -- cvar-gated UDP/JSON feed of live player state to an Apple Watch
+// companion (cl_watchlink.c). Inert unless the watch_host cvar is set.
+void CL_WatchLink_Init (void);
+void CL_WatchLink_Frame (void);
+void CL_WatchLink_ServerCommand (const char *s);
+
 void CL_StartHunkUsers( qboolean rendererOnly );
 
 void CL_Disconnect_f (void);

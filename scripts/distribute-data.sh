@@ -11,7 +11,7 @@
 #
 set -euo pipefail
 
-MACHINE="${1:?usage: distribute-data.sh <yosemite|sawtooth|quicksilver|mini-g4|imac-2019>}"
+MACHINE="${1:?usage: distribute-data.sh <yosemite|sawtooth|quicksilver|mini-g4|imac-2019|imac-g5>}"
 SRC_HOST="${SRC_HOST:-mini-intel}"
 SRC_DIR="~/Desktop/quake3/baseq3"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,7 +20,7 @@ REMOTE_DIR="~/Desktop/quake3/baseq3"
 ONLY_PK3=(--include='*.pk3' --include='*.PK3' --exclude='*')
 
 case "$MACHINE" in
-  yosemite|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019) ;;
+  yosemite|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5) ;;
   *) echo "distribute-data.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
 [ "$MACHINE" = "$SRC_HOST" ] && { echo "$MACHINE is the data source — nothing to do."; exit 0; }

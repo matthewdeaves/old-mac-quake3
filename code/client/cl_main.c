@@ -3013,6 +3013,10 @@ void CL_Frame ( int msec ) {
 	// decide on the serverTime to render
 	CL_SetCGameTime();
 
+	// push live player state to the Apple Watch companion (inert unless the
+	// watch_host cvar is set); after CL_SetCGameTime so cl.serverTime is current
+	CL_WatchLink_Frame();
+
 	// update the screen
 	SCR_UpdateScreen();
 
@@ -3610,6 +3614,8 @@ void CL_Init( void ) {
 	CL_GenerateQKey();
 	Cvar_Get( "cl_guid", "", CVAR_USERINFO | CVAR_ROM );
 	CL_UpdateGUID( NULL, 0 );
+
+	CL_WatchLink_Init();	// register watch_host / watch_port / watch_rate cvars
 
 	Com_Printf( "----- Client Initialization Complete -----\n" );
 }
@@ -4539,7 +4545,12 @@ CL_CDKeyValidate
 =================
 */
 qboolean CL_CDKeyValidate( const char *key, const char *checksum ) {
-#ifdef STANDALONE
+// CD-key gate intentionally disabled for this private retro fleet build. The
+// retail ui.qvm (pak8) pops a full-screen "CD KEY" entry menu on first launch
+// unless the engine reports the key valid (UI_VERIFY_CDKEY -> here). We don't
+// distribute keys to the bench Macs, so always report valid and skip the screen.
+#if 1
+	(void)key; (void)checksum;
 	return qtrue;
 #else
 	char	ch;

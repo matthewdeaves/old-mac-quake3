@@ -11,7 +11,7 @@
 #
 set -euo pipefail
 
-MACHINE="${1:?usage: deploy.sh <yosemite|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019>}"
+MACHINE="${1:?usage: deploy.sh <yosemite|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5>}"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 FAT="$PROJ_LOCAL/build/ioquake3-fat"
@@ -22,7 +22,7 @@ SBB="$BUNDLE/set-bundle-bit"     # fat (ppc+x86_64) Finder bundle-bit setter
 REMOTE_DIR="~/Desktop/quake3"
 
 case "$MACHINE" in
-  yosemite|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019) ;;
+  yosemite|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5) ;;
   *) echo "deploy.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
 test -f "$FAT" || { echo "deploy.sh: build/ioquake3-fat missing — run build-fat.sh first"; exit 1; }

@@ -857,6 +857,9 @@ void CL_ParseCommandString( msg_t *msg ) {
 
 	index = seq & (MAX_RELIABLE_COMMANDS-1);
 	Q_strncpyz( clc.serverCommands[ index ], s, sizeof( clc.serverCommands[ index ] ) );
+
+	// mirror centerprints (frag/CTF/round messages) to the watch companion
+	CL_WatchLink_ServerCommand( clc.serverCommands[ index ] );
 }
 
 

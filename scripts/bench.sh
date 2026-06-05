@@ -75,7 +75,9 @@ for ((r=1; r<=RUNS; r++)); do
   # cd/rm/launch carefully: only the engine goes to background (cd && X & would
   # background the whole chain). Integer sleeps only — Panther sleep is int-only.
   ssh "$MACHINE" "cd $REMOTE_DIR
-    killall -TERM ioquake3 2>/dev/null; sleep 1; killall -KILL ioquake3 2>/dev/null; true
+    killall -TERM ioquake3 2>/dev/null
+    g=0; while [ \$g -lt 8 ] && ps -axo comm 2>/dev/null | grep -q '[i]oquake3'; do sleep 1; g=\$((g+1)); done
+    ps -axo comm 2>/dev/null | grep -q '[i]oquake3' && killall -KILL ioquake3 2>/dev/null; true
     rm -f baseq3/qconsole.log
     ./ioquake3 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
       +set logfile 2 +set com_maxfps 0 +set r_fullscreen 1 \\
@@ -86,7 +88,14 @@ for ((r=1; r<=RUNS; r++)); do
       grep -qE 'frames.*seconds.*fps' baseq3/qconsole.log 2>/dev/null && break
       sleep 1; t=\$((t+1))
     done
-    killall -TERM ioquake3 2>/dev/null; sleep 2; killall -KILL ioquake3 2>/dev/null; true
+    # Gentle teardown: SIGTERM lets SDL restore the captured display, then WAIT
+    # for the engine to actually exit before considering a hard kill. A prompt
+    # killall -KILL while the engine still holds a fullscreen GL context
+    # black-screens / hard-hangs the iMac G5's R300 Leopard driver (it crashed
+    # the G5 mid-run before this). KILL only as a true last resort.
+    killall -TERM ioquake3 2>/dev/null
+    g=0; while [ \$g -lt 10 ] && ps -axo comm 2>/dev/null | grep -q '[i]oquake3'; do sleep 1; g=\$((g+1)); done
+    ps -axo comm 2>/dev/null | grep -q '[i]oquake3' && killall -KILL ioquake3 2>/dev/null; true
     grep -E 'frames.*seconds.*fps' baseq3/qconsole.log 2>/dev/null | tail -1" \
     > "$LOG" 2>/dev/null || true
 

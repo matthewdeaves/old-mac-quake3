@@ -6,5 +6,6 @@ Makefile.local
 # --- old-Mac port additions ---
 /build/ioquake3-*
 /build/.build.lock
+/dist/
 .venv/
 benchmarks/results.csv.bak.*

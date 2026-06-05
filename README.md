@@ -30,6 +30,10 @@ that was at the *minimum spec* edge when Q3 shipped in 1999.
 |:---:|:---:|
 | ![Quake III on a G3](docs/images/screenshot-g3-yosemite.png) | ![Quake III on a G4](docs/images/screenshot-g4-quicksilver.png) |
 
+| G5 · Leopard · Radeon 9600 — native 1440×900 | Intel mini · Lion · GMA 950 — 1024×768 |
+|:---:|:---:|
+| ![Quake III on a G5](docs/screenshots/q3-imac-g5-03.jpg) | ![Quake III on an Intel Mac mini](docs/screenshots/q3-mini-intel-04.jpg) |
+
 </div>
 
 ## Framerate (v0 baseline)
@@ -41,12 +45,15 @@ median of runs 2 & 3:
 |---|---|---|---|--:|--:|
 | yosemite | G3 449 MHz | Rage 128 16 MB | Panther 10.3.9 | **45** | **27** |
 | quicksilver | G4 733 MHz | Radeon 9000 64 MB | Tiger 10.4.11 | 61 | 60 |
+| imac-g5 | G5 2.0 GHz | Radeon 9600 128 MB | Leopard 10.5.8 | — | 133 |
 | mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | 238 | 105 |
 
 The **≥ 20 fps G3 floor and ≥ 60 fps G4 target are both met at stock settings.**
 In actual gameplay with per-machine tuning the G3 holds ~35 fps and the G4 ~96 fps
 (see the screenshots above). The G4's flat ~60 in the table is the display's
-vsync cap, not a ceiling. (sawtooth, mini-g4 and imac-2019 are not yet benched.)
+vsync cap, not a ceiling. The G5 also runs **~87 fps at its native 1440×900**.
+(sawtooth, mini-g4 and imac-2019 are not yet benched. **No per-machine
+optimisation has been done yet** — these are stock-settings baselines.)
 
 ## Features
 
@@ -59,6 +66,10 @@ vsync cap, not a ceiling. (sawtooth, mini-g4 and imac-2019 are not yet benched.)
 - **`ioquake3.app` bundle with a custom icon** that renders correctly all the
   way from Panther's Finder to modern macOS (legacy-only `.icns`).
 - **Cross-build toolchain** producing all three slices from one Lion host.
+- **Apple Watch "tactical computer" companion** (`watchlink`) — your live
+  health / armor / ammo / weapon / score / powerups stream to an iPhone + Apple
+  Watch app over Bonjour (UDP 27999), the same companion that drives the Quake 1
+  and Quake 2 ports. Off by default; enable with `seta watch_host "auto"`.
 
 ## Why a special port? (the load-bearing constraint)
 
@@ -84,6 +95,12 @@ scripts/build-fat.sh                 # build all 3 slices -> build/ioquake3-fat
 scripts/make-app.sh                  # wrap it in build/ioquake3.app (+ icon)
 scripts/deploy.sh <machine>          # ship the .app + raw binary + config
 scripts/bench.sh <machine> four 1024x768   # one timedemo -> benchmarks/results.csv
+
+# release packaging (mirrors the Quake 1/2 ports)
+scripts/make-dmg.sh [version]        # verified .dmg (built on a Tiger host) -> dist/
+scripts/deploy-dmg.sh <machine>      # install from the .dmg, byte-for-byte verified
+scripts/smoke-dmg.sh <machine>       # launch the install (production config) + timedemo
+scripts/screenshot.sh <machine>      # capture in-game shots -> docs/screenshots/
 ```
 
 Per-slice flags, the cpusubtype re-stamp, and the SDL story are documented in
@@ -99,8 +116,12 @@ pipeline (`scripts/make-icon.py`) turns a source PNG into a Panther→Sequoia
 | sawtooth | G4 500 MHz | GeForce2 MX 32 MB | Tiger 10.4.11 | ppc7400 |
 | quicksilver | G4 733 MHz | Radeon 9000 Pro 64 MB | Tiger 10.4.11 | ppc7400 |
 | mini-g4 | G4 1.25 GHz | Radeon 9200 32 MB | Tiger 10.4.11 | ppc7400 |
+| imac-g5 | G5 2.0 GHz | Radeon 9600 128 MB | Leopard 10.5.8 | ppc7400 |
 | mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | x86_64 |
 | imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7 | x86_64 |
+
+(The G5 has no dedicated `ppc970` slice — it runs the `ppc7400` slice. It's
+benched at its **native** 1440×900 panel resolution.)
 
 ## Sister projects
 

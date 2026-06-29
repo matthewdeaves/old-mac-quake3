@@ -32,5 +32,17 @@ cp "$FAT"  "$APP/Contents/MacOS/ioquake3"; chmod +x "$APP/Contents/MacOS/ioquake
 cp "$SDL"  "$APP/Contents/MacOS/libSDL-1.2.0.dylib"   # binary refs @executable_path/libSDL-1.2.0.dylib
 cp "$ICNS" "$APP/Contents/Resources/ioquake3.icns"
 
+# Per-arch + per-machine auto-config: the engine (Com_AutoConfigForMachine in
+# code/qcommon/common.c) reads these from the bundle Resources at startup via
+# CFBundle, keyed on hw.model, so ONE universal .app self-tunes on every fleet
+# machine. Mirrors the QuakeSpasm / Quake II ports.
+CFGN=0
+for cfg in "$PROJ"/scripts/bundle/autoexec-*.cfg; do
+  [ -f "$cfg" ] || continue
+  cp "$cfg" "$APP/Contents/Resources/$(basename "$cfg")"
+  CFGN=$((CFGN+1))
+done
+echo "==> bundled $CFGN auto-config cfg(s) into Resources/"
+
 echo "==> assembled $APP"
 find "$APP" -type f | sed "s#$APP/##;s/^/    /"

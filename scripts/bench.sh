@@ -79,7 +79,7 @@ for ((r=1; r<=RUNS; r++)); do
     g=0; while [ \$g -lt 8 ] && ps -axo comm 2>/dev/null | grep -q '[i]oquake3'; do sleep 1; g=\$((g+1)); done
     ps -axo comm 2>/dev/null | grep -q '[i]oquake3' && killall -KILL ioquake3 2>/dev/null; true
     rm -f baseq3/qconsole.log
-    ./ioquake3 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
+    ./ioquake3 +set com_archAutoexec 0 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
       +set logfile 2 +set com_maxfps 0 +set r_fullscreen 1 \\
       +set r_mode -1 +set r_customwidth $W +set r_customheight $H \\
       +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &

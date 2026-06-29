@@ -31,6 +31,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <winsock.h>
 #endif
 
+#ifdef __APPLE__
+// oldmac port: auto-detect the machine (hw.model) at startup and apply curated
+// per-arch + per-machine settings shipped inside the .app bundle. Mirrors the
+// QuakeSpasm / Quake II ports so one universal binary self-tunes on each Mac.
+#include <sys/sysctl.h>
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 int demo_protocols[] =
 { 67, 66, 0 };
 
@@ -2328,6 +2336,145 @@ void Com_Setenv_f(void)
         }
 }
 
+#ifdef __APPLE__
+/*
+==================
+Com_ExecConfigFromBundle
+
+Reads <basename>.cfg from the .app bundle's Resources/ directory and queues it
+to the command buffer (same effect as `exec FILE.cfg`, but the cfg lives inside
+the bundle, not in baseq3/, so one universal .app self-tunes on every Mac).
+Returns qfalse silently if the bundle / file / read fail — same fall-through
+semantics as a missing exec target. CFBundleGetMainBundle locates the .app from
+the executable's own image path, robust across Finder, launcher and headless
+(bench-script) launches alike. Adapted from QuakeSpasm's QS_ExecConfigFromBundle.
+==================
+*/
+static qboolean Com_ExecConfigFromBundle( const char *basename )
+{
+	CFBundleRef	bundle = CFBundleGetMainBundle();
+	CFStringRef	cfname;
+	CFURLRef	url;
+	char		path[1024];
+	FILE		*fp;
+	long		len;
+	char		*buf;
+	size_t		got;
+
+	if ( !bundle )
+		return qfalse;
+
+	cfname = CFStringCreateWithCString( NULL, basename, kCFStringEncodingUTF8 );
+	if ( !cfname )
+		return qfalse;
+	url = CFBundleCopyResourceURL( bundle, cfname, CFSTR("cfg"), NULL );
+	CFRelease( cfname );
+	if ( !url )
+		return qfalse;
+
+	if ( !CFURLGetFileSystemRepresentation( url, true, (UInt8 *)path, sizeof(path) ) )
+	{
+		CFRelease( url );
+		return qfalse;
+	}
+	CFRelease( url );
+
+	fp = fopen( path, "rb" );
+	if ( !fp )
+		return qfalse;
+
+	fseek( fp, 0, SEEK_END );
+	len = ftell( fp );
+	fseek( fp, 0, SEEK_SET );
+	if ( len <= 0 || len > 65536 )
+	{
+		fclose( fp );
+		return qfalse;
+	}
+
+	buf = (char *) Z_Malloc( len + 2 );
+	got = fread( buf, 1, (size_t)len, fp );
+	fclose( fp );
+	if ( got != (size_t)len )
+	{
+		Z_Free( buf );
+		return qfalse;
+	}
+	buf[len] = '\n';
+	buf[len + 1] = '\0';
+
+	Com_Printf( "Applying bundled config: %s.cfg\n", basename );
+	Cbuf_AddText( buf );
+	Z_Free( buf );
+	return qtrue;
+}
+
+// hw.model string -> per-machine config basename (in the .app's Resources/).
+// hw.model is queried with sysctl at startup, before the renderer/sound init,
+// so these settings take effect for THIS launch. Unknown models fall through
+// to just the per-arch baseline (still fully playable). Keep in sync with the
+// CLAUDE.md host matrix and scripts/bundle/autoexec-<machine>.cfg.
+static const struct { const char *model; const char *cfg; } com_machineMap[] = {
+	{ "PowerMac1,1",  "autoexec-yosemite"    }, // B&W G3 / Rage 128 / Panther
+	{ "PowerMac3,1",  "autoexec-sawtooth"    }, // Sawtooth G4 / GeForce2 MX
+	{ "PowerMac3,5",  "autoexec-quicksilver" }, // Quicksilver G4 / Radeon 9000
+	{ "PowerMac10,1", "autoexec-mini-g4"     }, // Mac mini G4 / Radeon 9200
+	{ "PowerMac8,1",  "autoexec-imac-g5"     }, // iMac G5
+	{ "PowerMac8,2",  "autoexec-imac-g5"     }, // iMac G5 (bench unit)
+	{ "PowerMac12,1", "autoexec-imac-g5"     }, // iMac G5 (iSight / nv)
+	{ "Macmini2,1",   "autoexec-mini-intel"  }, // Core 2 Duo mini / GMA 950 / Lion
+	{ "iMac19,1",     "autoexec-imac-2019"   }, // i5-9600K / Radeon Pro 580X
+};
+
+/*
+==================
+Com_AutoConfigForMachine
+
+Auto-tune for the current Mac: apply the compile-time per-arch baseline, then
+overlay the per-machine config selected by hw.model. Both come from the .app
+bundle. `+set com_archAutoexec 0` or `-noarchautoexec` disables it so the bench
+scripts keep full cvar control (their +set overrides aren't clobbered).
+==================
+*/
+static void Com_AutoConfigForMachine( void )
+{
+	char	model[80];
+	size_t	mlen = sizeof( model );
+	size_t	i;
+
+	// default ON; `+set com_archAutoexec 0` opts out (the bench/screenshot
+	// scripts do this so their own +set overrides aren't clobbered). The +set is
+	// applied by Com_StartupVariable() before Com_ExecuteCfg() calls us.
+	if ( Cvar_Get( "com_archAutoexec", "1", CVAR_INIT )->integer == 0 )
+		return;
+
+	// per-arch baseline (which ppc slice / x86_64 we were compiled as)
+#if defined(__VEC__) || defined(__ALTIVEC__)
+	Com_ExecConfigFromBundle( "autoexec-ppc7400" ); // G4 slice (AltiVec)
+#elif defined(__ppc__) || defined(__POWERPC__) || defined(__powerpc__)
+	Com_ExecConfigFromBundle( "autoexec-ppc750" );  // G3 slice (no AltiVec)
+#elif defined(__x86_64__) || defined(__amd64__)
+	Com_ExecConfigFromBundle( "autoexec-x86_64" );
+#endif
+
+	// per-machine overlay (hw.model lookup); unknown models keep the baseline
+	if ( sysctlbyname( "hw.model", model, &mlen, NULL, 0 ) == 0 )
+	{
+		for ( i = 0; i < ARRAY_LEN( com_machineMap ); i++ )
+		{
+			if ( !strcmp( model, com_machineMap[i].model ) )
+			{
+				Com_ExecConfigFromBundle( com_machineMap[i].cfg );
+				break;
+			}
+		}
+		Com_Printf( "Auto-config: hw.model = %s\n", model );
+	}
+
+	Cbuf_Execute();
+}
+#endif // __APPLE__
+
 /*
 ==================
 Com_ExecuteCfg
@@ -2346,6 +2493,12 @@ void Com_ExecuteCfg(void)
 		// skip the q3config.cfg and autoexec.cfg if "safe" is on the command line
 		Cbuf_ExecuteText(EXEC_NOW, "exec " Q3CONFIG_CFG "\n");
 		Cbuf_Execute();
+#ifdef __APPLE__
+		// oldmac port: curated per-arch + per-machine auto-tune (from the .app
+		// bundle) sits between the saved config and the user's autoexec.cfg, so
+		// it overrides stale saved settings but the user's autoexec still wins.
+		Com_AutoConfigForMachine();
+#endif
 		Cbuf_ExecuteText(EXEC_NOW, "exec autoexec.cfg\n");
 		Cbuf_Execute();
 	}

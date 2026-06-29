@@ -43,14 +43,22 @@ can A/B contributions without a rebuild. Per-machine defaults live in
 | `cg_draw3dIcons` | **0 on Rage 128.** Status bar draws 3 real MD3 models into HUD viewports (ammo/head/armor); the Rage 128's GL renders them as garbage smudges. 0 = clean 2D-icon fallback, also faster. |
 | `cg_lagometer` | 0 to remove the bottom-right net-graph; on the Rage 128 it showed as a corrupted red/blue/green block. |
 
-### Finding: G3 is FILL-bound at 1024×768, CPU-bound at 640×480 (2026-06-29)
+### Finding: G3 picmip / VRAM wall at 1024×768 (clean A/B, 2026-06-29)
 
-On yosemite (Rage 128) the `four` timedemo gives **identical fps at picmip 3 and
-picmip 1 @ 1024×768** (27.0 fps) — the GPU fill rate is the wall, so texture
-detail (and any CPU-side optimization) is nearly free there. At 640×480 fps rises
-to 47.5 and tracks CPU work. Implication: **spend quality at 1024×768 (resolution,
-picmip, filtering); spend CPU optimizations to lift the 640×480 / high-entity
-regime.** Don't expect CPU wins to move the 1024×768 number much.
+On yosemite (Rage 128, 16 MB, **no S3TC** so textures are uncompressed) the `four`
+timedemo @ 1024×768, varying ONLY r_picmip via cmdline `+set`:
+
+| r_picmip | fps | notes |
+|---|---|---|
+| 3 (1/8 res) | 28.2 | "very basic" textures |
+| **1 (1/2 res)** | **27.0** | nearly free vs picmip 3 → fill-bound between 3 and 1 |
+| 0 (full res) | 20.8 | hits the 16 MB VRAM wall — 211 ms frame spikes (texture thrash) |
+
+So picmip **1 is the sweet spot**: much sharper than 3 at ~1 fps cost, while picmip
+0 collapses to the 20 fps floor with VRAM thrashing. Takeaway: between picmip 3↔1
+the G3 is fill-bound (texture detail ~free); picmip 0 is gated by VRAM, not fill.
+At 640×480 the G3 is CPU-bound (sound mixing dominates — see PROFILING.md), so CPU
+wins (e.g. s_sdlSpeed 11025) lift that regime and the worst-case combat frames.
 
 ## Cmdline flags (bench / launch)
 

@@ -40,6 +40,17 @@ can A/B contributions without a rebuild. Per-machine defaults live in
 |---|---|
 | `com_maxfps` | fps cap (0 = uncapped) — note: classic Q3 physics is tuned to 125 |
 | `cg_drawfps` | on-screen fps counter |
+| `cg_draw3dIcons` | **0 on Rage 128.** Status bar draws 3 real MD3 models into HUD viewports (ammo/head/armor); the Rage 128's GL renders them as garbage smudges. 0 = clean 2D-icon fallback, also faster. |
+| `cg_lagometer` | 0 to remove the bottom-right net-graph; on the Rage 128 it showed as a corrupted red/blue/green block. |
+
+### Finding: G3 is FILL-bound at 1024×768, CPU-bound at 640×480 (2026-06-29)
+
+On yosemite (Rage 128) the `four` timedemo gives **identical fps at picmip 3 and
+picmip 1 @ 1024×768** (27.0 fps) — the GPU fill rate is the wall, so texture
+detail (and any CPU-side optimization) is nearly free there. At 640×480 fps rises
+to 47.5 and tracks CPU work. Implication: **spend quality at 1024×768 (resolution,
+picmip, filtering); spend CPU optimizations to lift the 640×480 / high-entity
+regime.** Don't expect CPU wins to move the 1024×768 number much.
 
 ## Cmdline flags (bench / launch)
 

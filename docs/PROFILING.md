@@ -57,3 +57,15 @@ Key takeaways:
   protect the floor during heavy combat.
 - `glgProcessColor` / texture upload churn appears whenever the demo streams new
   bot skins — a load cost, mitigated by picmip and (where supported) compression.
+
+## Negative result: PPC compiler flags don't help (2026-06-29)
+
+Tested `-funroll-loops -fomit-frame-pointer` on top of the stock darwin-ppc
+`-O3 -ffast-math -falign-loops=16`, A/B on yosemite (demo four):
+- shipped 800×600 effects (fill-bound): 22.3 → 22.2 fps (noise)
+- 640×480 vertexlight1 (CPU-bound):     55.5 → 56.0 fps (noise, +1%)
+
+So compiler flags buy nothing on the G3 — its bottleneck is GPU fill + the ATI
+GL driver (gldFreeVertexBuffer/gldUpdateDispatch), not PPC integer/FP compute
+(which `-O3` already handles). Don't re-chase this. The real G3 levers were all
+config: picmip, r_vertexlight, resolution, and s_sdlSpeed (sound rate).

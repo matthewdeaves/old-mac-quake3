@@ -86,3 +86,45 @@ each slice targets the *OS* of the oldest machine. A prebuilt PPC blob can still
 be 10.4-only. For this fleet, never trust a prebuilt macOS lib to run on Panther;
 rebuild it from source against the 10.3.9 SDK, or steal QuakeSpasm's (which is
 already proven on yosemite).
+
+---
+
+## Driving the bench Macs fullscreen over ssh wedges the old GPUs
+
+**The smell:** "Just `+set r_customwidth 1280 +set r_fullscreen 1`, run the
+timedemo, `killall` it, repeat across the fleet." Three machines (mini-g4,
+quicksilver, mini-intel) black-screened and one G5 threw a CrashReporter dialog
+during a parallel quality sweep — each needed a manual reset.
+
+**What actually breaks:**
+1. **Non-native fullscreen = a real mode switch**, and a hard `killall -KILL`
+   mid mode-set leaves the Rage 128 / R200 / R300 / GMA display corrupted
+   (black screen). Worse, the user reported the game came up **windowed** on the
+   G5 and **pillarboxed** ("not full width") on quicksilver — the GPUs reject /
+   letterbox a non-native mode.
+2. **Repeated ssh-launched fullscreen runs** can leave the display grabbed, so
+   the *next* launch hangs in early init (stops before `Initializing OpenGL`).
+3. **Windowed mode is NOT a safe fallback over ssh** — an ssh-launched app with
+   no foreground Aqua focus fails to create a window and exits early (empty log,
+   no fps). So you can't sidestep the mode switch by going windowed.
+
+**The fixes:**
+- **Always drive each machine at its NATIVE desktop resolution** (quicksilver/
+  mini-g4 1680x1050, imac-g5 1440x900, mini-intel 1920x1080). At native res the
+  fullscreen set is a *same-mode set* — no mode switch — which is the only
+  fullscreen these GPUs survive cleanly, and it fills the panel (fixes the
+  windowed / not-full-width reports). Per-machine cfgs now ship native res.
+- **Don't remote-bench the fragile fleet in a tight loop.** One careful run with
+  a health-check + `~/bin/qsreboot.sh` on hang is the most you should attempt;
+  prefer on-site (Finder-launch) validation. `scripts/safebench.sh` encodes the
+  health-check + auto-reboot but still can't fully de-risk ssh fullscreen.
+- The G3 (yosemite, CRT, no widescreen modes) tolerated benching fine — the
+  wedging is specific to the LCD-panel widescreen machines + their drivers.
+
+**Also surfaced:** the red/green/blue HUD box with a blue line is the **lagometer**
+net-graph (`cg_lagometer`), not a texture bug — ugly on every GPU, now `0`
+fleet-wide. (Distinct from the Rage 128's garbled 3D HUD icons = `cg_draw3dIcons 0`.)
+
+**Lesson:** "fullscreen at any resolution" is an x86/modern-GPU assumption. On
+2000-era Mac GPUs, only a same-mode (native-res) set is safe, and an unattended
+ssh bench loop will eventually wedge a panel nobody is there to reset.

@@ -50,8 +50,9 @@ Steady-state, main thread `Com_Frame 1402 → CL_Frame 1376`:
 | GPU swap wait (`CGLFlushDrawable`) | ~33 | ~2% | **small** → confirms CPU-bound at 640×480 |
 
 Key takeaways:
-- **Sound, not graphics, is the biggest CPU cost on the G3.** Lower `s_khz`
-  (22→11 kHz) ~halves the scalar mix work. See KNOBS / autoexec.
+- **Sound, not graphics, is the biggest CPU cost on the G3.** Lower the SDL mix
+  rate via **`s_sdlSpeed 11025`** (NOT `s_khz` — that's a no-op on this backend,
+  code/sdl/sdl_snd.c) to ~halve the scalar mix work. See KNOBS / autoexec.
 - At 640×480 the GPU swap-wait is tiny → genuinely CPU-bound, so CPU wins move
   fps here. At 1024×768 the G3 is fill-bound (see [[KNOBS]]) and CPU wins instead
   protect the floor during heavy combat.

@@ -49,11 +49,20 @@ median of runs 2 & 3:
 | mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | 238 | 105 |
 
 The **≥ 20 fps G3 floor and ≥ 60 fps G4 target are both met at stock settings.**
-In actual gameplay with per-machine tuning the G3 holds ~35 fps and the G4 ~96 fps
-(see the screenshots above). The G4's flat ~60 in the table is the display's
-vsync cap, not a ceiling. The G5 also runs **~87 fps at its native 1440×900**.
-(sawtooth, mini-g4 and imac-2019 are not yet benched. **No per-machine
-optimisation has been done yet** — these are stock-settings baselines.)
+The G4's flat ~60 in the table is the display's vsync cap, not a ceiling.
+
+Each machine now ships a per-machine config at its **native panel resolution**
+(favouring resolution + effects over raw fps). Confirmed native-res `four`
+timedemo fps (2026-07-05):
+
+| Machine | Native res | fps | Config |
+|---|---|--:|---|
+| yosemite (G3) | 800×600 | **22** | lightmaps + shaders + dlights + flares |
+| quicksilver (G4) | 1680×1050 | **39** | picmip 1, effects |
+| mini-intel (Lion) | 1920×1080 | **57** | picmip 1, vsync on (no tearing) |
+| imac-g5 | 1440×900 | **60** | MAXED — picmip 0, aniso 8×, trilinear |
+
+(sawtooth, mini-g4 and imac-2019 not yet benched at native res.)
 
 ## Features
 

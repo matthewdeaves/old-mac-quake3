@@ -60,6 +60,25 @@ the G3 is fill-bound (texture detail ~free); picmip 0 is gated by VRAM, not fill
 At 640×480 the G3 is CPU-bound (sound mixing dominates — see PROFILING.md), so CPU
 wins (e.g. s_sdlSpeed 11025) lift that regime and the worst-case combat frames.
 
+## Game modules (native dylib vs bytecode)
+
+| cvar | meaning |
+|---|---|
+| `vm_cgame` / `vm_game` / `vm_ui` | how each game module is run: **`0` = native dylib** (load `<mod><arch>.dylib` from a search dir), `1` = pure bytecode interpreter, `2` = bytecode JIT-compiled to native (stock default) |
+
+The port ships native `cgame`/`qagame`/`ui` dylibs (fat ppc750+ppc7400 + x86_64)
+inside the `.app` at `Contents/MacOS/baseq3/`, and the arch autoexec cfgs set
+`vm_* 0` so they load in place of `pak8.pk3`'s `vm/*.qvm`. On macOS that bundle
+path is `fs_apppath/baseq3`, which `FS_FindVM` scans **before** the user's pak
+QVM. Because stock ioquake3 already JIT-compiles the QVM to native PPC (`vm_* 2`),
+native `0` is only a modest win — a real compiler's codegen + no per-access VM
+sandbox masking. **Bench-measured +1.3% on quicksilver** (41.10→41.65 fps, demo
+four @1680×1050, `vm_cgame 2` vs `0`, only that variable). `FS_FindVM` falls back
+to the QVM automatically if the dylib is absent, wrong-arch, or the client is on a
+pure server (`fs_numServerPaks > 0`), so `vm_* 0` is always safe. See
+`docs/PROFILING.md` for the measurement and why it isn't larger. Built by
+`scripts/build-gamedylibs.sh`.
+
 ## Cmdline flags (bench / launch)
 
 | flag | meaning |

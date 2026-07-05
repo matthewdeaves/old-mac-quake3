@@ -58,9 +58,9 @@ timedemo fps (2026-07-05):
 | Machine | Native res | fps | Config |
 |---|---|--:|---|
 | yosemite (G3) | 800×600 | **22** | lightmaps + shaders + dlights + flares |
-| quicksilver (G4) | 1680×1050 | **39** | picmip 1, effects |
+| quicksilver (G4) | 1680×1050 | **42** | picmip 1, effects, 16× aniso + trilinear, native modules |
 | mini-intel (Lion) | 1920×1080 | **57** | picmip 1, vsync on (no tearing) |
-| imac-g5 | 1440×900 | **60** | MAXED — picmip 0, aniso 8×, trilinear |
+| imac-g5 | 1440×900 | **60** | MAXED — picmip 0, aniso 8×, trilinear, 2× FSAA |
 
 (sawtooth, mini-g4 and imac-2019 not yet benched at native res.)
 
@@ -68,6 +68,13 @@ timedemo fps (2026-07-05):
 
 - **One fat binary, whole fleet.** `ppc750` (G3, no AltiVec), `ppc7400`
   (G4, AltiVec) and `x86_64` (Intel) slices in a single Mach-O.
+- **Native game modules.** The `cgame`/`qagame`/`ui` game code ships as fat
+  native dylibs bundled in the `.app` (also `ppc750`+`ppc7400`+`x86_64`), loaded
+  in place of the stock `pak8.pk3` bytecode. Stock ioquake3 already JIT-compiles
+  that bytecode to native PowerPC, so this is a modest, free win (a real
+  compiler's codegen + no VM sandbox-masking) — **bench-measured +1.3% on the
+  Radeon-9000 G4**, zero visual cost. It self-selects per machine and falls back
+  to the bytecode automatically if a dylib is missing or on a pure server.
 - **Runs on Mac OS X 10.3.9 → 10.7** (and modern macOS via the x86_64 slice).
 - **SDL 1.2**, the last SDL line that supports Panther and Tiger.
 - **Monolithic OpenGL1 renderer** — no `dlopen`, no GL2/GLSL renderer (useless
@@ -95,13 +102,37 @@ were 10.4+ builds that dispatch `objc_msgSend` through a fixed address unmapped
 on 10.3.9 (instant SIGSEGV in the Cocoa bootstrap) — fixed by compiling SDLMain
 from source and swapping in a Panther-safe SDL 1.2.
 
+## What this port actually changes in the engine
+
+In the interest of honesty about scope: **most of this port is tooling, config
+and packaging, not engine surgery.** All the per-machine graphics/fps tuning
+(FSAA, anisotropic + trilinear filtering, texture/colour depth, sound mix rate,
+resolution, and the native-game-module switch above) is driven entirely by
+**cvars in the bundled `autoexec-*.cfg` files** — no renderer or game-logic
+algorithm was rewritten to get those wins. The measured C changes vs the pinned
+SDL 1.2 baseline are:
+
+- **`code/qcommon/common.c`** — the per-machine auto-config mechanism
+  (`Com_AutoConfigForMachine` / `Com_ExecConfigFromBundle`): read `hw.model` at
+  startup and exec the matching arch + machine config baked into the `.app`.
+- **`code/libs/macosx/SDLMain.m`** (compiled from source) — the Panther
+  `objc_msgSend` SIGSEGV fix described above.
+- **`code/client/cl_watchlink.c`** plus small hooks in `cl_main.c` / `cl_parse.c`
+  / `client.h` — the optional Apple Watch companion (`watchlink`), off by default.
+- **`Makefile`** — per-slice arch / AltiVec / version-min plumbing for the
+  cross-build.
+
+The native game modules are built from the **stock, unmodified** `cgame`/`game`/
+`ui` source — the win is from compiling them natively, not from changing the game.
+
 ## Build & deploy
 
 The toolchain (`scripts/`) cross-builds on a Lion host and deploys to the fleet:
 
 ```sh
 scripts/build-fat.sh                 # build all 3 slices -> build/ioquake3-fat
-scripts/make-app.sh                  # wrap it in build/ioquake3.app (+ icon)
+scripts/build-gamedylibs.sh          # native cgame/qagame/ui dylibs -> build/gamedylibs
+scripts/make-app.sh                  # wrap it in build/ioquake3.app (+ icon + dylibs)
 scripts/deploy.sh <machine>          # ship the .app + raw binary + config
 scripts/bench.sh <machine> four 1024x768   # one timedemo -> benchmarks/results.csv
 

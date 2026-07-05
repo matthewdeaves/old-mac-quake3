@@ -27,3 +27,5 @@ timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps
 2026-07-05T11:34:11Z,50deeb97,mini-g4,four,1680x1050,27.9,28.0,27.9,27.90
 2026-07-05T11:34:11Z,50deeb97,mini-g4,four,1680x1050,27.9,27.9,27.9,27.90
 2026-07-05T11:34:11Z,50deeb97,mini-g4,four,1680x1050,30.0,30.0,30.0,30.00
+2026-07-05T11:54:30Z,f5e4711c,quicksilver,four,1680x1050,40.8,41.1,41.1,41.10
+2026-07-05T11:54:30Z,16b5f0ff,quicksilver,four,1680x1050,41.1,40.9,41.0,41.00

@@ -3,12 +3,12 @@
 # ppc750 + ppc7400 + x86_64 binary + the SDL 1.2 dylib inside it) + a
 # user-facing README — the easy way to hand the build to the old Macs.
 #
-# Unlike the Quake II port, ioquake3 ships NO loose runtime libraries: the game
-# logic is the cgame/qagame/ui QVMs that live inside the user's own baseq3
-# (pak8.pk3), and the SDL 1.2 dylib is bundled INSIDE the .app
-# (Contents/MacOS/libSDL-1.2.0.dylib, referenced via @executable_path). So the
-# DMG is just the engine .app + README; the player drops it next to their own
-# baseq3/ (we ship no copyrighted game data).
+# ioquake3 ships NO loose runtime libraries next to the app: the SDL 1.2 dylib is
+# bundled INSIDE the .app (Contents/MacOS/libSDL-1.2.0.dylib, via @executable_path),
+# and so are our native game modules (Contents/MacOS/baseq3/{cgame,qagame,ui}{ppc,
+# x86_64}.dylib — fat ppc750+ppc7400 + x86_64, loaded in place of the user's pak8
+# QVM; see make-app.sh / build-gamedylibs.sh). So the DMG is just the engine .app +
+# README; the player drops it next to their own baseq3/ (we ship no game data).
 #
 # usage: scripts/make-dmg.sh [version-label]
 #   version-label: e.g. v0.1.0 (default: short HEAD hash)
@@ -96,7 +96,9 @@ A single universal build of ioquake3 (SDL 1.2 baseline) for vintage Macs:
   • PowerPC G3  (ppc750)   — Mac OS X 10.3 Panther
   • PowerPC G4  (ppc7400)  — Mac OS X 10.4 Tiger  (also runs on the G5 / 10.5)
   • Intel        (x86_64)   — Mac OS X 10.7 Lion and newer
-dyld picks the right slice per machine automatically.
+dyld picks the right slice per machine automatically. The game modules
+(cgame/qagame/ui) ship as native dylibs inside the app too, loaded in place of
+the bytecode for a small speed-up (falls back to the bytecode automatically).
 
 INSTALL
 -------
@@ -115,7 +117,7 @@ for that machine automatically — resolution, texture/effect detail and vsync a
 picked to look their best while staying playable on that GPU. Measured on the
 bench fleet at each machine's native resolution:
   • G3 449 MHz / Rage 128    800x600    ~22 fps  (lightmaps + shaders + effects)
-  • G4 733 MHz / Radeon 9000  1680x1050 ~39 fps
+  • G4 733 MHz / Radeon 9000  1680x1050 ~42 fps  (16x aniso + trilinear)
   • Core 2 Duo / GMA 950      1920x1080 ~57 fps  (vsync on — no tearing)
   • G5 2.0 GHz / Radeon 9600  1440x900  ~60 fps  (maxed: aniso 8x, trilinear)
 To override, edit baseq3/autoexec.cfg; to disable auto-tuning, launch with
@@ -148,7 +150,10 @@ RSYNC_EXTRA=""
 # The corruptible binaries whose fidelity we assert end-to-end. The staged $IMG
 # copies are a plain cp -a of build/ioquake3.app, so $IMG md5s ARE the true
 # source md5s.
-VERIFY_FILES="ioquake3.app/Contents/MacOS/ioquake3 ioquake3.app/Contents/MacOS/libSDL-1.2.0.dylib"
+VERIFY_FILES="ioquake3.app/Contents/MacOS/ioquake3 ioquake3.app/Contents/MacOS/libSDL-1.2.0.dylib \
+ioquake3.app/Contents/MacOS/baseq3/cgameppc.dylib ioquake3.app/Contents/MacOS/baseq3/cgamex86_64.dylib \
+ioquake3.app/Contents/MacOS/baseq3/qagameppc.dylib ioquake3.app/Contents/MacOS/baseq3/qagamex86_64.dylib \
+ioquake3.app/Contents/MacOS/baseq3/uippc.dylib ioquake3.app/Contents/MacOS/baseq3/uix86_64.dylib"
 SRC_SUMS=$(cd "$IMG" && for f in $VERIFY_FILES; do \
              printf '%s  %s\n' "$(md5sum "$f" | cut -d' ' -f1)" "$f"; done)
 
@@ -176,7 +181,10 @@ REM="$1"; MP="$REM/mnt"
 mkdir -p "$MP"
 hdiutil detach "$MP" >/dev/null 2>&1 || true
 hdiutil attach -nobrowse -readonly -mountpoint "$MP" "$REM/out.dmg" >/dev/null 2>&1 || exit 7
-for f in ioquake3.app/Contents/MacOS/ioquake3 ioquake3.app/Contents/MacOS/libSDL-1.2.0.dylib; do
+for f in ioquake3.app/Contents/MacOS/ioquake3 ioquake3.app/Contents/MacOS/libSDL-1.2.0.dylib \
+         ioquake3.app/Contents/MacOS/baseq3/cgameppc.dylib ioquake3.app/Contents/MacOS/baseq3/cgamex86_64.dylib \
+         ioquake3.app/Contents/MacOS/baseq3/qagameppc.dylib ioquake3.app/Contents/MacOS/baseq3/qagamex86_64.dylib \
+         ioquake3.app/Contents/MacOS/baseq3/uippc.dylib ioquake3.app/Contents/MacOS/baseq3/uix86_64.dylib; do
   printf '%s  %s\n' "$(md5 "$MP/$f" 2>/dev/null | awk '{print $NF}')" "$f"
 done
 hdiutil detach "$MP" >/dev/null 2>&1 || hdiutil detach -force "$MP" >/dev/null 2>&1 || true

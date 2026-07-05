@@ -20,3 +20,6 @@ timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps
 2026-07-05T10:57:44Z,6f3c788f,imac-g5,four,1440x900,59.9,60.1,,60.00
 2026-07-05T10:57:44Z,f9b5f267,imac-g5,four,1440x900,20.1,,,20.10
 2026-07-05T10:57:44Z,f9b5f267,imac-g5,four,1440x900,34.5,34.4,,34.45
+2026-07-05T11:15:13Z,0c4ff60e,quicksilver,four,1680x1050,41.1,41.1,41.1,41.10
+2026-07-05T11:15:13Z,b208396a,quicksilver,four,1680x1050,41.1,41.1,41.1,41.10
+2026-07-05T11:15:13Z,b208396a,quicksilver,four,1680x1050,41.0,41.0,41.0,41.00

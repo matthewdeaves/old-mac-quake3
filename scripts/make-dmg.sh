@@ -60,13 +60,18 @@ if [ ! -f "$FAT" ]; then
   echo "[make-dmg] build/ioquake3-fat missing — building it"
   scripts/build-fat.sh
 fi
-# Sanity: must be the 3-slice fat, not a stray single-arch binary. lipo reads
-# the Mach header directly; file(1)'s ppc subtype names vary by host (an
-# Apple-silicon box renders ppc750 as "ppc_650"), so lipo -archs is authoritative.
-ARCHS=$(lipo -archs "$FAT" 2>/dev/null || echo)
+# Sanity: must be the 3-slice fat, not a stray single-arch binary. Prefer lipo
+# (reads the Mach header directly) but this orchestration host is Linux with NO
+# lipo — build-fat.sh lipo's remotely on mini-intel. So fall back to file(1),
+# normalising its host-varying ppc subtype spelling (ppc_750 / ppc750 / ppc_650).
+if command -v lipo >/dev/null 2>&1; then
+  ARCHS=$(lipo -archs "$FAT" 2>/dev/null || echo)
+else
+  ARCHS=$(file "$FAT" 2>/dev/null | tr 'A-Z' 'a-z' | sed 's/ppc_/ppc/g')  # ppc_750->ppc750, keep x86_64
+fi
 for a in ppc750 ppc7400 x86_64; do
   case " $ARCHS " in
-    *" $a "*) ;;
+    *"$a"*) ;;
     *) echo "[make-dmg] $FAT is not the 3-arch fat binary (missing $a; got: ${ARCHS:-none}) — run scripts/build-fat.sh" >&2; exit 1;;
   esac
 done

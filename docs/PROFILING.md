@@ -106,6 +106,27 @@ CODE-level CPU wins, or a small geometry trade:**
   Radeon supports it up to 16×; currently off on quicksilver as "too costly," a
   claim the fill-headroom data suggests is worth re-testing).
 
+**Anisotropic filtering is FREE on quicksilver — the "too costly" claim was wrong
+(2026-07-05).** Tested exactly this, config-only, aniso the ONLY variable (all
+other effect cvars held at the shipped values, via `com_archAutoexec 0` + EXTRA,
+demo four @ native 1680×1050, vsync off):
+| aniso | fps (3 runs) | worst ms | verdict |
+|---|---|---|---|
+| off | 41.1 / 41.1 / 41.1 | 80 | baseline |
+| 8× | 41.1 / 41.1 / 41.1 | 81–83 | free |
+| **16×** | **41.0 / 41.0 / 41.0** | 80–81 | **SHIPPED** — hardware max, free |
+Zero fps cost at any level — exactly the CPU/geometry-bound-with-fill-headroom
+prediction: the extra per-fragment texel fetches are fully absorbed because the
+GPU isn't the bottleneck at native res. The renderer confirms it engaged
+(`...using GL_EXT_texture_filter_anisotropic (max: 16)` in qconsole.log — that
+line prints only when aniso is actually enabled). Shipped 16× on quicksilver.
+This does NOT change the ≥45-fps gap (aniso is free, so it neither helps nor
+hurts fps) — clearing 45 still needs the code-level CPU win (VBO / wider AltiVec)
+below. Next free-ish looks lever to test on quicksilver: **trilinear**
+(`r_textureMode GL_LINEAR_MIPMAP_LINEAR`, currently bilinear-default) — a small
+extra fill cost that removes mip banding and makes the new aniso most effective;
+its own iteration.
+
 ## Findings — imac-g5 (PPC 970 2.0 GHz, Radeon 9600), demo four @ native 1440×900
 
 **The G5 is genuinely ~60 fps GPU-bound at native res when fully maxed — NOT

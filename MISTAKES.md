@@ -128,3 +128,74 @@ fleet-wide. (Distinct from the Rage 128's garbled 3D HUD icons = `cg_draw3dIcons
 **Lesson:** "fullscreen at any resolution" is an x86/modern-GPU assumption. On
 2000-era Mac GPUs, only a same-mode (native-res) set is safe, and an unattended
 ssh bench loop will eventually wedge a panel nobody is there to reset.
+
+---
+
+## Benching over ssh: backgrounding kills the app, and KILL wedges the GPU — 2026-07-05
+
+Chased a "safebench never returns fps" bug into three stacked mistakes, wedging
+quicksilver and mini-intel (both needed reboots) before finding the right shape.
+
+**Mistake 1 — backgrounding an ssh-launched app kills it.** safebench launched
+the engine with `&` and let the ssh session RETURN, then polled the log from
+separate ssh calls. The instant the launching session closed, the detached
+process lost its Mach bootstrap / WindowServer session and died with
+`CFMessagePortCreateLocal failed` before it could open the display — an empty
+log, no fps. **Fix:** do everything in ONE ssh session that stays open (launch
+backgrounded, then poll the log in-session). This is exactly how the QuakeSpasm
+port benches; the session must outlive the app, not the other way round.
+
+**Mistake 2 — KILLing a fullscreen ioquake3 wedges the GPU driver.** The old
+"TERM, grace, then KILL backstop" pattern: when TERM didn't finish in the grace
+window, the KILL hit a rendering fullscreen app and left it stuck in
+**uninterruptible driver exit** (ps state `E`, un-killable), holding the GL
+context and hanging the whole WindowServer — the desktop froze, Force-Quit
+wouldn't open, only a reboot cleared it. `wait $PID` on such a process hangs
+forever too. **Fix:** never signal a rendering fullscreen engine. Make it
+**quit itself**: `+set nextdemo quit` — when the timedemo finishes,
+`CL_DemoCompleted` runs the `nextdemo` cvar, so the engine executes `quit` and
+exits the NORMAL way (SDL restores the display, pid removed). TERM is only a
+last-resort backstop; KILL is never used on a fullscreen app.
+
+**Mistake 3 — a stale PID file hangs the next launch headless.** Any un-clean
+exit (SIGKILL/SIGPIPE/wedge) leaves `~/Library/Application Support/Quake3/
+ioq3.pid`; the next launch pops a modal "Abnormal Exit — safe video settings?"
+dialog (`common.c` via `Sys_WritePIDFile`) that blocks forever with no keyboard
+to answer it. **Fix:** `rm -f` the pid file before every headless launch.
+
+**Lesson:** an ssh bench of a fullscreen GL app is three problems at once —
+keeping the app's display session alive (foreground/single-session), ending it
+without a signal (self-quit), and not stranding state that blocks the next run
+(pid file). Solve all three or it wedges a machine nobody is there to reset.
+
+---
+
+## The fleet "reboot recovery" was never actually set up — 2026-07-05
+
+**The smell:** trusted `ssh <host> '~/bin/qsreboot.sh'` because CLAUDE.md and
+the scripts said it worked. It returned exit 0 every time — but the machines
+never rebooted (the user had to hard-reset them by hand).
+
+**Why it breaks:** the NOPASSWD sudoers entry (`qsreboot-setup.sh`) had never
+been installed on any machine, so `qsreboot.sh` tier 1 (`sudo -S /sbin/reboot`)
+silently failed and fell through to tier 2 (a Finder AppleEvent restart) — which
+**returns success even when it does nothing** on a wedged/headless Finder. A
+false "reboot succeeded" is worse than a failure: it hid that recovery was
+impossible while I kept wedging machines.
+
+**The fixes:**
+- Version-controlled the host tooling in `scripts/host-bin/` + a deploy script
+  `scripts/install-host-tools.sh` (it was only ever on the machines, never in
+  this repo). Ran `sudo ~/bin/qsreboot-setup.sh` on all four live machines to
+  install the NOPASSWD entry; verified by a real reboot of the G3.
+- `qsreboot.sh` now prints a `QSREBOOT: tier1/tier2` marker so a tier-2
+  false-success is visible, and callers (safebench `reboot_m`) VERIFY the host
+  actually drops off the net and returns rather than trusting the exit code.
+
+**Bonus mistake:** my first NOPASSWD "detection" probe ran `sudo /sbin/reboot
+--help`. BSD `reboot` ignores unknown flags and **just reboots** — the probe
+rebooted the G3. Never run `/sbin/reboot` with any argument to "test" it.
+
+**Lesson:** a recovery path you have never actually fired is not a recovery
+path. Verify destructive tooling end-to-end (watch the host cycle), and never
+trust an exit code from a fallback that can no-op silently.

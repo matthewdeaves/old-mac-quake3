@@ -151,15 +151,31 @@ let `build.sh` rsync to `mini-intel:~/` or another project's dir.
   `ppc7400`.
 - **Panther `/bin/sleep` is integer-only** — `sleep 0.2` returns instantly.
   Poll loops on yosemite use `sleep 1`.
-- **Killing the engine:** `killall -TERM` grace then `killall -KILL`. SIGTERM
-  lets SDL restore the display (Rage 128 LUT corruption risk on hard kill).
-  **Never `pkill`** (absent on Tiger/Panther).
+- **Ending the engine on a bench machine: make it QUIT ITSELF — never KILL a
+  fullscreen app.** `killall -KILL` on a rendering fullscreen ioquake3 leaves it
+  stuck in uninterruptible GPU-driver exit (ps state `E`), hanging the whole
+  WindowServer until a reboot. Use `+set nextdemo quit` so the engine runs `quit`
+  after the timedemo and exits normally (SDL restores the display). `killall
+  -TERM` is a safe last-resort backstop; `killall -KILL` is not. **Never `pkill`**
+  (absent on Tiger/Panther). See `MISTAKES.md` (2026-07-05).
+- **Benching over ssh = ONE session that outlives the app.** An app launched with
+  `&` whose ssh session then returns dies instantly (`CFMessagePortCreateLocal
+  failed` — lost WindowServer session). `scripts/safebench.sh` launches
+  backgrounded but polls the log *in the same session*, then lets the engine
+  self-quit. Also `rm -f ~/Library/Application Support/Quake3/ioq3.pid` before
+  each launch or a stale pid pops a modal dialog that hangs headless.
 - **Old-Mac SSH needs legacy crypto** — `~/.ssh/config` already has the
   `+ssh-rsa` / pre-2014 KEX entries and `id_rsa_tiger`.
 - **`mini-intel` sleeps aggressively** — "No route to host" = asleep; wake
   and retry.
-- **`ssh <host> '~/bin/qsreboot.sh'`** reboots a wedged Mac (one-time
-  `qsreboot-setup.sh` per machine).
+- **Remote reboot recovery — verify, don't trust.** `ssh <host> '~/bin/
+  qsreboot.sh'` reboots a wedged Mac, but ONLY after the one-time NOPASSWD setup
+  (`scripts/install-host-tools.sh <host>` then `ssh <host> 'sudo ~/bin/
+  qsreboot-setup.sh'`). Without it, qsreboot's Finder fallback returns success
+  without rebooting. Confirm the host actually cycles (drops off net + returns).
+  **Never probe the sudoers entry by running `/sbin/reboot --help`** — BSD reboot
+  ignores the flag and reboots. All six machines have the setup installed
+  (2026-07-05); credentials are per-machine admin (fleet ops).
 
 ## Tooling
 

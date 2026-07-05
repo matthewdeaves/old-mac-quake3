@@ -17,10 +17,15 @@ they apply identically to this fleet.
 
 - **Panther `/bin/sleep` is integer-only** — `sleep 0.2` returns instantly.
   Poll loops use `sleep 1`.
-- **Kill the engine with TERM-grace-then-KILL** (`killall -TERM ioquake3;
-  sleep; killall -KILL ioquake3`). TERM lets SDL restore the display (Rage 128
-  LUT-corruption risk on hard fullscreen kill). **Never `pkill`** (absent on
-  Tiger/Panther). Recover a wedged Mac with `ssh <m> '~/bin/qsreboot.sh'`.
+- **Make the engine QUIT ITSELF; never KILL a fullscreen app.** `+set nextdemo
+  quit` → the engine runs `quit` after a timedemo and exits normally (SDL
+  restores the display). `killall -KILL` on a rendering fullscreen ioquake3
+  wedges it in uninterruptible GPU-driver exit and hangs the WindowServer until
+  a reboot. `killall -TERM` is a safe backstop only; **never `pkill`** (absent on
+  Tiger/Panther). `safebench.sh` encodes the single-session + self-quit pattern.
+  Recover a wedged Mac with `ssh <m> '~/bin/qsreboot.sh'` — but only after the
+  one-time NOPASSWD setup (`install-host-tools.sh` + `sudo qsreboot-setup.sh`),
+  and confirm it actually cycles. See `../MISTAKES.md` (2026-07-05).
 - **yosemite rsync needs `--protocol=29`** (Panther rsync 2.5.x).
 - **`mini-intel` sleeps** — "No route to host" = asleep; wake and retry.
 

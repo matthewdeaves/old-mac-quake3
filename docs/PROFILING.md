@@ -70,3 +70,38 @@ So compiler flags buy nothing on the G3 — its bottleneck is GPU fill + the ATI
 GL driver (gldFreeVertexBuffer/gldUpdateDispatch), not PPC integer/FP compute
 (which `-O3` already handles). Don't re-chase this. The real G3 levers were all
 config: picmip, r_vertexlight, resolution, and s_sdlSpeed (sound rate).
+
+## Findings — quicksilver (G4 733 MHz, Radeon 9000), demo four @ native 1680×1050
+
+**The G4 is CPU/geometry-bound at native res, with fill headroom to spare.**
+Inferred from real bench numbers, not a profile: quicksilver did ~44 fps @1024×768
+max-quality and **38.9 fps @1680×1050** shipped-effects — i.e. **2.24× the pixels
+cost only ~12% fps**. A fill-bound machine would have fallen to ~20 fps (fps ∝
+1/pixels). So at native res the Radeon 9000 has plenty of fill left; **fps wins
+come from CPU levers, and lowering fill (16-bit textures/framebuffer, picmip,
+resolution) would buy almost nothing while hurting looks** — don't chase them here.
+
+**Config-level CPU levers are nearly exhausted on the G4:**
+- **CVA is already on.** `r_ext_compiled_vertex_array` defaults to 1 and the
+  Radeon exposes `GL_EXT_compiled_vertex_array`, so vertex submission already uses
+  locked arrays — no free win there.
+- **Sound is already AltiVec-vectorized.** Unlike the scalar G3, the G4 uses
+  `S_PaintChannelFrom16_altivec` (snd_mix.c, gated by `com_altivec 1` on the
+  ppc-altivec build), so `s_sdlSpeed 11025` gives a *smaller* win than the G3's.
+  Still positive and **zero visual cost** (audio only): **38.9 → 41.1 fps (+2.2,
+  +5.7%)**, worst-frame 84→81 ms. Shipped on quicksilver (2026-07-05). This is
+  the last free-on-looks config CPU lever.
+
+**Reaching the ≥45 fps target while keeping the best-looking config now requires
+CODE-level CPU wins, or a small geometry trade:**
+- Untested-but-promising: **ARB VBO** vertex submission (beyond CVA) and **wider
+  AltiVec** in the mesh-transform / shading hot loops (the render backend +
+  `gldUpdateDispatch` churn that dominated the G3 frame after sound). Gate behind
+  a cvar so the one fat binary self-tunes.
+- Config trade with a looks cost (measure before shipping): `r_subdivisions`
+  8→12 coarsens curve tessellation (a per-frame CPU + submission cut) — only take
+  it if the blockier curves are acceptable at 1680×1050 and the fps is needed.
+- Since the G4 has fill to spare, once fps clears 45 the spare fill can be spent
+  on a looks feature (anisotropic filtering — the code path is GPU-gated and the
+  Radeon supports it up to 16×; currently off on quicksilver as "too costly," a
+  claim the fill-headroom data suggests is worth re-testing).

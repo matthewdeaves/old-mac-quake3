@@ -5,9 +5,8 @@
 # This is the only binary we deploy. dyld picks the slice per CPU at runtime;
 # multi-subtype ppc lipo (ppc750 + ppc7400) is proven to work by QuakeSpasm.
 #
-# ⚠️ v0 DRAFT — depends on build.sh, which is itself unvalidated. See
-#    KICKOFF_PROMPT.md. Validate the g4 (10.4u) slice first; it is the most
-#    likely to compile cleanly, then g3, then lion.
+# Validated — produces the shipping fat binary for the whole fleet (g4 10.4u,
+# g3 10.3.9, lion x86_64 slices, lipo'd with re-stamped ppc cpusubtypes).
 #
 set -euo pipefail
 

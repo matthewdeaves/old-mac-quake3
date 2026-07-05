@@ -1,6 +1,6 @@
 # scripts/ — contracts + gotchas (ioquake3 old-Mac)
 
-**v0, unvalidated.** Mirrors the gotchas in `~/quakespasm/scripts/CLAUDE.md`;
+**Validated, in daily use.** Mirrors the gotchas in `~/quakespasm/scripts/CLAUDE.md`;
 they apply identically to this fleet.
 
 ## Hard rules

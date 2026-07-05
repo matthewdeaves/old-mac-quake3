@@ -1,8 +1,9 @@
 # scripts/ — ioquake3 old-Mac toolchain
 
-Adapted from `~/quakespasm/scripts`. **Everything here is a v0 draft** — the
-build pipeline has not yet produced a running binary on any target. See
-`../KICKOFF_PROMPT.md` for the validation sequence.
+Adapted from `~/quakespasm/scripts`. **Validated and in daily use** — the
+build → deploy → bench → release pipeline produces running fat binaries on the
+whole fleet and a verified DMG. `install-host-tools.sh` sets up remote reboot
+recovery; `safebench.sh` is the safe ssh timedemo (single-session, self-quit).
 
 ## Host matrix (shared fleet)
 

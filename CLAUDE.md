@@ -6,12 +6,14 @@ Sister project to the **QuakeSpasm PPC port** (`~/quakespasm`) and the
 QuakeSpasm project is the mature template — when a tooling question isn't
 answered here, look at how `~/quakespasm` does it.
 
-> **STATUS: build pipeline VALIDATED end-to-end (2026-05-26). The fat binary
-> (ppc750 + ppc7400 + x86_64) builds and runs on real hardware — G3 (Panther),
-> G4 (Tiger), and Lion — and a v0 baseline is in `benchmarks/results.csv`.
-> Two SDL/Panther fixes were required to make the PPC slices run (see
-> `MISTAKES.md`). Remaining: per-machine tuning (autoexec) from bench evidence,
-> and an `.app` bundle + icon. The `scripts/` are no longer v0 drafts.**
+> **STATUS: SHIPPING. The fat binary (ppc750 + ppc7400 + x86_64) builds and runs
+> on real hardware across the fleet; per-machine auto-config (autoexec by
+> `hw.model`) is live; native-res fps is bench-CONFIRMED on all four live
+> machines (G3 22 @800×600, G4 39 @1680×1050, Lion 57 @1920×1080, G5 60 @1440×900
+> — see `benchmarks/results.csv`); a verified fat `.app` + DMG ship via the
+> release tooling; and remote reboot recovery is installed fleet-wide. Ongoing
+> work = per-class fps/graphics tuning via the `/fleet-optimize` skill. The
+> `scripts/` are validated, not drafts. See `MISTAKES.md` for the hard limits.**
 
 ## Goal in one line
 
@@ -182,4 +184,4 @@ let `build.sh` rsync to `mini-intel:~/` or another project's dir.
 Adapted from QuakeSpasm; see `scripts/README.md` (host matrix, contracts) and
 `scripts/CLAUDE.md` (gotchas). `build.sh <g3|g4|lion>` → `build-fat.sh` →
 `deploy.sh <machine>` → `bench.sh` / `parallel-bench.sh` / `bench-and-commit.sh`.
-**These are unvalidated drafts until the build pipeline is proven.**
+**Validated and in daily use — the build/deploy/bench/release pipeline is proven.**

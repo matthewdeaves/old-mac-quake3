@@ -103,6 +103,19 @@ INSTALL
 The app finds baseq3 in the folder that CONTAINS the .app (it strips its own
 bundle path), so keep the .app next to baseq3/.
 
+PER-MACHINE AUTO-TUNING
+-----------------------
+On launch the app reads the Mac's model (hw.model) and applies a tuned config
+for that machine automatically — resolution, texture/effect detail and vsync are
+picked to look their best while staying playable on that GPU. Measured on the
+bench fleet at each machine's native resolution:
+  • G3 449 MHz / Rage 128    800x600    ~22 fps  (lightmaps + shaders + effects)
+  • G4 733 MHz / Radeon 9000  1680x1050 ~39 fps
+  • Core 2 Duo / GMA 950      1920x1080 ~57 fps  (vsync on — no tearing)
+  • G5 2.0 GHz / Radeon 9600  1440x900  ~60 fps  (maxed: aniso 8x, trilinear)
+To override, edit baseq3/autoexec.cfg; to disable auto-tuning, launch with
++set com_archAutoexec 0.
+
 APPLE WATCH "TACTICAL COMPUTER" COMPANION (optional)
 ----------------------------------------------------
 This build includes watchlink: with the companion iPhone/Apple Watch app on the

@@ -120,12 +120,64 @@ prediction: the extra per-fragment texel fetches are fully absorbed because the
 GPU isn't the bottleneck at native res. The renderer confirms it engaged
 (`...using GL_EXT_texture_filter_anisotropic (max: 16)` in qconsole.log — that
 line prints only when aniso is actually enabled). Shipped 16× on quicksilver.
-This does NOT change the ≥45-fps gap (aniso is free, so it neither helps nor
-hurts fps) — clearing 45 still needs the code-level CPU win (VBO / wider AltiVec)
-below. Next free-ish looks lever to test on quicksilver: **trilinear**
-(`r_textureMode GL_LINEAR_MIPMAP_LINEAR`, currently bilinear-default) — a small
-extra fill cost that removes mip banding and makes the new aniso most effective;
-its own iteration.
+**Trilinear is also FREE on quicksilver — and now SHIPPED (2026-07-05).** Same
+method (config-only, `r_textureMode GL_LINEAR_MIPMAP_LINEAR` the only variable,
+all shipped cvars held, demo four @ native 1680×1050 vsync off): baseline 41.1 /
+41.1 → trilinear 41.1 / 40.9 / 41.0 (median 41.0), worst-frame 81 ms unchanged.
+The 0.1 delta is noise — the extra per-fragment mip blend is absorbed by the same
+fill headroom that made aniso free. Removes the default `GL_LINEAR_MIPMAP_NEAREST`
+mip-band seams and makes the 16× aniso actually effective (aniso samples across
+mips). Shipped in `autoexec-quicksilver.cfg`. Config-level looks levers on
+quicksilver are now **exhausted** (aniso 16× + trilinear both banked, both free).
+
+### Profiled the quicksilver render thread — VBO is NOT worth it (2026-07-05, MEASURED)
+
+Before committing an iteration to the long-hypothesized code-level **ARB VBO**
+submission rework, we finally *profiled* quicksilver (not just inferred it) with
+`/usr/bin/sample` on a NO_STRIP ppc7400 slice (recipe above, adapted to the 10.4u
+SDK / `-arch ppc7400 -faltivec`), demo four @ native 1680×1050, shipped config,
+12 s / 1200 samples of the steady-state render. **The result refuted the VBO
+hypothesis.** CPU-active leaf leaders (idle `mach_msg_trap` 1509 / `semaphore_
+timedwait` 1026 threads excluded — those are the GPU-swap + helper-thread waits):
+
+| Bucket | leaf samples | share of active | key leaves |
+|---|---|---|---|
+| **GL driver / submission** | ~108 | ~27% | `gldUpdateDispatch` 53, `__memcpy` 17, unsym `0x432*` 22, `gleCompileTCLVertexArray` 5, `gleSetClientEnableFlag` 6, `gldDestroyQuery` 5 |
+| **Backend tessellation** | ~103 | ~26% | `RB_SurfaceMesh` 27, `RB_StageIteratorGeneric` 21, `RB_SurfaceFace` 11, `RB_SurfaceGrid` 11, `RB_CalcDiffuseColor` 10, `RB_SurfacePolychain` 10 |
+| **Frontend** | ~90 | ~23% | `R_AddWorldSurfaces` 15, `R_RecursiveWorldNode` 13, `R_MarkFragments` 10, `R_ChopPolyBehindPlane` 8, `R_RotateForEntity` 8, cull |
+| **Sound** | ~58 | ~15% | `S_PaintChannelFrom16_altivec` 48, `Resampler2::ConvertAltivec` 10 |
+
+**Why VBO fails the cost/benefit bar here — three measured reasons:**
+1. **No single dominant hotspot.** Work is spread ~evenly across four buckets, so
+   no one change jumps 41→comfortably-past-45. The whole premise of a big code win
+   (one fat hotspot to crush) is absent on this machine.
+2. **The driver bucket is mostly irreducible.** It's dominated by `gldUpdateDispatch`
+   = the ATI *hardware* command dispatch, which happens with client arrays OR VBOs.
+   The software-vertex path a VBO would actually eliminate (Apple's `gle*` engine)
+   is only ~11 samples — hardware TCL is already doing the transform. VBO can't
+   touch the 53-sample `gldUpdateDispatch`.
+3. **Q3's opengl1 `tess` pipeline is dynamic by construction** — it rebuilds
+   `tess.xyz`/texcoords/colors on the CPU every frame (deforms, dlights, MD3 lerp).
+   Only lightmap-lit static world faces (`RB_SurfaceFace`, ~11 samples) are truly
+   VBO-cacheable; everything else would still `glBufferData(STREAM)` fresh data
+   each frame. A large, risky retrofit for a ~11-sample addressable slice.
+
+And the **"wider AltiVec" half of the old hypothesis is already done**: the MD3
+mesh lerp (`LerpMeshVertexes_altivec`, the biggest single backend leaf), marks,
+sky, and shade_calc are all AltiVec-vectorized in the stock baseline (gated by
+`com_altivec 1`, which the ppc7400 build sets). There is no un-vectorized hot loop
+left to convert.
+
+**Conclusion (evidence-based NEGATIVE — do not re-chase):** a streaming/static
+VBO retrofit of the opengl1 renderer offers a realistic ~+2–4 fps (within noise of
+the ≥45 target) for a large, high-risk change testable only on remote hardware.
+It does not clear the bar. quicksilver is **well-balanced and near its efficient
+envelope at 41 fps @ native 1680×1050 with a maxed look** (picmip 1, 32-bit, full
+shaders, dlights, flares, shadows, 16× aniso, trilinear). Per *effects > fps* and
+the fill-headroom finding, the right spend was the free looks features (aniso +
+trilinear, both now shipped), not chasing an arbitrary fps number through risky
+renderer surgery. The ≥45 target is not worth a VBO rework; treat quicksilver's
+optimization search space as **exhausted** barring a new class of idea.
 
 ## Findings — mini-g4 (G4 1.25 GHz, Radeon 9200 32 MB), demo four @ native 1680×1050
 

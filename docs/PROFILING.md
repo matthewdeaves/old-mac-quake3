@@ -127,6 +127,45 @@ below. Next free-ish looks lever to test on quicksilver: **trilinear**
 extra fill cost that removes mip banding and makes the new aniso most effective;
 its own iteration.
 
+## Findings — mini-g4 (G4 1.25 GHz, Radeon 9200 32 MB), demo four @ native 1680×1050
+
+**Now BENCH-CONFIRMED on hardware (2026-07-05) — 27.5 fps, real GPU.** The machine
+was previously "unconfirmed." `GL_RENDERER` = `ATI Radeon 9200 OpenGL Engine`
+(HARDWARE — the old "mini-g4 headless = software GL" caveat is about a *headless*
+launch; safebench's real-display fullscreen path gets hardware accel, so 27.5 is
+a true hw number). hw.model `PowerMac10,1` → `autoexec-mini-g4` auto-config is
+correctly wired; all 9 baseq3 pk3s staged.
+
+**This is a DISTINCT bottleneck from quicksilver — fill-rate / overdraw bound, NOT
+CPU-bound and NOT bandwidth-bound.** The tell: mini-g4 has a *faster* CPU (1.25
+GHz vs quicksilver's 733) yet is *slower* (27.5 vs 41.1 fps) → GPU-limited. And it
+is insensitive to texture bandwidth:
+| change (only variable, vs shipped) | fps (3 runs) | worst ms | verdict |
+|---|---|---|---|
+| shipped (picmip 1, 32-bit, dlight 1, aniso 2×) | 27.5 / 27.5 / 27.6 | 138 | baseline |
+| 16-bit color+depth+textures | 27.9 / 28.0 / 27.9 | 138 | **NEGATIVE** — noise, don't re-chase |
+| picmip 1→2 | 27.9 / 27.9 / 27.9 | 137 | **NEGATIVE** — noise, don't re-chase |
+| r_dynamiclight 0 | 30.0 / 30.0 / 30.0 | 138 | marginal (+2.5) but costs glow; NOT shipped |
+
+- **Two texture-bandwidth levers (bit depth AND picmip) both moved fps 0.0** → the
+  frame cost is invariant to texel bytes/size, so mini-g4 is **fill-RATE / overdraw
+  bound** (fragments/sec), not memory-bandwidth bound. quicksilver's "aniso is
+  free" finding therefore does NOT transfer — that was a CPU-bound machine with
+  fill headroom; the mini has none.
+- **The ~138 ms periodic worst-frame spikes are invariant across EVERY config**
+  (bit depth, picmip, dynamic lights) → not a steady-state fill lever. Most likely
+  **bot-skin texture-upload stalls** (the 8-bot "four" demo streams new skins as
+  bots spawn) — a load cost bleeding into the frame loop, not fixable by these
+  cvars.
+- **r_dynamiclight 0 is the only lever that moved fps (+2.5, +9%)** but it removes
+  the rocket/plasma glow and does NOT fix the spikes → poor effects>fps trade,
+  kept OFF the shipped config. Raising mini-g4 fps meaningfully needs a code-level
+  win (VBO / overdraw reduction) or a resolution drop (blocked — native-only for
+  safe fullscreen on old GPUs). Untested next candidates (all effect trades):
+  `cg_shadows 0`, `r_subdivisions` coarser, aniso 2→0 (its fill cost here is
+  unmeasured — unlike quicksilver, aniso is NOT presumed free on this fill-bound
+  card).
+
 ## Findings — imac-g5 (PPC 970 2.0 GHz, Radeon 9600), demo four @ native 1440×900
 
 **The G5 is genuinely ~60 fps GPU-bound at native res when fully maxed — NOT

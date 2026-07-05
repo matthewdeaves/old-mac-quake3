@@ -105,3 +105,38 @@ CODE-level CPU wins, or a small geometry trade:**
   on a looks feature (anisotropic filtering — the code path is GPU-gated and the
   Radeon supports it up to 16×; currently off on quicksilver as "too costly," a
   claim the fill-headroom data suggests is worth re-testing).
+
+## Findings — imac-g5 (PPC 970 2.0 GHz, Radeon 9600), demo four @ native 1440×900
+
+**The G5 is genuinely ~60 fps GPU-bound at native res when fully maxed — NOT
+vsync-capped.** The shipped 1440×900 config (picmip 0, aniso 8, trilinear,
+shadows, flares, dlights) benches **60.0 fps with vsync forced OFF**
+(`r_swapInterval 0`, 2 clean samples 59.9/60.1). The prior header's "128.9 fps
+@1600×1200, well above 100" was stale bring-up spin from before aniso 8 +
+trilinear + flares + the 1440×900 move; it never reproduced. So the "reveal the
+hidden vsync headroom" hypothesis was **disproven by measurement** — 60 fps is
+the real GPU ceiling at this quality, there are no free frames behind vsync.
+
+**But the G5 has no fps floor and effects>fps, so spend the frames it has on
+antialiasing — the biggest remaining visual upgrade** (Q3's jagged geometry /
+weapon edges are its most dated look). FSAA cost curve, measured @1440×900
+vsync-off (`r_ext_multisample`, driven via `SDL_GL_MULTISAMPLE*` at context
+creation, sdl_glimp.c:375; CVAR_LATCH → read once at GL init):
+| FSAA | fps | avg/worst ms | verdict |
+|---|---|---|---|
+| off | 60.0 | 16.6 / 52 | baseline |
+| **2×** | **34.5** (34.5/34.4) | 29 / 84 | **SHIPPED** — smooth, big edge-quality win |
+| 4× | 20.1 | 49.7 / **149** | **REJECTED** — 3× hit, choppy; don't re-chase |
+
+- **Negative — 4× FSAA is too costly on the Radeon 9600.** 60→20 fps (149 ms
+  worst frame). MSAA on this R300-class part roughly triples frame cost at 4×;
+  2× is the sweet spot (kills the worst jaggies for ~43% cost). Don't re-try 4×.
+- **Op note — imac-g5 ssh is flaky under back-to-back benching** (intermittent
+  "unreachable" / a launch that writes no fps line, ~1 in 3). It always recovers
+  on a short re-poll; not a wedge, no reboot needed. Run samples one at a time and
+  re-poll reachability between them. The two June-29 crashlogs on the box are
+  stale ssh-launch `NSApplication` aborts (a WindowServer-session hazard of
+  launching a Cocoa app over ssh), unrelated to config.
+- **Next G5 levers** (headroom is now spent by 2× FSAA, so these are trades, not
+  free): 4×-if-a-cheaper-effect-is-dropped; `r_subdivisions 4→2` (finer curves,
+  small cost); aniso 8→16 (near-free but marginal perceptually at 1440×900).

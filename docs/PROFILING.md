@@ -179,6 +179,71 @@ trilinear, both now shipped), not chasing an arbitrary fps number through risky
 renderer surgery. The ≥45 target is not worth a VBO rework; treat quicksilver's
 optimization search space as **exhausted** barring a new class of idea.
 
+### Native game dylib vs the PPC QVM JIT — measured MARGINAL (+1.3%), not shipped (2026-07-05, MEASURED)
+
+Long-standing idea: replace the interpreted QVM game modules with native code to
+kill "interpreter overhead" (the unsymbolized `0x432*` leaves above were guessed
+to be the bytecode interpreter). **Profiling the *build config* refuted the
+premise first:** `vm_powerpc.c`/`vm_powerpc_asm.c` are compiled into our fat
+binary (`Makefile:332` sets `HAVE_VM_COMPILED=true` for `ARCH=ppc`), and
+`vm_cgame`/`vm_game`/`vm_ui` default to **`"2"` = VMI_COMPILED**. So the QVM is
+**already JIT-compiled to native PowerPC at load** — there is no interpreter
+running on the fleet. The `0x432*` leaves are the **JIT code buffer** (runtime-
+generated PPC, no symbols) = cgame *already native*. A real native dylib therefore
+only buys (a) a real compiler's codegen over the JIT's naive per-opcode
+translation and (b) dropping the QVM's per-memory-access sandbox bounds-masking.
+
+Measured it directly (cheap — `BUILD_GAME_SO=1` already exists): built
+`cgameppc.dylib` (ppc7400) on mini-intel, dropped it in quicksilver's `baseq3/`,
+and A/B'd `vm_cgame 0` (native, `Sys_LoadGameDll ... found vmMain` confirmed in
+the log) vs `vm_cgame 2` (JIT), demo four @ native 1680×1050, only that cvar
+differing, 3 runs each. For a *timedemo only cgame runs* (demos are client-side
+playback — no server, so qagame is irrelevant; ui isn't active).
+
+| cgame path | runs | median(2,3) | worst frame |
+|---|---|---|---|
+| **native dylib** (`vm_cgame 0`) | 41.5 / 41.4 / 41.9 | **41.65** | 81 ms |
+| JIT (`vm_cgame 2`, shipped) | 41.0 / 41.0 / 41.2 | **41.10** | 81 ms |
+
+**+0.55 fps (+1.3%), consistent** (every native run beat every JIT run — real, not
+noise), zero visual cost, worst frame **unchanged**. But it is *sub-threshold*
+(nowhere near ≥45) and shipping it is disproportionate: the fat model would need
+native `cgame`+`qagame`+`ui` built for **all three arches** (ppc750+ppc7400+x86_64,
+9 builds + 3 lipos), placed in a gamedir searchpath inside the "bring-your-own-
+baseq3" `.app` (a deployment-model change), plus `vm_* 0` wired into every config
+(the pure-server QVM fallback via `!fs_numServerPaks` in `FS_FindVM` keeps that
+safe). **Verdict: measured real but marginal; NOT shipped.** ~1% does not justify
+expanding the shipping surface + native-game-code attack surface. Recorded so it
+isn't re-hyped as a "~5% interpreter win" — it is not; the JIT already captured it.
+
+### Bot-skin (first-time upload) pre-caching — evidence-based NEGATIVE (2026-07-05, MEASURED)
+
+Hypothesis: the recurring frame-time spikes are bot skin/model **textures uploaded
+to VRAM on first sighting**, fixable by pre-caching them at map/demo load.
+Per-frame durations (`cl_timedemoLog`) confirmed the spikes are **real and
+recurring** — not a one-time load: 5.6% of frames ≥50 ms, in *bursts throughout*
+the demo (frames 254–257, 332–342, 414–421, 683–693, 1069–1085 …), each a visible
+stutter against the 24 ms average. So there *is* a smoothness problem — but the
+premise about its cause is testable with a **cold-vs-warm-VRAM** run: play demo
+four **twice in one engine session** (2nd pass = every texture already resident).
+If the spikes are first-time uploads, pass 2 is smoother.
+
+| pass | fps | worst | spikes ≥50 ms |
+|---|---|---|---|
+| 1 (cold VRAM) | 41.1 | 82 ms | 64 |
+| 2 (warm VRAM) | 41.4 | 79 ms | 63 |
+
+The two passes are **frame-for-frame identical** (spike-index Jaccard 0.81; burst
+@330–344 = `[73,76,73,70,68…]` cold vs `[75,75,72,70,68…]` warm; mean at spike
+frames 56.8 vs 55.0 ms). **Only frame 0 improved (66→38 ms)** — the single genuine
+load frame. Warming VRAM changed nothing else. **Therefore the recurring spikes are
+NOT texture/skin uploads** — they are **per-frame CPU/render cost on heavy demo
+scenes** (dense geometry, explosions, many entities), the heavy tail of the same
+frontend+tessellation+dispatch distribution profiled above. Pre-caching cannot
+touch them (all uploads already happen at frame 0). **Do not build a skin pre-cache
+— there is nothing to pre-cache.** Smoothing these bursts is the same CPU-bound
+renderer problem whose only real lever (VBO) was already rejected above.
+
 ## Findings — mini-g4 (G4 1.25 GHz, Radeon 9200 32 MB), demo four @ native 1680×1050
 
 **Now BENCH-CONFIRMED on hardware (2026-07-05) — 27.5 fps, real GPU.** The machine

@@ -46,29 +46,36 @@ echo "[smoke $HOST] launching DMG-installed ioquake3.app with PRODUCTION config 
 # match the on-disk layout the player uses (and so the log is where we read it).
 # +set timedemo is an early command; +demo runs after CL_Init, so the demo plays
 # in the machine's production fullscreen mode.
-# TERM-before-KILL always: SIGTERM lets SDL restore the captured display — a hard
-# KILL black-screens the R300/Leopard G5.
+#
+# CRITICAL — make the engine QUIT ITSELF; never KILL a fullscreen app. We add
+# +set nextdemo quit so CL_DemoCompleted runs 'quit' after the timedemo and the
+# engine exits the NORMAL way (SDL restores the captured display, pid removed).
+# A hard KILL on a still-fullscreen ioquake3 wedges the GPU driver / WindowServer
+# until a reboot (this bit the fleet repeatedly — R300 G4 + GMA950 Lion). So the
+# only backstop here is a gentle TERM if it somehow never self-quits; NEVER KILL.
+# A stale pid file pops an "Abnormal Exit" modal that hangs headless — rm it first.
+PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
 ssh "$HOST" "
-  if killall -TERM ioquake3 2>/dev/null; then sleep 2; fi
-  killall -KILL ioquake3 2>/dev/null || true
-  sleep 1
+  killall -TERM ioquake3 2>/dev/null && sleep 2
   cd $REMOTE_DIR || { echo 'NO_INSTALL'; exit 9; }
-  rm -f baseq3/qconsole.log
+  rm -f baseq3/qconsole.log \"$PIDF\"
   ./ioquake3.app/Contents/MacOS/ioquake3 \\
     +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
-    +set logfile 2 +set timedemo 1 +demo $DEMO > /dev/null 2>&1 &
-  PID=\$!
+    +set logfile 2 +set nextdemo quit +set timedemo 1 +demo $DEMO > /dev/null 2>&1 &
+  # wait for the engine to self-quit (process gone) or error out; self-bounded
   j=0
   while [ \$j -lt $TIMEOUT ]; do
-    if [ -f baseq3/qconsole.log ] && \\
-       grep -qE 'frames.*seconds.*fps' baseq3/qconsole.log 2>/dev/null; then break; fi
-    if ! kill -0 \$PID 2>/dev/null; then break; fi
+    killall -0 ioquake3 2>/dev/null || break            # self-quit = clean exit
+    grep -qE 'ERROR:|Error:' baseq3/qconsole.log 2>/dev/null && break
     sleep 1; j=\$((j+1))
   done
-  killall -TERM ioquake3 2>/dev/null
-  sleep 2
-  killall -KILL ioquake3 2>/dev/null || true
-  wait \$PID 2>/dev/null
+  # backstop ONLY if it didn't self-quit: a gentle TERM (handler restores the
+  # display). NEVER KILL a fullscreen ioquake3 — that wedges the GPU driver.
+  if killall -0 ioquake3 2>/dev/null; then
+    killall -TERM ioquake3 2>/dev/null
+    g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
+  fi
+  rm -f \"$PIDF\"
   sleep $COOLDOWN
   true"
 

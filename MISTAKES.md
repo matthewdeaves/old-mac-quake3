@@ -258,3 +258,51 @@ reports subtype 9 as `ppc_650` on a modern host.
 
 **Lesson:** never trust the compiler's stamp on a slice you can't boot. Assert it
 on every artifact, every build.
+
+---
+
+## Tiger's `ps` cannot be trusted for process detection — 2026-07-25
+
+Two independent limitations, both silent, both of which produced wrong answers
+in this project on the same day.
+
+**1. `comm` is not a valid ps keyword on 10.4.**
+
+```
+quicksilver 10.4.11 $ ps -axo comm
+ps: comm: keyword not found
+ps: no valid keywords
+```
+
+`ps -axo comm,pid` is worse than an outright failure: it errors on `comm` but
+still prints the PID column, so a grep over it sees a list of bare numbers and
+can never match a process name. Every guard built on it was dead — this port's
+bench teardown (which is why four Macs needed power-button resets), and the
+"is a game already running?" checks in `smoke-dmg.sh` / `screenshot.sh` here and
+in the Quake II port.
+
+**2. `ps ax` truncates each line to 79 columns.**
+
+`WindowServer`'s path is 113 characters, so its name is chopped off entirely and
+`ps ax | grep -i windowserver` returns nothing on a perfectly healthy machine.
+This briefly looked like the bench had killed WindowServer; it had not — the
+process was alive at PID 57 the whole time. Any grep for a string that sits late
+in a long command line is unreliable.
+
+**What to use instead:**
+
+- `killall -0 <name>` — matches on process NAME, immune to both problems. Works
+  on Tiger, Leopard and Lion (verified).
+- `ps -axc -o pid,ucomm` — `ucomm` IS valid on Tiger (unlike `comm`), and `-c`
+  prints the bare command name, so nothing is truncated away. Verified on
+  10.4.11, 10.5.8 and 10.7.5.
+- `ps ax | grep` is acceptable ONLY when the name appears early in the command
+  line — e.g. `./ioquake3 +set …`. It is not a general solution.
+
+`bench.sh` now ORs `killall -0` with `ps ax` so a failure of either still detects
+a live engine.
+
+**Lesson:** a process check that silently returns "nothing running" is far more
+dangerous than one that errors, because the caller concludes it is safe to launch
+another fullscreen engine. Test detection code by asserting it finds something
+you KNOW is running, not by watching it find nothing.

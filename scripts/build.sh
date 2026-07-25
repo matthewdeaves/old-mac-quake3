@@ -17,9 +17,29 @@
 set -euo pipefail
 
 TARGET="${1:?usage: build.sh <g3|g4|lion>}"
-BUILD_HOST="${BUILD_HOST:-mini-intel}"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
-PROJ_REMOTE="quake3"   # mini-intel:quake3/  — NEVER quakespasm/ or quake2/
+PROJ_REMOTE="quake3"   # <build host>:quake3/  — NEVER quakespasm/ or quake2/
+
+# The cross-build host is an Intel Mac mini — there are now TWO interchangeable
+# ones (mini-intel, mini-intel2: same Macmini2,1 / 10.7.5 / identical toolchain).
+# When the caller has not pinned one, ask pick-build-host.sh for a host that is
+# reachable and idle, and CLAIM it for the duration so nothing takes it mid-build.
+# The claim is a lock ON the mini, so it is visible to the Q1/Q2/Half-Life sister
+# projects too — the flock below only serialises builds from THIS checkout.
+# build-fat.sh pins BUILD_HOST for all three slices, so this only fires for a
+# standalone build.sh run.
+BUILD_HOST_CLAIMED=0
+if [ -z "${BUILD_HOST:-}" ]; then
+  BUILD_HOST="$(BUILD_LOCK_WAIT="${BUILD_LOCK_WAIT:-900}" \
+    "$PROJ_LOCAL/scripts/pick-build-host.sh" --acquire "quake3 build.sh $TARGET")" || {
+    echo "build.sh: no free Intel build host; see scripts/pick-build-host.sh --status" >&2
+    exit 1
+  }
+  BUILD_HOST_CLAIMED=1
+  echo "[build] claimed build host: $BUILD_HOST"
+fi
+trap '[ "$BUILD_HOST_CLAIMED" = 1 ] && "$PROJ_LOCAL/scripts/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
+
 LOCK="$PROJ_LOCAL/build/.build.lock"
 
 mkdir -p "$PROJ_LOCAL/build"

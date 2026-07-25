@@ -11,10 +11,27 @@
 #
 set -euo pipefail
 
-BUILD_HOST="${BUILD_HOST:-mini-intel}"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$PROJ_LOCAL/build"
+
+# Pin ONE Intel build host for the whole fat build and claim it up front, so all
+# three slices and the final lipo use the same mini and no sister project
+# (Q1/Q2/Half-Life) takes the box between slices. Explicit BUILD_HOST always wins.
+if [ -z "${BUILD_HOST:-}" ]; then
+  BUILD_HOST="$(BUILD_LOCK_WAIT="${BUILD_LOCK_WAIT:-900}" \
+    "$HERE/pick-build-host.sh" --acquire "quake3 build-fat")" || {
+    echo "build-fat.sh: no free Intel build host; see scripts/pick-build-host.sh --status" >&2
+    exit 1
+  }
+  export BUILD_HOST
+  # Absolute path: the trap must still resolve if anything ever cd's away.
+  trap '"$HERE/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
+  echo "==> claimed build host: $BUILD_HOST (held for all three slices + lipo)"
+else
+  export BUILD_HOST
+  echo "==> using caller-supplied build host: $BUILD_HOST"
+fi
 
 # Clear last run's slices first: if a build.sh invocation fails we must not lipo
 # a stale ioquake3-<target> from an earlier commit into the shipping fat.

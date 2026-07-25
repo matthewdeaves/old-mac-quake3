@@ -151,13 +151,28 @@ append to `benchmarks/results.csv` (rolling history, never wipe mid-round),
 raw logs in `benchmarks/raw/`, two commits per phase (code, then bench),
 tag rows with `(commit, machine, demo, res)`.
 
-## Multi-tenancy on mini-intel (now THREE projects)
+## Multi-tenancy on the Intel minis (FOUR projects, TWO build boxes)
 
-`mini-intel` cross-builds QuakeSpasm, Quake II, **and** this. Isolation:
+There are now **TWO interchangeable Intel cross-build minis**: `mini-intel`
+(10.188.1.190) and `mini-intel2` (10.188.1.216) — same Macmini2,1 / 10.7.5 /
+identical toolchain, so either can build any slice. `build.sh` / `build-fat.sh`
+no longer hardcode a host: they call `scripts/pick-build-host.sh --acquire` to
+take one that is reachable and idle, and release it on exit. So this port and
+the QuakeSpasm / Quake II / Half-Life sister projects can build **at the same
+time on different minis**. `BUILD_HOST=<alias>` pins one;
+`scripts/pick-build-host.sh --status` shows both.
+
+**Why the claim lives on the mini, not in the repo:** the per-checkout `flock`
+below cannot see a build another repo (or another Claude) started on the same
+box. The picker locks `/tmp/.retro-build-lock` ON the host and also counts
+running compiler processes as busy, so it detects builds started outside it.
+
+The isolation table below still applies **per host** — the rsync dirs and flocks
+keep the four projects apart when they land on the same mini:
 
 | Resource | QuakeSpasm | Quake II | **Quake III** |
 |---|---|---|---|
-| rsync target | `mini-intel:quakespasm/` | `mini-intel:quake2/` | **`mini-intel:quake3/`** |
+| rsync target | `<host>:quakespasm/` | `<host>:quake2/` | **`<host>:quake3/`** |
 | local flock | `~/quakespasm/build/.build.lock` | `~/quake2/build/.build.lock` | **`~/quake3/build/.build.lock`** |
 | local outputs | `~/quakespasm/build/quakespasm-*` | `~/quake2/build/q2-*` | **`~/quake3/build/ioquake3-*`** |
 

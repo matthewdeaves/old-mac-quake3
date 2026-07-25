@@ -77,14 +77,25 @@ QuakeSpasm uses `Quake/Makefile.darwin`; **ioquake3 uses its own top-level
 
 ```
 PLATFORM=darwin ARCH=<ppc|x86_64> CC=<gcc-4.0|clang> \
-  MACOSX_VERSION_MIN=<10.3|10.4|10.7> \
+  MACOSX_VERSION_MIN=<10.3|10.3|10.6> \
   CFLAGS="-isysroot <SDK> -arch <ppc|x86_64> <-mcpu/-maltivec/-O3>" \
   make
 ```
 
 - **g3:** `ARCH=ppc CC=gcc-4.0`, SDK `MacOSX10.3.9.sdk`, `-arch ppc750 -mcpu=750 -mmacosx-version-min=10.3 -O3` (NO AltiVec — a 750 has no vector unit)
-- **g4:** `ARCH=ppc CC=gcc-4.0`, SDK `MacOSX10.4u.sdk`, `-arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=10.4 -O3`
-- **lion:** `ARCH=x86_64 CC=clang`, min 10.7, `-O3`
+- **g4:** `ARCH=ppc CC=gcc-4.0`, SDK `MacOSX10.3.9.sdk`, `-arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=10.3 -O3 -isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/include`
+- **lion:** `ARCH=x86_64 CC=clang`, min 10.6, `-O3`
+
+**Why both PPC slices target the 10.3.9 SDK at min 10.3.** dyld grades a fat
+binary by **CPU subtype alone** — the OS plays no part. A G4 running Panther is
+handed the `ppc7400` slice with no fallback to the min-10.3 `ppc750` one, so a
+10.4-built G4 slice is simply dead there. AltiVec codegen is independent of the
+SDK, so this costs nothing on Tiger (A/B'd — see `docs/STATUS.md`). Likewise
+`x86_64` is min 10.6, not 10.7, so a 64-bit Intel Mac on Snow Leopard can load
+it; the bundled `libSDL-1.2.0.dylib` was already built that way.
+
+`-isystem` is required on the g4 slice: `-faltivec` makes the compiler want
+`<altivec.h>`, which is a **compiler** header that `-isysroot` hides.
 - All slices build `USE_RENDERER_DLOPEN=0` (monolithic, opengl1 linked in; no
   renderer dylib; skips rend2). The Makefile's hardcoded ppc `-arch ppc -faltivec`
   was removed — `scripts/build.sh` supplies arch/AltiVec/version-min per target.
@@ -95,6 +106,15 @@ are `ARCH=ppc`, so they collide on the same filename — `build.sh` renames to
 ppc7400=10) post-link, because the generic bundled `libSDLmain`/crt make Apple
 ld stamp subtype 0; otherwise the two slices collide in lipo. `CLIENTBIN=ioquake3`,
 `BASEGAME=baseq3`.
+
+**Never trust the compiler's stamp — assert it.** `-faltivec` silently defeats
+`-mcpu=`'s subtype stamping, and it is mandatory on the g4 slice, so that slice
+loses its stamp on *every* build. A generic `ppc` member is not cosmetic: it
+matches every PowerPC host, so it shadows the correct slice and a G3 gets the
+AltiVec build. `build.sh`, `build-gamedylibs.sh` and `build-fat.sh` all re-stamp
+and then **verify with `lipo`** (not `file`, which misreports subtype 9 as
+`ppc_650` on a modern host) and exit non-zero on a mismatch. The cpusubtype is
+the 4-byte big-endian field at offset 8 of a thin Mach-O header.
 
 **Build items — ALL RESOLVED (2026-05-26):**
 1. ✅ **SDL 1.2.** The bundled fat `libSDL-1.2.0.dylib` AND prebuilt `libSDLmain.a`

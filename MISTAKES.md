@@ -199,3 +199,62 @@ rebooted the G3. Never run `/sbin/reboot` with any argument to "test" it.
 **Lesson:** a recovery path you have never actually fired is not a recovery
 path. Verify destructive tooling end-to-end (watch the host cycle), and never
 trust an exit code from a fallback that can no-op silently.
+
+---
+
+## The `ppc7400` slice was min-10.4, so a G4 on Panther could never launch it — 2026-07-25
+
+**The smell:** each slice was built against "the SDK of the OS that machine
+runs" — g3 → 10.3.9 because yosemite runs Panther, g4 → 10.4u because all three
+G4s run Tiger, Intel → min-10.7 because the build host is a Lion mini. That
+reads as careful matching. It is actually backwards.
+
+**Why it breaks:** `dyld` grades a fat binary by **CPU subtype alone**. The OS
+plays no part, and there is no fallback to a lower slice. A G4 running Panther is
+handed the `ppc7400` slice because it is a 7400 — and a 10.4-built slice simply
+cannot run there. Same for the three fat game dylibs, whose `ppc7400` members
+were also min-10.4 while their `ppc750` members were min-10.3. So the OS a slice
+targets must be the oldest OS its **CPU family** can run, not the OS the machine
+in the rack happens to boot. Verified by the linked dependency list: the old
+`ppc7400` slice pulled libSystem 88.3.11 / AppKit 824.48 (Tiger), against the
+`ppc750` slice's libSystem 71.1.3 (Panther).
+
+**The fix:** build both PPC slices — engine and game dylibs — against the 10.3.9
+SDK at min 10.3, and the Intel slice at min 10.6 rather than 10.7. Two things
+that were feared and turned out to be free:
+
+- **AltiVec survives the SDK change.** The g4 slice disassembles to *exactly* 165
+  AltiVec instructions before and after. Codegen follows `-arch`/`-mcpu`, not the
+  SDK.
+- **No framerate cost on Tiger** — see `docs/STATUS.md` for the A/B.
+
+`-faltivec` is required against the 10.3.9 SDK (Apple's context-sensitive
+`vector` keyword) and it needs `-isystem /usr/lib/gcc/powerpc-apple-darwin10/
+4.0.1/include`, because `<altivec.h>` is a **compiler** header that `-isysroot`
+hides.
+
+**Lesson:** "built against the SDK matching the machine" is the wrong instinct
+for fat binaries. Ask instead: *what is the oldest OS a CPU that grades to this
+slice could be running?* And check the answer against `otool -L`, not against
+intent — the sister ports had the identical bug and it was invisible until
+someone read the dependency list.
+
+---
+
+## `-faltivec` silently un-stamps the cpusubtype — inherited, guarded here
+
+**The smell:** `-arch ppc7400 -mcpu=7400` is written on the command line, so the
+binary must be stamped `ppc7400`.
+
+**Why it breaks:** `-faltivec` defeats the subtype stamping, and Apple's ld
+stamps a generic `ppc` (subtype 0) anyway when the crt/`libSDLmain` objects are
+generic. A generic `ppc` member is not cosmetic — it matches **every** PowerPC
+host, so it shadows the correct slice and a G3 loads the AltiVec build.
+
+**The fix:** this repo already re-stamped the subtype post-link; it now also
+**asserts** it with `lipo` in `build.sh`, `build-gamedylibs.sh` and
+`build-fat.sh`, and exits non-zero on a mismatch. Use `lipo`, not `file` — `file`
+reports subtype 9 as `ppc_650` on a modern host.
+
+**Lesson:** never trust the compiler's stamp on a slice you can't boot. Assert it
+on every artifact, every build.

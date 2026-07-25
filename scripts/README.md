@@ -42,5 +42,5 @@ bench-and-commit.sh "<phase>" [args...]  # clean-tree bench + commit
 2. **Fat SDL 1.2 dylib** — adapt QuakeSpasm's `MacOSX/SDL.framework` /
    `lion:~/sdl-archive/`.
 3. **Building 2013 ioquake3 vs the 10.3.9 SDK** — may need source tweaks; do
-   the g4 (10.4u) slice first.
+   the g4 slice first.
 4. **.app bundle** (icon/Info.plist) — a later nicety; raw binary first.

@@ -2424,6 +2424,15 @@ static const struct { const char *model; const char *cfg; } com_machineMap[] = {
 	{ "PowerMac12,1", "autoexec-imac-g5"     }, // iMac G5 (iSight / nv)
 	{ "Macmini2,1",   "autoexec-mini-intel"  }, // Core 2 Duo mini / GMA 950 / Lion
 	{ "iMac19,1",     "autoexec-imac-2019"   }, // i5-9600K / Radeon Pro 580X
+	// NO iMac G4 / eMac entry, and that is deliberate — not an oversight. The
+	// QuakeSpasm and Quake II ports both map PowerMac4,2 / 6,1 / 6,3 to an
+	// imac-g4 profile because THEIR G4 baselines ask for more than a sunflower
+	// iMac can deliver. This port's autoexec-ppc7400 baseline is already tuned
+	// around the weakest G4 GPU in the fleet (sawtooth's GeForce2 MX) and pins
+	// 1024x768 — which is exactly what an iMac G4 or eMac wants, and safe on a
+	// widescreen 17"/20" panel too (the fullscreen mode-switch hard-hang is
+	// specific to the G5's R300; no iMac G4 shipped one). A dedicated cfg here
+	// would be a byte-for-byte copy of the baseline. See docs/CONFIG.md.
 };
 
 /*

@@ -15,7 +15,9 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 CSV="$PROJ_LOCAL/benchmarks/results.csv"
 export COMMIT="$(git -C "$PROJ_LOCAL" rev-parse --short HEAD)"
 
-ALL=(yosemite sawtooth quicksilver mini-g4 mini-intel imac-2019)
+# yosemite-tiger is the same G3 as yosemite on its 10.4.11 partition, so it is
+# SKIPPED by default — opt in with --yosemite-tiger (which drops yosemite).
+ALL=(yosemite yosemite-tiger sawtooth quicksilver mini-g4 mini-intel imac-2019)
 # shellcheck disable=SC2206
 DEMOS=(${DEMOS:-four})
 # shellcheck disable=SC2206
@@ -23,15 +25,26 @@ RESES=(${RESES:-1024x768 640x480})
 RUNS="${RUNS:-3}"
 QUICK=0; RESET=0
 declare -A SKIP
+SKIP[yosemite-tiger]=1          # same Mac as yosemite; opt in explicitly
 for a in "$@"; do
   case "$a" in
     --quick) QUICK=1 ;;
     --reset) RESET=1 ;;
+    --yosemite-tiger) SKIP[yosemite-tiger]=""; SKIP[yosemite]=1 ;;
     --no-*)  SKIP["${a#--no-}"]=1 ;;
     *) echo "parallel-bench: unknown arg '$a'"; exit 2 ;;
   esac
 done
 [ "$QUICK" = 1 ] && { DEMOS=(${DEMO_QUICK:-four}); RESES=(1024x768); }
+
+# yosemite and yosemite-tiger are one Power Mac G3 with two boot partitions and
+# one IP. Running both legs would bench the SAME booted OS twice and log it under
+# two names — worse than useless, because the rows look like a comparison.
+if [ -z "${SKIP[yosemite]:-}" ] && [ -z "${SKIP[yosemite-tiger]:-}" ]; then
+  echo "parallel-bench: yosemite and yosemite-tiger are the same Mac (one IP, one" >&2
+  echo "  OS booted at a time). Pick one: --yosemite-tiger, or --no-yosemite-tiger." >&2
+  exit 2
+fi
 
 if [ "$RESET" = 1 ] && [ -f "$CSV" ]; then
   cp "$CSV" "$CSV.bak.$(date -u +%Y%m%dT%H%M%SZ)"

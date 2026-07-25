@@ -34,9 +34,20 @@ for f in "$FAT" "$SDL" "$ICNS" "$PLIST"; do
   test -f "$f" || { echo "make-app: missing $f"; exit 1; }
 done
 
+# Stamp the bundle with the build identity. scripts/bundle/Info.plist carries a
+# placeholder; without this the deployed .app on every machine claims the same
+# version forever and a smoke test can't prove WHICH build it just ran. Override
+# with Q3_PORT_VERSION when make-dmg.sh is cutting a tagged release.
+Q3_PORT_VERSION="${Q3_PORT_VERSION:-$(git -C "$PROJ" describe --tags --always --dirty 2>/dev/null || echo unknown)}"
+
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$PLIST" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy \
+  -c "Set :CFBundleShortVersionString 1.36-oldmac-$Q3_PORT_VERSION" \
+  -c "Set :CFBundleVersion $Q3_PORT_VERSION" \
+  "$APP/Contents/Info.plist" >/dev/null
+echo "==> stamped bundle version: 1.36-oldmac-$Q3_PORT_VERSION"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 cp "$FAT"  "$APP/Contents/MacOS/ioquake3"; chmod +x "$APP/Contents/MacOS/ioquake3"
 cp "$SDL"  "$APP/Contents/MacOS/libSDL-1.2.0.dylib"   # binary refs @executable_path/libSDL-1.2.0.dylib

@@ -26,6 +26,18 @@ MACHINE="${1:?usage: bench.sh <machine> <demo> <WxH> [runs]}"
 DEMO="${2:?Q3 demo name, e.g. four}"
 RES="${3:?resolution, e.g. 1024x768}"
 RUNS="${4:-3}"
+
+# Reject a malformed resolution rather than benching nonsense. `bench.sh <m>
+# four 3` (meaning "3 runs") would otherwise split to W=3 H=3 and time a 3x3
+# render — the Quake II port shipped nine such rows at 1x1 and they became the
+# quoted evidence for a config decision. runs is the FOURTH argument.
+case "$RES" in
+  [0-9]*x[0-9]*) ;;
+  *) echo "bench.sh: resolution must be WxH (e.g. 1024x768), got '$RES'" >&2
+     echo "  usage: $0 <machine> <demo> <WxH> [runs]  — runs is the FOURTH arg" >&2
+     exit 2 ;;
+esac
+
 W="${RES%x*}"; H="${RES#*x}"
 
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
@@ -36,7 +48,7 @@ COMMIT="${COMMIT:-$(git -C "$PROJ_LOCAL" rev-parse --short HEAD)}"
 mkdir -p "$RAWDIR"
 
 case "$MACHINE" in
-  yosemite) TMO=300 ;; sawtooth) TMO=240 ;; quicksilver|mini-g4) TMO=180 ;;
+  yosemite|yosemite-tiger) TMO=300 ;; sawtooth) TMO=240 ;; quicksilver|mini-g4) TMO=180 ;;
   imac-g5) TMO=90 ;;
   mini-intel) TMO=90 ;; imac-2019) TMO=60 ;;
   *) echo "bench.sh: unknown machine '$MACHINE'"; exit 2 ;;
@@ -62,10 +74,30 @@ fi
 # timedemo). Per-machine tuning is a separate experiment; mixing it in would make
 # fps non-comparable across machines and non-attributable to code commits.
 # Restore on ANY exit so a crash/Ctrl-C can't leave the deployed config missing.
-restore_autoexec() {
-  ssh "$MACHINE" "cd $REMOTE_DIR && [ -f baseq3/autoexec.cfg.bench-aside ] && mv -f baseq3/autoexec.cfg.bench-aside baseq3/autoexec.cfg || true" 2>/dev/null || true
+# A stale ioq3.pid pops an "Abnormal Exit / start with safe settings?" modal on
+# the next launch, which hangs forever headless — the engine never renders, the
+# poll times out, and the orphaned process then wedges the machine. Clear it
+# before every run and on exit. (Single-quoted: $HOME expands on the REMOTE box.)
+# Defined BEFORE the trap that uses it: set -u would abort on an early exit.
+PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
+
+# Also stop any engine we left running. If this script dies (Ctrl-C, a parent
+# shell going away, a killed background job) the REMOTE engine keeps rendering
+# fullscreen with nobody polling it — that orphan is what hard-crashed mini-g4
+# and the iMac G5 on 2026-07-25, needing power-button resets. TERM only: never
+# KILL a fullscreen ioquake3. Also clear the pid file so the next launch doesn't
+# come up on the "safe settings" modal.
+bench_cleanup() {
+  ssh -o ConnectTimeout=10 "$MACHINE" "cd $REMOTE_DIR 2>/dev/null
+    if killall -0 ioquake3 2>/dev/null; then
+      killall -TERM ioquake3 2>/dev/null
+      g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
+    fi
+    rm -f \"$PIDF\"
+    [ -f baseq3/autoexec.cfg.bench-aside ] && mv -f baseq3/autoexec.cfg.bench-aside baseq3/autoexec.cfg
+    true" 2>/dev/null || true
 }
-trap restore_autoexec EXIT
+trap bench_cleanup EXIT INT TERM
 ssh "$MACHINE" "cd $REMOTE_DIR && [ -f baseq3/autoexec.cfg ] && mv -f baseq3/autoexec.cfg baseq3/autoexec.cfg.bench-aside || true" 2>/dev/null || true
 
 # CSV header — atomic create (noclobber) so concurrent legs don't double-write.
@@ -80,29 +112,40 @@ for ((r=1; r<=RUNS; r++)); do
   ssh "$MACHINE" "cd $REMOTE_DIR
     killall -TERM ioquake3 2>/dev/null
     g=0; while [ \$g -lt 8 ] && ps -axo comm 2>/dev/null | grep -q '[i]oquake3'; do sleep 1; g=\$((g+1)); done
-    ps -axo comm 2>/dev/null | grep -q '[i]oquake3' && killall -KILL ioquake3 2>/dev/null; true
-    rm -f baseq3/qconsole.log
+    rm -f baseq3/qconsole.log \"$PIDF\"
     ./ioquake3 +set com_archAutoexec 0 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
       +set logfile 2 +set com_maxfps 0 +set r_fullscreen 1 \\
       +set r_mode -1 +set r_customwidth $W +set r_customheight $H \\
-      +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &
+      +set nextdemo quit +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &
+    # FIRST wait for the engine to actually come up. Polling 'has it exited yet?'
+    # straight after backgrounding is a race: on a slower Mac the process has not
+    # exec'd yet, killall -0 finds nothing, and we would 'break' immediately and
+    # bench nothing at all. Give it up to 30s to appear.
+    s=0
+    while [ \$s -lt 30 ]; do killall -0 ioquake3 2>/dev/null && break; sleep 1; s=\$((s+1)); done
+    # THEN wait for it to SELF-QUIT (nextdemo quit runs after the timedemo) rather
+    # than just for the fps line to appear. Exiting the moment the line lands left
+    # the engine still holding a fullscreen GL context while we killed it.
     t=0
     while [ \$t -lt $TMO ]; do
-      grep -qE 'frames.*seconds.*fps' baseq3/qconsole.log 2>/dev/null && break
+      killall -0 ioquake3 2>/dev/null || break
       sleep 1; t=\$((t+1))
     done
-    # Gentle teardown: SIGTERM lets SDL restore the captured display, then WAIT
-    # for the engine to actually exit before considering a hard kill. A prompt
-    # killall -KILL while the engine still holds a fullscreen GL context
-    # black-screens / hard-hangs the iMac G5's R300 Leopard driver (it crashed
-    # the G5 mid-run before this). KILL only as a true last resort.
-    killall -TERM ioquake3 2>/dev/null
-    g=0; while [ \$g -lt 10 ] && ps -axo comm 2>/dev/null | grep -q '[i]oquake3'; do sleep 1; g=\$((g+1)); done
-    ps -axo comm 2>/dev/null | grep -q '[i]oquake3' && killall -KILL ioquake3 2>/dev/null; true
+    # Backstop ONLY if it never self-quit: a gentle TERM, and give it time. NEVER
+    # KILL a fullscreen ioquake3 — that wedges the GPU driver. It hard-crashed the
+    # iMac G5 (black screen, fans to full, power-button recovery) on 2026-07-25.
+    if killall -0 ioquake3 2>/dev/null; then
+      killall -TERM ioquake3 2>/dev/null
+      g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
+    fi
+    rm -f \"$PIDF\"
     grep -E 'frames.*seconds.*fps' baseq3/qconsole.log 2>/dev/null | tail -1" \
     > "$LOG" 2>/dev/null || true
 
-  f=$(grep -oE '[0-9]+(\.[0-9]+)? fps' "$LOG" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)?' | head -1)
+  # `|| true`: a run that produced no fps line must record NA and let the other
+  # runs proceed. Without it, grep's exit 1 trips `set -e`/pipefail and the whole
+  # script dies silently mid-matrix, writing no CSV row at all.
+  f=$(grep -oE '[0-9]+(\.[0-9]+)? fps' "$LOG" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)?' | head -1) || true
   FPS[$r]="${f:-NA}"
   echo "    run $r: ${FPS[$r]} fps"
 done

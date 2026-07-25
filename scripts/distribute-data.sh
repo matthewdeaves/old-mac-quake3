@@ -20,7 +20,7 @@ REMOTE_DIR="~/Desktop/quake3/baseq3"
 ONLY_PK3=(--include='*.pk3' --include='*.PK3' --exclude='*')
 
 case "$MACHINE" in
-  yosemite|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5) ;;
+  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5) ;;
   *) echo "distribute-data.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
 [ "$MACHINE" = "$SRC_HOST" ] && { echo "$MACHINE is the data source — nothing to do."; exit 0; }

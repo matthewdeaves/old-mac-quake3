@@ -20,7 +20,7 @@ DEMO="${2:-four}"
 REMOTE_DIR="~/Desktop/quake3"
 
 case "$HOST" in
-  yosemite)    TIMEOUT=300; COOLDOWN=5 ;;
+  yosemite|yosemite-tiger) TIMEOUT=300; COOLDOWN=5 ;;
   sawtooth)    TIMEOUT=240; COOLDOWN=3 ;;
   quicksilver) TIMEOUT=180; COOLDOWN=2 ;;
   mini-g4)     TIMEOUT=180; COOLDOWN=2 ;;

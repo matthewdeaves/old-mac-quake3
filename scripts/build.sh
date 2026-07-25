@@ -39,14 +39,23 @@ case "$TARGET" in
     CPUFLAGS="-isysroot $SDK -arch ppc750 -mcpu=750 -mmacosx-version-min=$VMIN -O3" ;;
   g4)
     ARCH=ppc;    CC=/usr/bin/gcc-4.0
-    SDK=/Developer/SDKs/MacOSX10.4u.sdk;  VMIN=10.4; SUBTYPE=ppc7400
+    SDK=/Developer/SDKs/MacOSX10.3.9.sdk; VMIN=10.3; SUBTYPE=ppc7400
     # -arch ppc7400 stamps cpusubtype 10 AND defines __ALTIVEC__; -faltivec
     # enables the AltiVec ABI/codegen, -mtune=7450 schedules for the G4 line.
-    CPUFLAGS="-isysroot $SDK -arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=$VMIN -O3" ;;
+    #
+    # 10.3.9 SDK at min 10.3, NOT 10.4u/min-10.4: dyld grades slices by CPU
+    # subtype alone, so a G4 on Panther is handed this slice with no fallback
+    # to the min-10.3 ppc750 one. A 10.4-built slice is simply dead there.
+    # AltiVec codegen is independent of the SDK, so this costs nothing on
+    # Tiger. -isystem is required because <altivec.h> is a *compiler* header
+    # and -isysroot hides it.
+    CPUFLAGS="-isysroot $SDK -arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=$VMIN -O3 -isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/include" ;;
   lion)
     ARCH=x86_64; CC=/usr/bin/clang
-    SDK=;        VMIN=10.7; SUBTYPE=x86_64
-    CPUFLAGS="-arch x86_64 -mmacosx-version-min=10.7 -O3 -Qunused-arguments" ;;
+    SDK=;        VMIN=10.6; SUBTYPE=x86_64
+    # min 10.6, not 10.7: a 64-bit Intel Mac on Snow Leopard grades to this
+    # slice too. The shipped libSDL-1.2.0.dylib is already built at 10.6.
+    CPUFLAGS="-arch x86_64 -mmacosx-version-min=$VMIN -O3 -Qunused-arguments" ;;
   *) echo "build.sh: unknown target '$TARGET' (want g3|g4|lion)"; exit 2 ;;
 esac
 
@@ -78,7 +87,11 @@ REMOTE_BIN="$PROJ_REMOTE/build/release-darwin-$ARCH/ioquake3.$ARCH"
 LOCAL_BIN="$PROJ_LOCAL/build/ioquake3-$TARGET"
 echo "==> [$TARGET] retrieve $REMOTE_BIN"
 ssh "$BUILD_HOST" "test -f $REMOTE_BIN || { echo 'MISSING $REMOTE_BIN — build output dir:'; ls -la $PROJ_REMOTE/build/release-darwin-$ARCH/ 2>/dev/null; exit 1; }"
+# Drop any previous artifact first: if the scp below fails, the verify step must
+# not pass on a stale binary left from an earlier run.
+rm -f "$LOCAL_BIN"
 scp -q "$BUILD_HOST:$REMOTE_BIN" "$LOCAL_BIN"
+[ -f "$LOCAL_BIN" ] || { echo "build.sh: retrieve produced no $LOCAL_BIN"; exit 1; }
 
 # Re-stamp the Mach-O cpusubtype for the ppc slices. Apple's ld stamps the link
 # as generic ppc (subtype 0) because the bundled libSDLmain.a / crt objects are
@@ -93,12 +106,13 @@ case "$TARGET" in
 esac
 
 echo "==> [$TARGET] verify (expect CPU subtype: $SUBTYPE)"
-if [ "$ARCH" = ppc ]; then
-  want=$([ "$TARGET" = g3 ] && echo "09" || echo "0a")
-  got=$(xxd -p -s 11 -l 1 "$LOCAL_BIN")
-  echo "    cpusubtype byte: 0x$got (want 0x$want for $SUBTYPE)"
-  [ "$got" = "$want" ] || { echo "build.sh: cpusubtype re-stamp failed"; exit 1; }
-fi
+# Assert on the decoded subtype, not just the byte we wrote: -faltivec is known
+# to defeat -mcpu='s stamping outright, and a generic `ppc` member is fatal (it
+# matches every PowerPC host, so a G3 can be handed the AltiVec slice). Trust
+# lipo here — `file` misreports subtype 9 as "ppc_650" on a modern host.
+got=$(lipo -info "$LOCAL_BIN" | sed 's/.*: //' | tr -d ' ')
+echo "    cpusubtype: $got (want $SUBTYPE)"
+[ "$got" = "$SUBTYPE" ] || { echo "build.sh: cpusubtype is '$got', want '$SUBTYPE' — re-stamp failed"; exit 1; }
 file "$LOCAL_BIN" | sed 's/^/    /'
 
 # SDL linkage: the binary references @executable_path/libSDL-1.2.0.dylib, so the

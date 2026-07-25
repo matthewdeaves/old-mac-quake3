@@ -77,10 +77,18 @@ for a in ppc750 ppc7400 x86_64; do
 done
 
 # ---- assemble the .app (make-app.sh) + stage the disk-image contents -----
-echo "[make-dmg] assemble ioquake3.app"
-scripts/make-app.sh >/dev/null
+# Pass the release label down so the bundle inside the image self-identifies as
+# this exact build. Otherwise the DMG filename says v0.5.0 and the .app on the
+# machine says something else, and a smoke test proves nothing.
+echo "[make-dmg] assemble ioquake3.app (version $VERSION)"
+Q3_PORT_VERSION="$VERSION" scripts/make-app.sh >/dev/null
 APP_SRC="$REPO_ROOT/build/ioquake3.app"
 test -d "$APP_SRC" || { echo "[make-dmg] make-app.sh did not produce $APP_SRC" >&2; exit 1; }
+
+STAMPED=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_SRC/Contents/Info.plist" 2>/dev/null || echo '')
+[ "$STAMPED" = "$VERSION" ] || {
+  echo "[make-dmg] .app CFBundleVersion is '$STAMPED', expected '$VERSION'" >&2; exit 1; }
+echo "[make-dmg] bundle version verified: $STAMPED"
 
 STAGE=$(mktemp -d -t ioq3-dmg.XXXXXX)
 trap "rm -rf '$STAGE'" EXIT
@@ -93,10 +101,16 @@ ioquake3 — OldMac fat build ($VERSION)
 ======================================
 
 A single universal build of ioquake3 (SDL 1.2 baseline) for vintage Macs:
-  • PowerPC G3  (ppc750)   — Mac OS X 10.3 Panther
-  • PowerPC G4  (ppc7400)  — Mac OS X 10.4 Tiger  (also runs on the G5 / 10.5)
-  • Intel        (x86_64)   — Mac OS X 10.7 Lion and newer
-dyld picks the right slice per machine automatically. The game modules
+  • PowerPC G3  (ppc750)   — Mac OS X 10.3.9 Panther or later
+  • PowerPC G4  (ppc7400)  — Mac OS X 10.3.9 Panther or later
+  • PowerPC G5  (ppc7400)  — Mac OS X 10.3.9 Panther or later (shares the G4 slice)
+  • Intel       (x86_64)   — Mac OS X 10.6 Snow Leopard or later
+dyld picks the slice by CPU alone — the OS plays no part, and there is no
+fallback — so every slice is built against the oldest OS its CPU can run.
+Tested here on 10.3.9 (G3), 10.4.11 (G4), 10.5.8 (G5), 10.7.5 and 15.7 (Intel);
+older combinations should work but have not been run on hardware. There is no
+32-bit i386 slice, so Core Duo / Core Solo Macs are not supported.
+The game modules
 (cgame/qagame/ui) ship as native dylibs inside the app too, loaded in place of
 the bytecode for a small speed-up (falls back to the bytecode automatically).
 

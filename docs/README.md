@@ -8,8 +8,12 @@ validated, so don't read it as current state.
 
 ## Live references
 
+- [`CONFIG.md`](CONFIG.md) — how one `.app` self-tunes: the per-arch baseline +
+  `hw.model` overlay, and which OS each slice needs.
 - [`KNOBS.md`](KNOBS.md) — Quake III cvar / cmdline knob inventory used for
   per-machine tuning.
+- [`PROFILING.md`](PROFILING.md) — measured wins and measured negatives from the
+  tuning rounds.
 
 ## ideas/ — forward-looking design (not built)
 

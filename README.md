@@ -48,19 +48,55 @@ Q3 shipped in 1999.
 
 ### Which OS each CPU needs
 
-Three slices cover four CPU families — the G5 runs the same `ppc7400` slice as the G4s —
-and each is built against the SDK of the OS that family runs here:
+Three slices cover four CPU families — the G5 runs the same `ppc7400` slice as the G4s.
+Each is built against the **oldest** OS its CPU family can run, not the OS the machines
+here happen to run:
 
-| CPU | Slice | OS needed |
-|---|---|---|
-| G3 (750) | `ppc750` | 10.3.9 Panther or later |
-| G4 (7400 / 7450 / 7447A) | `ppc7400` | 10.4 Tiger or later |
-| G5 (970) | `ppc7400` | **10.5 Leopard — a G5 on an older OS is not supported** |
-| Intel, 64-bit | `x86_64` | 10.7 Lion or later |
+| CPU | Slice | OS needed | Tested on |
+|---|---|---|---|
+| G3 (750) | `ppc750` | 10.3.9 Panther or later | 10.3.9 |
+| G4 (7400 / 7450 / 7447A) | `ppc7400` | 10.3.9 Panther or later | 10.4.11 |
+| G5 (970) | `ppc7400` | 10.3.9 Panther or later | 10.5.8 |
+| Intel, 64-bit | `x86_64` | 10.6 Snow Leopard or later | 10.7.5 and 15.7 |
 
-`dyld` picks a slice by CPU alone; the OS plays no part in it. So a Mac running an OS
-older than its slice needs gets that slice anyway rather than falling back to a lower
-one, and won't launch. 32-bit-only Intel Macs (Core Duo / Core Solo) have no slice at all.
+`dyld` picks a slice by **CPU subtype alone** — the OS plays no part. A Mac running an
+OS older than its slice was built for gets that slice anyway rather than falling back to
+a lower one, and won't launch. That is why the `ppc7400` slice is built at 10.3 even
+though no G4 or G5 here runs Panther: a G4 on Panther is a normal machine to own, and
+building the slice any higher would leave it dead with no way to force a different one.
+Doing it costs nothing on Tiger — see the before/after numbers below.
+
+The right-hand column is the honest part: **a G4 on Panther, and a G5 on Panther or
+Tiger, should work but have not been run on hardware** — there's no such machine here.
+Same for an Intel Mac on Snow Leopard.
+
+32-bit-only Intel Macs (Core Duo / Core Solo, 2006) have no slice at all: there is no
+`i386` build, and no such machine here to make one on.
+
+### What lowering the floor cost
+
+Nothing measurable. Same source, same commit, `four` timedemo, three runs, median of
+2 & 3 — the old `ppc7400` slice (10.4u SDK) against the new one (10.3.9 SDK):
+
+| Machine | Before | After |
+|---|---:|---:|
+| Quicksilver (G4 / Radeon 9000) 1680×1050 | 41.65 | 41.40 |
+| Mac mini G4 (Radeon 9200) 1680×1050 | 27.55–30.00 † | 27.60 |
+| Mac mini Intel (Lion / GMA 950) 1920×1080 | 41.20 | 42.00 |
+
+† The mini G4's "before" is a range, not a figure: four passes at the same commit
+recorded 27.55, 27.90, 27.90 and 30.00. The new result sits inside that spread, so
+it's a weaker comparison than the other two rows — worth stating rather than quoting
+whichever end flattered the result.
+
+Run-to-run spread within a single pass is about ±0.3 fps, so quicksilver and the Intel
+mini are ties. The G4 slice also disassembles to **exactly the same 165 AltiVec
+instructions** before and after: AltiVec codegen follows `-arch`/`-mcpu`, not the SDK.
+
+These are *bench-harness* numbers — the per-machine auto-config is switched off
+(`+set com_archAutoexec 0`) so the engine runs defaults plus the resolution, which is
+what makes them comparable across commits. They are **not** the framerates you get
+playing, which are below.
 
 ## Framerate
 
@@ -73,7 +109,8 @@ G5 (1440×900); tuning is ongoing, and live numbers are in
 
 - **One fat binary for every machine** — `ppc750` (G3), `ppc7400` (G4 AltiVec)
   and `x86_64` (Intel) slices in a single Mach-O.
-- Runs on **Mac OS X 10.3.9 → 10.7**, and modern macOS via the Intel slice.
+- Runs on **Mac OS X 10.3.9 Panther through Lion** on PowerPC and early Intel, and
+  on modern macOS via the Intel slice.
 - **SDL 1.2** — the last SDL line that supports Panther and Tiger — with a
   monolithic OpenGL1 renderer.
 - **Per-machine auto-config** — reads `hw.model` at boot and applies a tuned

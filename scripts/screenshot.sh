@@ -29,11 +29,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REMOTE_DIR="~/Desktop/quake3"
 
 case "$HOST" in
-  yosemite|sawtooth|quicksilver|mini-g4|imac-g5|mini-intel|imac-2019) ;;
+  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|mini-intel|imac-2019) ;;
   *) echo "screenshot: unknown machine '$HOST'" >&2; exit 2 ;;
 esac
 case "$HOST" in
-  yosemite) TMO=300 ;; sawtooth|quicksilver|mini-g4) TMO=200 ;;
+  yosemite|yosemite-tiger) TMO=300 ;; sawtooth|quicksilver|mini-g4) TMO=200 ;;
   imac-g5) TMO=120 ;; mini-intel) TMO=120 ;; imac-2019) TMO=90 ;;
 esac
 

@@ -47,10 +47,20 @@ REMOTE_DIR="~/Desktop/quake3"
 COMMIT="${COMMIT:-$(git -C "$PROJ_LOCAL" rev-parse --short HEAD)}"
 mkdir -p "$RAWDIR"
 
+# TMO = timedemo wall-clock budget. COOLDOWN = settle time AFTER each run before
+# the next one launches, and it is not optional: the Rage 128 and R300 drivers
+# leave the display in a fragile state for a few seconds after a fullscreen exit,
+# and going straight into the next fullscreen launch can hang the machine. The
+# Quake II port has carried these exact values for months; this script had NO
+# cooldown at all, which is a large part of why four Macs needed power-button
+# resets on 2026-07-25. Values copied from ~/Documents/old-mac-quake2/scripts.
 case "$MACHINE" in
-  yosemite|yosemite-tiger) TMO=300 ;; sawtooth) TMO=240 ;; quicksilver|mini-g4) TMO=180 ;;
-  imac-g5) TMO=90 ;;
-  mini-intel) TMO=90 ;; imac-2019) TMO=60 ;;
+  yosemite|yosemite-tiger) TMO=300; COOLDOWN=5 ;;
+  sawtooth)                TMO=240; COOLDOWN=3 ;;
+  quicksilver|mini-g4)     TMO=180; COOLDOWN=2 ;;
+  imac-g5)                 TMO=90;  COOLDOWN=2 ;;
+  mini-intel)              TMO=90;  COOLDOWN=1 ;;
+  imac-2019)               TMO=60;  COOLDOWN=1 ;;
   *) echo "bench.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
 
@@ -81,6 +91,15 @@ fi
 # Defined BEFORE the trap that uses it: set -u would abort on an early exit.
 PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
 
+# "Is the engine still running?" — shipped to the remote box as a function.
+# BOTH forms are needed. `ps -axo comm` returns EMPTY on Tiger (that option
+# combination is unsupported there), so the check this script used to make
+# never matched: its wait loops fell straight through and it launched the next
+# run while the previous engine was still tearing down fullscreen. That is how
+# machines got wedged. `killall -0` works on Tiger but is unverified on
+# Panther, so OR the two — alive if either says so, which fails safe.
+ALIVE_FN='alive() { killall -0 ioquake3 2>/dev/null || ps ax 2>/dev/null | grep -q "[i]oquake3"; }'
+
 # Also stop any engine we left running. If this script dies (Ctrl-C, a parent
 # shell going away, a killed background job) the REMOTE engine keeps rendering
 # fullscreen with nobody polling it — that orphan is what hard-crashed mini-g4
@@ -88,10 +107,12 @@ PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
 # KILL a fullscreen ioquake3. Also clear the pid file so the next launch doesn't
 # come up on the "safe settings" modal.
 bench_cleanup() {
-  ssh -o ConnectTimeout=10 "$MACHINE" "cd $REMOTE_DIR 2>/dev/null
-    if killall -0 ioquake3 2>/dev/null; then
+  ssh -o ConnectTimeout=10 "$MACHINE" "$ALIVE_FN
+    cd $REMOTE_DIR 2>/dev/null
+    if alive; then
       killall -TERM ioquake3 2>/dev/null
-      g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
+      g=0; while [ \$g -lt 15 ]; do alive || break; sleep 1; g=\$((g+1)); done
+      alive && killall -KILL ioquake3 2>/dev/null
     fi
     rm -f \"$PIDF\"
     [ -f baseq3/autoexec.cfg.bench-aside ] && mv -f baseq3/autoexec.cfg.bench-aside baseq3/autoexec.cfg
@@ -109,9 +130,10 @@ for ((r=1; r<=RUNS; r++)); do
   LOG="$RAWDIR/${COMMIT}_${MACHINE}_${DEMO}_${RES}_run${r}.log"
   # cd/rm/launch carefully: only the engine goes to background (cd && X & would
   # background the whole chain). Integer sleeps only — Panther sleep is int-only.
-  ssh "$MACHINE" "cd $REMOTE_DIR
+  ssh "$MACHINE" "$ALIVE_FN
+    cd $REMOTE_DIR
     killall -TERM ioquake3 2>/dev/null
-    g=0; while [ \$g -lt 8 ] && ps -axo comm 2>/dev/null | grep -q '[i]oquake3'; do sleep 1; g=\$((g+1)); done
+    g=0; while [ \$g -lt 12 ]; do alive || break; sleep 1; g=\$((g+1)); done
     rm -f baseq3/qconsole.log \"$PIDF\"
     ./ioquake3 +set com_archAutoexec 0 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
       +set logfile 2 +set com_maxfps 0 +set r_fullscreen 1 \\
@@ -119,26 +141,37 @@ for ((r=1; r<=RUNS; r++)); do
       +set nextdemo quit +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &
     # FIRST wait for the engine to actually come up. Polling 'has it exited yet?'
     # straight after backgrounding is a race: on a slower Mac the process has not
-    # exec'd yet, killall -0 finds nothing, and we would 'break' immediately and
+    # exec'd yet, the check finds nothing, and we would 'break' immediately and
     # bench nothing at all. Give it up to 30s to appear.
     s=0
-    while [ \$s -lt 30 ]; do killall -0 ioquake3 2>/dev/null && break; sleep 1; s=\$((s+1)); done
-    # THEN wait for it to SELF-QUIT (nextdemo quit runs after the timedemo) rather
-    # than just for the fps line to appear. Exiting the moment the line lands left
-    # the engine still holding a fullscreen GL context while we killed it.
+    while [ \$s -lt 30 ]; do alive && break; sleep 1; s=\$((s+1)); done
+    # THEN wait for the run to finish. Two independent signals, whichever comes
+    # first — the QuakeSpasm/Quake II scripts poll the LOG and that is the robust
+    # one (it does not depend on process detection working), while process-exit
+    # confirms the engine self-quit via 'nextdemo quit'. Waiting on the log alone
+    # would move on while the engine still held the display; waiting on the
+    # process alone silently benches nothing if detection is broken.
     t=0
     while [ \$t -lt $TMO ]; do
-      killall -0 ioquake3 2>/dev/null || break
+      alive || break
+      grep -q 'frames.*seconds.*fps\\|ERROR:' baseq3/qconsole.log 2>/dev/null && break
       sleep 1; t=\$((t+1))
     done
-    # Backstop ONLY if it never self-quit: a gentle TERM, and give it time. NEVER
-    # KILL a fullscreen ioquake3 — that wedges the GPU driver. It hard-crashed the
-    # iMac G5 (black screen, fans to full, power-button recovery) on 2026-07-25.
-    if killall -0 ioquake3 2>/dev/null; then
+    # Teardown: TERM, a REAL grace period, then KILL only if it is still there.
+    # KILL is kept deliberately — the sister ports document that SDL/CoreAudio
+    # threads do not always answer SIGTERM, and an engine left running is worse
+    # than a hard kill: the next run launches fullscreen on top of it, which is
+    # what wedged four Macs on 2026-07-25. The fix is the GRACE, not removing
+    # KILL: never KILL while it may still hold the fullscreen GL context.
+    if alive; then
       killall -TERM ioquake3 2>/dev/null
-      g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
+      g=0; while [ \$g -lt 15 ]; do alive || break; sleep 1; g=\$((g+1)); done
+      alive && killall -KILL ioquake3 2>/dev/null
     fi
     rm -f \"$PIDF\"
+    # Settle before the next run — see COOLDOWN above. Skipping this is what lets
+    # a fragile post-fullscreen display state carry into the next launch.
+    sleep $COOLDOWN
     grep -E 'frames.*seconds.*fps' baseq3/qconsole.log 2>/dev/null | tail -1" \
     > "$LOG" 2>/dev/null || true
 

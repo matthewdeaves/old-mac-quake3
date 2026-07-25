@@ -32,7 +32,10 @@ esac
 
 # The bench fleet is SHARED. Launching a second fullscreen game on a box already
 # running one wedges both. Bail if anything Quake-ish is live; FORCE=1 overrides.
-BUSY="$(ssh "$HOST" "ps -axo comm,pid 2>/dev/null | grep -iE 'ioquake3|quake3|quakespasm|quake2|/quake' | grep -v grep || true")"
+# `ps ax`, NOT `ps -axo comm,pid`: the latter returns EMPTY on Tiger (unsupported
+# option combination), so this guard silently never fired on the machines that
+# needed it most — it would happily start a second fullscreen engine.
+BUSY="$(ssh "$HOST" "ps ax 2>/dev/null | grep -iE 'ioquake3|quakespasm|quake2|/quake' | grep -v grep || true")"
 if [ -n "$BUSY" ] && [ "${FORCE:-0}" != "1" ]; then
   echo "[smoke $HOST] ABORT — $HOST is already running a game (shared bench):" >&2
   echo "$BUSY" | sed 's/^/    /' >&2

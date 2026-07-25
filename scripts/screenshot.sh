@@ -48,7 +48,7 @@ SS_W=1024; SS_H=768
 INITIAL=120          # boot + precache settle before the first shot
 BETWEEN=120          # demo frames between shots
 
-BUSY="$(ssh "$HOST" "ps -axo comm 2>/dev/null | grep -iE 'ioquake3|quake3' | grep -v grep || true")"
+BUSY="$(ssh "$HOST" "ps ax 2>/dev/null | grep -iE 'ioquake3|quake3' | grep -v grep || true")"
 if [ -n "$BUSY" ] && [ "${FORCE:-0}" != "1" ]; then
   echo "[shot $HOST] ABORT — a game is already running (FORCE=1 to override)" >&2; exit 2
 fi

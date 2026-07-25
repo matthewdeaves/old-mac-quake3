@@ -105,6 +105,16 @@ Each machine runs a per-machine config at its native panel resolution. The
 G5 (1440×900); tuning is ongoing, and live numbers are in
 [`benchmarks/results.csv`](benchmarks/results.csv).
 
+**G3 performance is still being worked on, on both Panther and Tiger.** The
+449 MHz G3 with a 16 MB Rage 128 is the machine this port has to fight hardest
+for, and it is the one with the least settled configuration. It plays on both
+10.3.9 and 10.4.11 — that much is confirmed on hardware for v0.5.0 — but the
+`ppc750` profile is deliberately cautious (800×600, `r_picmip 1`, 16-bit colour
+and depth, cheap sky) and has not been re-measured on either OS since. Two open
+questions: whether that baseline is leaving framerate on the table, and whether
+Panther and Tiger actually differ on this hardware. Treat the ~22 fps figure as
+the last known good number rather than a current one.
+
 ## Features
 
 - **One fat binary for every machine** — `ppc750` (G3), `ppc7400` (G4 AltiVec)

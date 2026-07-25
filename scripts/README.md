@@ -16,12 +16,16 @@ recovery; `safebench.sh` is the safe ssh timedemo (single-session, self-quit).
 | mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | lion (x86_64) | mini-intel |
 | imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7.5 | lion (x86_64) | imac-2019 |
 
-`mini-intel` is also the cross-build host (rsync target `mini-intel:quake3/`).
+Cross-building happens on EITHER Intel mini — `mini-intel` or `mini-intel2`,
+identical Macmini2,1 / 10.7.5 boxes. The build scripts ask
+`pick-build-host.sh --acquire` for a free one rather than hardcoding; the rsync
+target directory is always `<host>:quake3/`. `mini-intel` is additionally a
+runnable bench reference.
 
 ## Pipeline
 
 ```
-build.sh <g3|g4|lion>                    # one slice on mini-intel -> build/ioquake3-<t>
+build.sh <g3|g4|lion>                    # one slice on a claimed Intel mini -> build/ioquake3-<t>
 build-fat.sh                             # lipo all three -> build/ioquake3-fat
 deploy.sh <machine>                      # ship fat binary + autoexec -> ~/Desktop/quake3/
 bench.sh <machine> <demo> <WxH> [runs]   # one timedemo -> benchmarks/results.csv

@@ -155,12 +155,22 @@ tag rows with `(commit, machine, demo, res)`.
 
 There are now **TWO interchangeable Intel cross-build minis**: `mini-intel`
 (10.188.1.190) and `mini-intel2` (10.188.1.216) — same Macmini2,1 / 10.7.5 /
-identical toolchain, so either can build any slice. `build.sh` / `build-fat.sh`
-no longer hardcode a host: they call `scripts/pick-build-host.sh --acquire` to
-take one that is reachable and idle, and release it on exit. So this port and
-the QuakeSpasm / Quake II / Half-Life sister projects can build **at the same
-time on different minis**. `BUILD_HOST=<alias>` pins one;
+identical toolchain, so either can build any slice. **All three scripts that
+compile** — `build.sh`, `build-fat.sh` and `build-gamedylibs.sh` — call
+`scripts/pick-build-host.sh --acquire` to take a host that is reachable and idle,
+and release it on exit; none of them hardcode one. So this port and the
+QuakeSpasm / Quake II / Half-Life sister projects can build **at the same time on
+different minis**. `BUILD_HOST=<alias>` pins one;
 `scripts/pick-build-host.sh --status` shows both.
+
+`build-fat.sh` and `build-gamedylibs.sh` claim ONE host up front and hold it for
+their whole run (three slices plus the `lipo`), rather than re-picking per slice —
+the slices have to be lipo'd together on the same box, and a sister project must
+not take it midway.
+
+Other scripts naming `mini-intel` are NOT build-host references and are correct as
+they stand: it is a bench target (`bench.sh`, `parallel-bench.sh`, `smoke-dmg.sh`,
+`screenshot.sh`, `deploy*.sh`) and the game-data source (`distribute-data.sh`).
 
 **Why the claim lives on the mini, not in the repo:** the per-checkout `flock`
 below cannot see a build another repo (or another Claude) started on the same

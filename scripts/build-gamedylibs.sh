@@ -31,7 +31,21 @@
 #
 set -euo pipefail
 
-BUILD_HOST="${BUILD_HOST:-mini-intel}"
+# Pin ONE Intel build host for the whole run and claim it, exactly as build.sh /
+# build-fat.sh do — this script rsyncs, builds three slices and lipos, so it must
+# hold the same box throughout and must not have another project take it midway.
+# Explicit BUILD_HOST always wins. See scripts/pick-build-host.sh --status.
+BUILD_HOST_CLAIMED=0
+if [ -z "${BUILD_HOST:-}" ]; then
+  BUILD_HOST="$(BUILD_LOCK_WAIT="${BUILD_LOCK_WAIT:-900}" \
+    "$(cd "$(dirname "$0")" && pwd)/pick-build-host.sh" --acquire "quake3 build-gamedylibs")" || {
+    echo "build-gamedylibs: no free Intel build host; see scripts/pick-build-host.sh --status" >&2
+    exit 1
+  }
+  BUILD_HOST_CLAIMED=1
+  echo "==> claimed build host: $BUILD_HOST (held for all three slices + lipo)"
+fi
+trap '[ "$BUILD_HOST_CLAIMED" = 1 ] && "$(cd "$(dirname "$0")" && pwd)/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 PROJ_REMOTE="quake3"
 LOCK="$PROJ_LOCAL/build/.build.lock"

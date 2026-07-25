@@ -5,11 +5,20 @@ they apply identically to this fleet.
 
 ## Hard rules
 
-- **rsync target is ALWAYS `mini-intel:quake3/`** — never `quakespasm/`,
-  never `quake2/`, never `mini-intel:~/`. `build.sh` hard-codes it.
+- **rsync target directory is ALWAYS `quake3/`** on whichever build host —
+  never `quakespasm/`, never `quake2/`, never `<host>:~/`. The scripts hardcode
+  the DIRECTORY (`PROJ_REMOTE=quake3`); they no longer hardcode the HOST.
+- **The build host is chosen at runtime, not fixed.** There are two identical
+  Intel minis (`mini-intel`, `mini-intel2`). `build.sh`, `build-fat.sh` and
+  `build-gamedylibs.sh` all call `pick-build-host.sh --acquire` for a free one
+  and release it on exit. `BUILD_HOST=<alias>` pins one; `--status` shows both.
+  `build-fat.sh` / `build-gamedylibs.sh` hold ONE host for their whole run,
+  because the slices must be lipo'd together on the same box.
 - **`build.sh` flocks `build/.build.lock`.** Don't run g3 + g4 by hand in
   parallel — both are `ARCH=ppc`, share the remote tree, and race `.o` files
-  into a wrong-CPU-subtype binary. Use `build-fat.sh` (sequences them).
+  into a wrong-CPU-subtype binary. Use `build-fat.sh` (sequences them). Note the
+  flock is per-checkout and cannot see a build another repo started on the same
+  mini — that is what the picker's on-host lock is for.
 - After a build, sanity-check: `file build/ioquake3-g3` → `ppc750`,
   `-g4` → `ppc7400`, `-lion` → `x86_64`.
 

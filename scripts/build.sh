@@ -7,10 +7,12 @@
 # NOT Quake/Makefile.darwin like QuakeSpasm. Baseline is the last SDL 1.2
 # commit (branch master, rooted at 4432a80a); see ../CLAUDE.md.
 #
-# ⚠️ v0 DRAFT — the build pipeline has NOT been validated end-to-end. The
-#    two known-unresolved items are (1) a fat SDL 1.2 dylib for ppc750+
-#    ppc7400+x86_64, and (2) compiling 2013 ioquake3 against the 10.3.9 SDK.
-#    See KICKOFF_PROMPT.md. Expect to iterate on the make invocation below.
+# VALIDATED — this builds all three slices and they run on real hardware. The
+# two items that were open at kickoff are both resolved (2026-05-26): the fat
+# SDL 1.2 dylib is QuakeSpasm's Panther-safe 1.2.15 with SDLMain.m compiled
+# from source (the bundled 10.4+ libSDLmain.a SIGSEGVs on Panther), and 2013
+# ioquake3 compiles clean against the 10.3.9 SDK with gcc-4.0. See ../CLAUDE.md
+# for the resolved-items list and ../MISTAKES.md for the SDL detail.
 #
 set -euo pipefail
 

@@ -1,5 +1,11 @@
 # Kickoff prompt — ioquake3 old-Mac port
 
+> **Historical — superseded.** This is the prompt that started the port in May 2026,
+> kept as a record of the original plan. It is no longer accurate: the pipeline was
+> made real, the scripts are validated and in daily use, and the port ships. For
+> current state read [`CLAUDE.md`](CLAUDE.md); the statements below about nothing
+> having compiled and the scripts being v0 drafts no longer hold.
+
 Start a new Claude Code session **from `~/quake3`** and paste the block below.
 (Everything it needs is already in this repo: read `CLAUDE.md` first.)
 

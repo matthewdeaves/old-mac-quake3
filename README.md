@@ -46,6 +46,22 @@ Q3 shipped in 1999.
 | mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | x86_64 |
 | imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7 | x86_64 |
 
+### Which OS each CPU needs
+
+Three slices cover four CPU families — the G5 runs the same `ppc7400` slice as the G4s —
+and each is built against the SDK of the OS that family runs here:
+
+| CPU | Slice | OS needed |
+|---|---|---|
+| G3 (750) | `ppc750` | 10.3.9 Panther or later |
+| G4 (7400 / 7450 / 7447A) | `ppc7400` | 10.4 Tiger or later |
+| G5 (970) | `ppc7400` | **10.5 Leopard — a G5 on an older OS is not supported** |
+| Intel, 64-bit | `x86_64` | 10.7 Lion or later |
+
+`dyld` picks a slice by CPU alone; the OS plays no part in it. So a Mac running an OS
+older than its slice needs gets that slice anyway rather than falling back to a lower
+one, and won't launch. 32-bit-only Intel Macs (Core Duo / Core Solo) have no slice at all.
+
 ## Framerate
 
 Each machine runs a per-machine config at its native panel resolution. The

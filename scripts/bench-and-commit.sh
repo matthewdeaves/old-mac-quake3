@@ -3,7 +3,7 @@
 # bench-and-commit.sh "<phase>" [parallel-bench args...] — clean-tree bench,
 # then commit the rows tagged to HEAD. Refuses a dirty tree (bench data must
 # attribute to a real commit). Two commits per phase: code first, then this.
-# Adapted from ~/quakespasm/scripts. v0 DRAFT.
+# Adapted from ~/quakespasm/scripts.
 #
 set -uo pipefail
 

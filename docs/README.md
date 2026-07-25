@@ -1,8 +1,10 @@
 # docs/ — index
 
 Documentation for the ioquake3 old-Mac port. Sticky facts live in the
-repo-root [`CLAUDE.md`](../CLAUDE.md); the validation plan is in
-[`../KICKOFF_PROMPT.md`](../KICKOFF_PROMPT.md).
+repo-root [`CLAUDE.md`](../CLAUDE.md).
+[`../KICKOFF_PROMPT.md`](../KICKOFF_PROMPT.md) is the original kickoff plan,
+kept for history — it describes a pipeline that has since been built and
+validated, so don't read it as current state.
 
 ## Live references
 

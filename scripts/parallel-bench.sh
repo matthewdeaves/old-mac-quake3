@@ -2,7 +2,7 @@
 #
 # parallel-bench.sh [--quick] [--reset] [--no-<machine> ...] — run the Q3
 # timedemo matrix across the fleet concurrently, append to results.csv.
-# Adapted from ~/quakespasm/scripts. v0 DRAFT.
+# Adapted from ~/quakespasm/scripts.
 #
 # CSV append is atomic for our short rows (<PIPE_BUF); header init is noclobber
 # (in bench.sh) — so six concurrent legs are safe. COMMIT is resolved ONCE here

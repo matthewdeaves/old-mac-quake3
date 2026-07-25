@@ -4,10 +4,12 @@
 # Mac. Quake III runs from ~/Desktop/quake3/ with baseq3/ alongside the
 # binary (no .app needed for benching). Adapted from ~/quakespasm/scripts.
 #
-# ⚠️ v0 DRAFT. Game data (baseq3/*.pk3) currently lives ONLY on mini-intel
-#    (the machine with Q3 installed). Other machines need baseq3 copied to
-#    them before benching — see scripts/distribute-data.sh / KICKOFF_PROMPT.md.
-#    An .app bundle (icon, Info.plist, SDL framework) is a later nicety.
+# Game data (baseq3/*.pk3) is NOT shipped by this script — it originates on
+# mini-intel (the machine with Q3 installed) and is copied to a bench machine by
+# scripts/distribute-data.sh. This script checks how many pk3s are present and
+# warns if there are none (see the presence check below), rather than deploying
+# them itself. The .app bundle (icon, Info.plist, fat binary) is built by
+# make-app.sh and IS deployed here alongside the raw binary that bench.sh uses.
 #
 set -euo pipefail
 

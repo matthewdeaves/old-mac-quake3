@@ -11,11 +11,14 @@
 #
 # <demo> is a real Q3 demo name (NOT Quake's demo1/2/3). Enumerate the demos
 # in the staged pk3s first (point-release demos are .dm_68 inside pak8.pk3);
-# "four" is the classic. See KICKOFF_PROMPT.md.
+# "four" is the classic.
 #
-# ⚠️ v0 DRAFT. Determinism note: Q3 execs autoexec.cfg at startup, then our
-#    cmdline +set overrides win for res/timedemo. If per-machine autoexec
-#    cvars pollute comparisons, rename it aside during bench (kickoff item).
+# Determinism: Q3 execs autoexec.cfg at startup and the in-engine auto-config
+# execs the bundled per-arch + per-machine cfgs, either of which would pollute
+# a comparison. Both are suppressed for the duration of a bench — the deployed
+# autoexec.cfg is moved aside and restored on exit (see restore_autoexec below),
+# and the engine is launched with `+set com_archAutoexec 0`. Our cmdline +set
+# then owns res/timedemo outright.
 #
 set -euo pipefail
 

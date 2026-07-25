@@ -35,17 +35,22 @@ set -euo pipefail
 # build-fat.sh do — this script rsyncs, builds three slices and lipos, so it must
 # hold the same box throughout and must not have another project take it midway.
 # Explicit BUILD_HOST always wins. See scripts/pick-build-host.sh --status.
+# HERE is resolved ONCE, up front: the EXIT trap below must still find the picker
+# even if this script later cd's, and re-deriving it from $0 inside the trap would
+# break silently there (the release is stderr-suppressed, so the lock would just
+# leak until the stale sweep reclaimed it).
+HERE="$(cd "$(dirname "$0")" && pwd)"
 BUILD_HOST_CLAIMED=0
 if [ -z "${BUILD_HOST:-}" ]; then
   BUILD_HOST="$(BUILD_LOCK_WAIT="${BUILD_LOCK_WAIT:-900}" \
-    "$(cd "$(dirname "$0")" && pwd)/pick-build-host.sh" --acquire "quake3 build-gamedylibs")" || {
+    "$HERE/pick-build-host.sh" --acquire "quake3 build-gamedylibs")" || {
     echo "build-gamedylibs: no free Intel build host; see scripts/pick-build-host.sh --status" >&2
     exit 1
   }
   BUILD_HOST_CLAIMED=1
   echo "==> claimed build host: $BUILD_HOST (held for all three slices + lipo)"
 fi
-trap '[ "$BUILD_HOST_CLAIMED" = 1 ] && "$(cd "$(dirname "$0")" && pwd)/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
+trap '[ "$BUILD_HOST_CLAIMED" = 1 ] && "$HERE/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 PROJ_REMOTE="quake3"
 LOCK="$PROJ_LOCAL/build/.build.lock"

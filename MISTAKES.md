@@ -306,3 +306,46 @@ a live engine.
 dangerous than one that errors, because the caller concludes it is safe to launch
 another fullscreen engine. Test detection code by asserting it finds something
 you KNOW is running, not by watching it find nothing.
+
+## Every bench script said PASS while the .app wouldn't open at all — 2026-07-26
+
+Reported from hardware: double-clicking ioquake3 on `mini-intel` (Lion 10.7.5)
+gave *"damaged or incomplete"*, from the Dock and from the folder. The same
+build launched fine on the G3 under Panther.
+
+Nothing was wrong with the build. The deployed fat binary was byte-identical to
+`build/ioquake3-fat` (md5 `4e716b6d…`), `lipo` listed all three slices, the
+bundle was complete, the Finder bundle bit was set, and there was no quarantine
+xattr anywhere. `scripts/smoke-dmg.sh mini-intel` passed on the production path:
+1260 frames, 40.3 fps at 1920×1080.
+
+The fault was in Lion's LaunchServices database. Comparing our record with a
+known-good sister app on the same machine:
+
+```
+Desktop/quake/Quakespasm.app   executable: Contents/MacOS/quakespasm
+Desktop/quake3/ioquake3.app    executable:                            ← blank
+                               exec inode: 1511892                    ← correct!
+```
+
+LS had the executable's inode but had lost its *path*, so it could not launch
+the bundle. `deploy.sh` rsyncs `Contents/MacOS/ioquake3` in place inside a
+bundle LS is already watching, and on Lion that intermittently leaves the record
+half-written. `lsregister -f <app>` repopulates it immediately.
+
+**Why no script caught it.** `bench.sh` runs `./ioquake3`; `safebench.sh`,
+`screenshot.sh` and `smoke-dmg.sh` run `ioquake3.app/Contents/MacOS/ioquake3`.
+All four **exec the binary directly over ssh** and never go through
+LaunchServices — the exact layer that was broken. The whole verification
+pipeline was structurally blind to the only failure a human ever sees. Panther
+and Tiger don't hit it, so the PPC fleet kept working and hid it further.
+
+`deploy.sh` now runs `lsregister -f` on the deployed bundle after every deploy
+and **asserts the `executable:` field came back non-empty**, warning loudly if
+not. (The tool moved to `CoreServices.framework` at 10.5; Panther/Tiger keep it
+under `ApplicationServices.framework` — both paths are tried.)
+
+**Lesson:** "the binary runs" and "the app opens" are different claims, and this
+project's entire test suite only ever proved the first. When every automated
+check is green and the user still can't launch the thing, suspect the layer your
+harness bypasses for convenience — here, launching it the way a human does.

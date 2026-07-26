@@ -75,6 +75,38 @@ if [ -f "$SBB" ]; then
   ssh "$MACHINE" "chmod +x $REMOTE_DIR/.set-bundle-bit && $REMOTE_DIR/.set-bundle-bit $REMOTE_DIR/ioquake3.app 2>&1 | sed 's/^/    /' || echo '    (bundle-bit set failed — non-fatal)'"
 fi
 
+# --- re-register the bundle with LaunchServices -------------------------------
+# rsync replaces Contents/MacOS/ioquake3 in place inside a bundle LS is already
+# watching, and on Lion that intermittently leaves the LS record with an EMPTY
+# `executable:` path (the exec inode is recorded, the name is lost). Finder and
+# the Dock then refuse to launch it with "damaged or incomplete" — even though
+# the Mach-O is byte-perfect and runs when exec'd directly, which is why every
+# bench/smoke script (they call the binary, not `open`) reports PASS and the bug
+# only ever shows up under a double-click. Hit on mini-intel 2026-07-26.
+# Forcing a re-scan after every deploy makes double-click launch deterministic.
+# Path moved into CoreServices.framework at 10.5; Panther/Tiger keep it under
+# ApplicationServices. Non-fatal — this is polish, not correctness.
+echo "==> [$MACHINE] re-register ioquake3.app with LaunchServices"
+ssh "$MACHINE" "
+  for lsr in \
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+    /System/Library/Frameworks/ApplicationServices.framework/Frameworks/LaunchServices.framework/Support/lsregister; do
+    if [ -x \"\$lsr\" ]; then
+      \"\$lsr\" -f $REMOTE_DIR/ioquake3.app
+      # Assert it took: a blank \`executable:\` is exactly the broken state above.
+      # Resolve REMOTE_DIR to an absolute path on the far side — lsregister dumps
+      # absolute paths, and REMOTE_DIR is a literal '~/...' string here.
+      app=\$(cd $REMOTE_DIR && pwd)/ioquake3.app
+      exe=\$(\"\$lsr\" -dump 2>/dev/null | grep -A20 \"path: *\$app\\\$\" \
+              | sed -n 's/^[[:space:]]*executable:[[:space:]]*//p' | head -1)
+      if [ -n \"\$exe\" ]; then echo \"    OK — LS executable: \$exe\"
+      else echo '    WARNING — LS record still has no executable; double-click will say \"damaged\"'; fi
+      exit 0
+    fi
+  done
+  echo '    (lsregister not found — skipped)'
+" || echo "    (lsregister failed — non-fatal)"
+
 echo "==> [$MACHINE] verify"
 ssh "$MACHINE" "cd $REMOTE_DIR && file ioquake3 | sed 's/^/    /' && echo '    app binary:' && file ioquake3.app/Contents/MacOS/ioquake3 | sed 's/^/    /' && ls -la baseq3/autoexec.cfg 2>/dev/null"
 echo "==> [$MACHINE] deployed."

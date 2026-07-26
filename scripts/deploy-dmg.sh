@@ -86,6 +86,26 @@ if [ -x "$DEST/.set-bundle-bit" ]; then
   "$DEST/.set-bundle-bit" "$DEST/ioquake3.app" >/dev/null 2>&1 || true
 fi
 
+# Re-register with LaunchServices. The rm -rf + ditto above gives the bundle new
+# inodes, and LS can be left holding the old ones (or, on Lion, a record with a
+# blank `executable:` path) — Finder then says "damaged or incomplete" for a
+# perfectly good app. Every script here execs the binary directly and so never
+# exercises this path. See MISTAKES.md 2026-07-26. Non-fatal.
+#
+# NOTE the `if` rather than `[ -x ... ] && { ...; }`: this block runs under
+# `set -e`, and the && form returns non-zero on the Macs where the first path is
+# absent (it moved to CoreServices at 10.5; Panther/Tiger keep it under
+# ApplicationServices). That would abort the remote script here — BEFORE the
+# hdiutil detach below — and leave the DMG mounted on the target.
+for lsr in \
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+  /System/Library/Frameworks/ApplicationServices.framework/Frameworks/LaunchServices.framework/Support/lsregister; do
+  if [ -x "$lsr" ]; then
+    "$lsr" -f "$DEST/ioquake3.app" >/dev/null 2>&1 || true
+    break
+  fi
+done
+
 # detach — retry until the slow-disk flush completes; only THEN rmdir the now-
 # empty mountpoint.
 detached=no

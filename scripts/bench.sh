@@ -196,5 +196,13 @@ TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "$TS,$COMMIT,$MACHINE,$DEMO,$RES,${FPS[1]:-NA},${FPS[2]:-NA},${FPS[3]:-NA},$MED" >> "$CSV"
 echo "==> [$MACHINE] median ${MED} fps -> results.csv"
 
+# PRECAUTIONARY, and honestly labelled as such: unlike safebench/screenshot/
+# smoke-dmg, this script runs the LOOSE ./ioquake3, not the one inside the
+# bundle, so there is no obvious mechanism by which it could corrupt the .app's
+# LaunchServices record — but that has NOT been measured, and the equivalent
+# assumption about the cause was already wrong once (see MISTAKES.md 2026-07-26).
+# The call is idempotent and costs one ssh, so pay it rather than reason about it.
+"$(dirname "$0")/lsregister-app.sh" "$MACHINE" --quiet || true
+
 [ "$MED" = NA ] && { echo "bench.sh: NA result (timeout/crash/no fps line)"; exit 1; }
 exit 0

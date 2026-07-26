@@ -328,24 +328,52 @@ Desktop/quake3/ioquake3.app    executable:                            ← blank
                                exec inode: 1511892                    ← correct!
 ```
 
-LS had the executable's inode but had lost its *path*, so it could not launch
-the bundle. `deploy.sh` rsyncs `Contents/MacOS/ioquake3` in place inside a
-bundle LS is already watching, and on Lion that intermittently leaves the record
-half-written. `lsregister -f <app>` repopulates it immediately.
+LS had the executable's inode but had lost its *path*, so it could not launch the
+bundle. `lsregister -f <app>` repopulates it immediately.
 
-**Why no script caught it.** `bench.sh` runs `./ioquake3`; `safebench.sh`,
-`screenshot.sh` and `smoke-dmg.sh` run `ioquake3.app/Contents/MacOS/ioquake3`.
-All four **exec the binary directly over ssh** and never go through
-LaunchServices — the exact layer that was broken. The whole verification
-pipeline was structurally blind to the only failure a human ever sees. Panther
-and Tiger don't hit it, so the PPC fleet kept working and hid it further.
+**The first fix was in the wrong place, because the first diagnosis was wrong.**
+The obvious suspect was `deploy.sh`: it rsyncs `Contents/MacOS/ioquake3` in place
+inside a bundle LS is already watching, so a half-written record looked like a
+deploy artefact. `deploy.sh` was duly taught to re-register, it was verified
+green, and it was pushed. Then the actual cause was measured:
 
-`deploy.sh` now runs `lsregister -f` on the deployed bundle after every deploy
-and **asserts the `executable:` field came back non-empty**, warning loudly if
-not. (The tool moved to `CoreServices.framework` at 10.5; Panther/Tiger keep it
-under `ApplicationServices.framework` — both paths are tried.)
+```
+after deploy.sh (with the fix)   executable: Contents/MacOS/ioquake3
+after ONE smoke-dmg.sh run       executable:                          ← blank again
+```
 
-**Lesson:** "the binary runs" and "the app opens" are different claims, and this
-project's entire test suite only ever proved the first. When every automated
+**It is our own bench tooling that breaks it.** `safebench.sh`, `screenshot.sh`
+and `smoke-dmg.sh` launch `ioquake3.app/Contents/MacOS/ioquake3` directly over
+ssh — they have to, because the bench needs one ssh session that outlives the
+app. (`bench.sh` runs the *loose* `./ioquake3` instead, which has no bundle for
+LS to register, so it is probably innocent; it calls the repair anyway, labelled
+precautionary, because that "probably" is the same kind of reasoning that
+produced the wrong diagnosis above and one ssh is cheaper than being wrong
+twice.) On Lion, running the *bundle's* executable that way makes LS
+re-register the bundle from the live process, and since the launch never came
+from LS it stores the record with an empty `executable:`. Deploy → bench is the
+normal order, so re-registering only at deploy time fixed nothing: the very next
+bench re-broke it.
+
+The repair now lives in `scripts/lsregister-app.sh` and is called by every script
+that direct-execs the engine, on its way out. It asserts the `executable:` field
+came back non-empty rather than trusting `lsregister -f`, and is non-fatal by
+contract — launch polish must never fail a bench.
+
+**Why no script caught the original bug.** All four of them exec the binary and
+never go through LaunchServices — the exact layer that was broken. The whole
+verification pipeline was structurally blind to it, and worse, was *causing* it.
+Panther and Tiger have not been seen doing this, so the PPC fleet kept working
+and hid it further.
+
+**Lesson 1:** "the binary runs" and "the app opens" are different claims, and
+this project's entire test suite only ever proved the first. When every automated
 check is green and the user still can't launch the thing, suspect the layer your
 harness bypasses for convenience — here, launching it the way a human does.
+
+**Lesson 2:** a fix that makes the symptom go away is not evidence you found the
+cause. Re-registering at deploy time *did* produce a good record and *did* verify
+green — and was still worthless, because nothing had tested what happens next in
+the normal workflow. The cheap test that would have caught it immediately, and
+that was skipped in favour of a plausible story about rsync: break it, apply the
+fix, then **run the rest of the pipeline and look again**.

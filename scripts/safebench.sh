@@ -115,6 +115,12 @@ fi
 if [ "${stuck:-0}" = 1 ]; then
   echo "[$M $RES] ${fps:-NO-FPS} — engine STUCK in exit (GPU-driver wedge); rebooting"; reboot_m; exit 1
 fi
+# We launched the bundle's binary directly (line ~81), which on Lion blanks the
+# LaunchServices `executable:` path and makes Finder call the app "damaged".
+# Repair it — but only here, past the unresponsive/stuck checks above, so we
+# never poke a machine that is mid-reboot. See scripts/lsregister-app.sh.
+"$(dirname "$0")/lsregister-app.sh" "$M" --quiet || true
+
 ncrash=$(ssh $SSHO "$M" "ls ~/Library/Logs/CrashReporter/ioquake3* 2>/dev/null | wc -l | tr -d ' '" 2>/dev/null)
 echo "[$M $RES] ${fps:-NO-FPS-LINE}${ncrash:+  (crashlogs=$ncrash)}"
 [ -n "$fps" ] && exit 0 || exit 1

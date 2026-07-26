@@ -102,3 +102,7 @@ for f in $(ls "$TMPD"/*.jpg 2>/dev/null | sort); do
   n=$((n+1))
 done
 echo "[shot $HOST] saved $n screenshots -> $OUT/q3-$HOST-NN.jpg"
+
+# Same direct-exec of the bundle binary as the bench scripts, same LaunchServices
+# damage on Lion — repair it before we leave. See scripts/lsregister-app.sh.
+"$(dirname "$0")/lsregister-app.sh" "$HOST" --quiet || true

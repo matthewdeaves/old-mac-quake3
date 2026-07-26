@@ -93,6 +93,13 @@ rm -f "$TMP"
 echo "[smoke $HOST] renderer : ${MODE_LINE:-<none>}"
 echo "[smoke $HOST] result   : ${FPS_LINE:-<NO FPS LINE>}"
 
+# This script just exec'd the bundle's binary directly, which on Lion leaves the
+# LaunchServices record with a blank executable path and breaks double-click.
+# MEASURED here: one smoke run flipped a good record to blank. Repair on the way
+# out, on both the pass and fail paths — a smoke test must not leave the machine
+# less launchable than it found it. See scripts/lsregister-app.sh.
+"$(dirname "$0")/lsregister-app.sh" "$HOST" || true
+
 if [ -n "$FPS_LINE" ]; then
   echo "[smoke $HOST] PASS — world rendered to completion on the production path"
   exit 0

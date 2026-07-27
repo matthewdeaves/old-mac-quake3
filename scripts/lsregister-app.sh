@@ -11,11 +11,16 @@
 # exec'ing the Mach-O directly over ssh — they never go through LaunchServices,
 # because they need one ssh session that outlives the app (see scripts/CLAUDE.md).
 #
-# On Lion, running the bundle's executable that way makes LS re-register the
-# bundle from the live process, and because the launch did not originate from LS
-# it writes the record with an EMPTY `executable:` path — the inode is stored,
-# the name is lost. Finder and the Dock then refuse to open a perfectly good app
-# with "damaged or incomplete". Measured on mini-intel 2026-07-26:
+# The precise trigger (measured 2026-07-27, narrower than "direct exec"): the
+# engine `dlopen`s a game module from INSIDE the bundle —
+# Contents/MacOS/baseq3/{cgame,qagame,ui}*.dylib, when the arch cfg sets vm_* 0.
+# A dlopen inside an .app from a process LS did not launch makes LS register the
+# bundle off the live process, and it writes the record with an EMPTY
+# `executable:` path — the inode is stored, the name is lost. Finder and the Dock
+# then refuse to open a perfectly good app with "damaged or incomplete".
+# Load-time linkage is fine: libSDL-1.2.0.dylib sits in the same bundle and is
+# resolved by dyld via @executable_path without provoking any of this.
+# Measured on mini-intel 2026-07-26:
 #
 #     after deploy.sh          executable: Contents/MacOS/ioquake3
 #     after ONE smoke-dmg run  executable:            <- blank

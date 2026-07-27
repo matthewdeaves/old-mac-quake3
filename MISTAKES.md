@@ -345,15 +345,46 @@ after ONE smoke-dmg.sh run       executable:                          ← blank 
 **It is our own bench tooling that breaks it.** `safebench.sh`, `screenshot.sh`
 and `smoke-dmg.sh` launch `ioquake3.app/Contents/MacOS/ioquake3` directly over
 ssh — they have to, because the bench needs one ssh session that outlives the
-app. (`bench.sh` runs the *loose* `./ioquake3` instead, which has no bundle for
-LS to register, so it is probably innocent; it calls the repair anyway, labelled
-precautionary, because that "probably" is the same kind of reasoning that
-produced the wrong diagnosis above and one ssh is cheaper than being wrong
-twice.) On Lion, running the *bundle's* executable that way makes LS
-re-register the bundle from the live process, and since the launch never came
-from LS it stores the record with an empty `executable:`. Deploy → bench is the
-normal order, so re-registering only at deploy time fixed nothing: the very next
-bench re-broke it.
+app. Deploy → bench is the normal order, so re-registering only at deploy time
+fixed nothing: the very next bench re-broke it.
+
+**The exact trigger — measured 2026-07-27, and narrower than "direct exec".**
+Second-guessing "exec'ing the bundle binary does it" turned out to be necessary,
+because that is also wrong. A single-variable run settles it:
+
+```
+smoke run, native game dylibs (vm_* 0)   reg date CHANGED,   executable: BLANK
+smoke run, QVM path           (vm_* 1)   reg date UNCHANGED, executable: intact
+```
+
+Same binary, same bundle, same direct-exec launch, same `libSDL-1.2.0.dylib`
+loaded out of `Contents/MacOS/`. The only difference is whether the engine
+`dlopen`s a game module from **inside** the `.app`
+(`Contents/MacOS/baseq3/{cgame,qagame,ui}*.dylib`, via `Sys_LoadLibrary` →
+`dlopen`, `code/sys/sys_loadlib.h:32`).
+
+So the trigger is: **`dlopen()` of a file inside the `.app`, in a process
+LaunchServices did not launch.** LS registers the bundle off the live process,
+and since the launch did not come from LS the record gets an empty `executable:`.
+
+Load-time linkage does **not** do it — `libSDL-1.2.0.dylib` lives in the same
+bundle, is resolved by dyld at launch through `@executable_path`, and the QVM run
+above loaded it without provoking LS.
+
+That also explains why `bench.sh` is innocent: it runs the loose `./ioquake3`
+(no enclosing bundle) *and* passes `com_archAutoexec 0`, so the arch cfg that
+sets `vm_* 0` never runs and no bundle module is ever `dlopen`d. It still calls
+the repair — one ssh is cheap, and the call keeps working if either of those two
+facts ever changes.
+
+**The sister ports were checked against this and are safe for three different
+reasons** (measured on mini-intel 2026-07-27, both records untouched by a smoke
+run): QuakeSpasm ships nine dylibs in its bundle but **load-time links** all of
+them and never calls `dlopen`; Quake II **does** call `dlopen` but its
+`ref_gl.so` / `baseq2/game.so` live in the deploy root, **outside** `Quake2.app`.
+Either would become exposed by a change that sounds like tidying up — moving the
+codecs to runtime loading, or making the `.app` "self-contained" by pulling the
+game modules inside it. That is precisely what this port did.
 
 The repair now lives in `scripts/lsregister-app.sh` and is called by every script
 that direct-execs the engine, on its way out. It asserts the `executable:` field

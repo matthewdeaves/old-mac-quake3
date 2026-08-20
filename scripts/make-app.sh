@@ -63,7 +63,7 @@ if [ -f "$SDL2" ]; then
   cp "$SDL2" "$APP/Contents/MacOS/libSDL2-2.0.0.dylib"
   echo "==> bundled libSDL2-2.0.0.dylib ($(lipo -archs "$SDL2" 2>/dev/null || echo arm64)) for the arm64 slice"
 else
-  echo "==> no $SDL2 — arm64 slice will find no SDL2 and fail to start"
+  echo "==> no $SDL2: arm64 slice will find no SDL2 and fail to start"
 fi
 
 # Per-arch + per-machine auto-config: the engine (Com_AutoConfigForMachine in

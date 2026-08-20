@@ -135,7 +135,7 @@ for ((r=1; r<=RUNS; r++)); do
     killall -TERM ioquake3 2>/dev/null
     g=0; while [ \$g -lt 12 ]; do alive || break; sleep 1; g=\$((g+1)); done
     rm -f baseq3/qconsole.log \"$PIDF\"
-    ./ioquake3 +set com_archAutoexec 0 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
+    ./ioquake3-bench +set com_archAutoexec 0 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
       +set logfile 2 +set com_maxfps 0 +set r_fullscreen 1 \\
       +set r_mode -1 +set r_customwidth $W +set r_customheight $H \\
       +set nextdemo quit +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &
@@ -198,7 +198,7 @@ echo "==> [$MACHINE] median ${MED} fps -> results.csv"
 
 # Belt-and-braces. MEASURED 2026-07-27: the LaunchServices corruption needs a
 # dlopen() from INSIDE the .app, and this script triggers neither half of that —
-# it runs the loose ./ioquake3 (no enclosing bundle) AND passes com_archAutoexec 0,
+# it runs the loose ./ioquake3-bench (no enclosing bundle) AND passes com_archAutoexec 0,
 # so the arch cfg that sets vm_* 0 never runs and no bundle module is loaded.
 # Kept anyway: the call is idempotent and costs one ssh, and it keeps working if
 # either of those two facts changes. See MISTAKES.md 2026-07-26/27.

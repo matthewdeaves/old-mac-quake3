@@ -43,10 +43,19 @@ ssh "$MACHINE" "mkdir -p $REMOTE_DIR/baseq3
   echo \"    baseq3 pk3s present: \$n\"
   [ \"\$n\" -ge 1 ] || echo '    ⚠️  no game data here yet — copy baseq3 pk3s before benching'"
 
-echo "==> [$MACHINE] ship fat binary -> $REMOTE_DIR/ioquake3"
+# NOT "ioquake3". Finder hides the .app extension, so a loose Mach-O called
+# ioquake3 sitting beside ioquake3.app shows up as a SECOND thing called
+# "ioquake3", with a generic Unix-executable icon. Only the bundle can be
+# opened; double-clicking the loose one cannot work, and on 2026-07-26 that
+# duplicate cost real time to rule out while chasing an unrelated launch bug.
+# bench.sh wants a bare Mach-O it can exec over ssh, so the file still ships,
+# under a name nobody will mistake for the game. Issue #10.
+echo "==> [$MACHINE] ship fat binary -> $REMOTE_DIR/ioquake3-bench"
 # --checksum: size+mtime can miss a stale binary on these machines.
-rsync -av --partial --checksum $RSYNC_EXTRA "$FAT" "$MACHINE:$REMOTE_DIR/ioquake3"
-ssh "$MACHINE" "chmod +x $REMOTE_DIR/ioquake3"
+rsync -av --partial --checksum $RSYNC_EXTRA "$FAT" "$MACHINE:$REMOTE_DIR/ioquake3-bench"
+ssh "$MACHINE" "chmod +x $REMOTE_DIR/ioquake3-bench"
+# Clear the old name if this machine was deployed to before the rename.
+ssh "$MACHINE" "rm -f $REMOTE_DIR/ioquake3"
 
 echo "==> [$MACHINE] ship SDL 1.2 dylib -> $REMOTE_DIR/libSDL-1.2.0.dylib"
 # The binary links @executable_path/libSDL-1.2.0.dylib; the fat dylib (ppc +
@@ -74,7 +83,7 @@ fi
 # --- ioquake3.app bundle (icon + double-click play) ---------------------------
 # One fat-binary .app per machine. Sits at ~/Desktop/quake3/ioquake3.app; ioquake3
 # strips the bundle path (Sys_StripAppBundle) so fs_basepath = ~/Desktop/quake3,
-# finding the baseq3/ alongside. The raw ./ioquake3 above is kept for bench.sh.
+# finding the baseq3/ alongside. The raw ./ioquake3-bench above is kept for bench.sh.
 "$HERE/make-app.sh" >/dev/null
 echo "==> [$MACHINE] ship ioquake3.app -> $REMOTE_DIR/ioquake3.app"
 rsync -a --delete --partial --checksum $RSYNC_EXTRA "$APP/" "$MACHINE:$REMOTE_DIR/ioquake3.app/"
@@ -94,5 +103,5 @@ fi
 "$HERE/lsregister-app.sh" "$MACHINE" || true
 
 echo "==> [$MACHINE] verify"
-ssh "$MACHINE" "cd $REMOTE_DIR && file ioquake3 | sed 's/^/    /' && echo '    app binary:' && file ioquake3.app/Contents/MacOS/ioquake3 | sed 's/^/    /' && ls -la baseq3/autoexec.cfg 2>/dev/null"
+ssh "$MACHINE" "cd $REMOTE_DIR && file ioquake3-bench | sed 's/^/    /' && echo '    app binary:' && file ioquake3.app/Contents/MacOS/ioquake3 | sed 's/^/    /' && ls -la baseq3/autoexec.cfg 2>/dev/null"
 echo "==> [$MACHINE] deployed."

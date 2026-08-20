@@ -1,0 +1,48 @@
+# g3-texel.txt - follow-up sweep for a TEXEL-bound part (the Rage 128 G3).
+#
+# The default sweep established what does NOT matter on this hardware: texture
+# size, geometry detail, LOD, mipmap mode and vertex submission path are all
+# inside noise. Only two things moved the needle, and both reduce texels
+# rasterised rather than work done per vertex:
+#
+#   640x480 instead of 800x600   +50.7%   (fewer pixels)
+#   r_vertexlight 1              +18.8%   (one texel per pixel instead of two)
+#
+# So this sweep varies only things that change the texel count or the cost of
+# fetching a texel, and it runs FULLSCREEN, because the default sweep's
+# windowed runs pay for Quartz compositing on top and understate the machine.
+#
+#   scripts/sweep.sh yosemite scripts/sweeps/g3-texel.txt
+#
+# Q3FS=1 on every row, including the baseline, so the comparison is like for
+# like. Keep the resolution fixed at the shipped 800x600 unless a row says
+# otherwise.
+
+baseline                Q3FS=1
+
+# Is the windowed penalty real, and how big? This row is the same as the
+# default sweep's baseline and exists to tie the two tables together.
+windowed-control        Q3FS=0
+
+# --- texel FETCH cost: does bilinear cost this part anything? --------------
+# A Rage 128 filters bilinearly in one cycle in theory. If that holds, these
+# are free and the blocky look buys nothing.
+nearest-mip-nearest     Q3FS=1 +set r_textureMode GL_NEAREST_MIPMAP_NEAREST
+linear-mip-linear       Q3FS=1 +set r_textureMode GL_LINEAR_MIPMAP_LINEAR
+
+# --- texel COUNT per pixel ------------------------------------------------
+vertexlight             Q3FS=1 +set r_vertexlight 1
+lightmap-only           Q3FS=1 +set r_lightmap 1
+
+# --- overdraw: measured at 2.4-2.6x on this map ---------------------------
+# Nothing here reduces it directly; these bound how much of it is the
+# per-pixel extras rather than the world itself.
+no-dlight-no-flare      Q3FS=1 +set r_dynamiclight 0 +set r_flares 0
+no-marks                Q3FS=1 +set cg_marks 0
+
+# --- framebuffer bandwidth on a 16 MB card --------------------------------
+depth16-color16         Q3FS=1 +set r_colorbits 16 +set r_depthbits 16
+depth24-color32         Q3FS=1 +set r_colorbits 32 +set r_depthbits 24
+
+# --- the combination worth shipping if the parts hold up ------------------
+combo-quality-keep      Q3FS=1 +set r_dynamiclight 0 +set r_flares 0 +set r_textureMode GL_LINEAR_MIPMAP_NEAREST

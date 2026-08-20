@@ -1,0 +1,40 @@
+# quality.txt - what do the GOOD-LOOKING settings actually cost?
+#
+# The companion to the default sweep. That one asks "what can we turn off to go
+# faster"; this one asks "what can we afford to turn ON", which is the more
+# useful question once a machine has headroom. Run it the same way:
+#
+#   scripts/sweep.sh <machine> scripts/sweeps/quality.txt
+#
+# Read the result as a price list against the baseline row, not as a ranking.
+# A row that costs under about 3% is inside run-to-run noise on these machines
+# and should be treated as free.
+#
+# Ordered roughly cheapest-expected to dearest. On a fill-limited part (the
+# Rage 128 G3, the GMA 950 minis) expect the per-pixel rows near the bottom to
+# dominate and the per-vertex rows near the top to be nearly free, because
+# those machines spend ~93% of the frame in the renderer BACKEND.
+
+baseline
+
+# --- geometry and models: CPU-side, cheap on a fill-bound part -------------
+subdivisions-4          +set r_subdivisions 4
+lodbias-0               +set r_lodbias 0
+lodcurve-high           +set r_lodCurveError 10000
+
+# --- texture quality: costs VRAM more than fill ----------------------------
+picmip-0                +set r_picmip 0
+texturebits-32          +set r_texturebits 32
+trilinear               +set r_textureMode GL_LINEAR_MIPMAP_LINEAR
+detailtextures          +set r_detailtextures 1
+
+# --- per-pixel effects: the expensive end on fill-bound hardware -----------
+dynamiclight            +set r_dynamiclight 1
+flares                  +set r_flares 1
+shadows-blob            +set cg_shadows 1
+shadows-stencil         +set cg_shadows 2
+realsky                 +set r_fastsky 0
+drawsun                 +set r_drawSun 1
+
+# --- colour depth: doubles framebuffer bandwidth on a 16 MB card -----------
+colorbits-32            +set r_colorbits 32 +set r_depthbits 24

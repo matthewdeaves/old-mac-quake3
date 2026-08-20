@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# build.sh <g3|g4|lion|i386> — cross-compile ONE ioquake3 slice on the mini-intel
+# build.sh <g3|g4|lion|i386>: cross-compile ONE ioquake3 slice on the mini-intel
 # cross-build host. Adapted from ~/quakespasm/scripts/build.sh.
 #
 # IMPORTANT: ioquake3 uses its own top-level `Makefile` (env-var driven),

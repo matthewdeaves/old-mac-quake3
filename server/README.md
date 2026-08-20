@@ -116,6 +116,32 @@ connections from anywhere but sends no heartbeats, so it appears in no public
 browser, and the five `sv_master` entries are blanked as well. Setting
 `dedicated 2` is what would list it.
 
+### Amplification, and why the allowlist still matters
+
+This server answers unauthenticated status queries with more than it was asked
+for. Measured against this exact build:
+
+| Query | Sent | Received | Amplification |
+|---|---|---|---|
+| `getstatus` | 13 bytes | 418 bytes | **32x** |
+| `getinfo` | 15 bytes | 184 bytes | 12x |
+
+Quake III is the best behaved of the four servers in this family here, because
+ioquake3 already carries a leaky bucket: `SVC_RateLimitAddress` allows 10
+requests per second per address, and a global outbound bucket allows 10 per
+100ms. The upstream comment is blunt about the trade, "allow getstatus to be
+DoSed relatively easily, but prevent excess outbound bandwidth usage when being
+flooded inbound". So the factor is 32x but the throughput is capped at roughly
+100 replies a second, which makes it a poor reflector.
+
+That is a mitigation, not a fix. An address allowlist removes the problem
+outright, because a spoofed packet claims to come from the victim rather than
+from you and gets dropped. That is why the `ufw` rules above are per source
+address.
+
+For comparison the others measure 101x (Half-Life, with no rate limit at all),
+23x (Quake II, no rate limit) and 3x (Quake 1).
+
 One oddity to expect: the first connection from an internet address may pause
 up to five seconds. Quake III sends non-LAN clients to id's authorize server
 to check their CD key, and that server has been gone for years. The engine
@@ -151,6 +177,25 @@ bind F9 "connect quake3.example.com"
 ```
 
 If `g_password` is set, `set password "..."` on the client first.
+
+## Tuned for the machines that will actually connect
+
+The clients are the fat binary: `ppc750`, `ppc7400`, `i386`, `x86_64` and
+`arm64` from one app. The config is aimed at the oldest of those.
+
+`sv_minPing` and `sv_maxPing` are both 0, so nobody is refused for being on a
+slow link, which is the last thing wanted when half the fleet is a PowerPC Mac
+over the internet. `sv_fps` stays at the default 20: raising it costs bandwidth
+and asks the client for work, and these machines are fill-rate bound long
+before they are network bound. Keep the map rotation to maps you have watched
+run on the oldest machine that will join.
+
+`sv_pure 1` is safe here precisely because both clients install from the same
+release and therefore carry identical paks.
+
+Endianness needs nothing from you. The protocol converts, and a little-endian
+server talking to big-endian PowerPC clients is what the Mac builds already do
+on a LAN.
 
 ## Building it yourself
 

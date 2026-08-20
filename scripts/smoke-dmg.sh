@@ -27,8 +27,19 @@ case "$HOST" in
   imac-g5)     TIMEOUT=90;  COOLDOWN=2 ;;
   mini-intel)  TIMEOUT=90;  COOLDOWN=1 ;;
   imac-2019)   TIMEOUT=60;  COOLDOWN=1 ;;
+  g5-desktop|g5-tiger|g5-panther|quad-leopard|quad-tiger)
+               TIMEOUT=120; COOLDOWN=2 ;;
+  mini-intel2) TIMEOUT=90;  COOLDOWN=1 ;;
   *) echo "smoke-dmg: unknown machine: $HOST" >&2; exit 2 ;;
 esac
+
+# Both are overridable. The per-machine defaults are tuned for the demo each
+# port uses at that machine's production settings, and a slower demo, a
+# heavier config or a busy box can exceed them. When that happens the run is
+# reported as a crash or hang, which is a much more alarming thing than the
+# truth, and it leaves the engine still running for the NEXT run to trip over.
+TIMEOUT="${SMOKE_TIMEOUT:-$TIMEOUT}"
+COOLDOWN="${SMOKE_COOLDOWN:-$COOLDOWN}"
 
 # The bench fleet is SHARED. Launching a second fullscreen game on a box already
 # running one wedges both. Bail if anything Quake-ish is live; FORCE=1 overrides.

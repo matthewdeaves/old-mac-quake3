@@ -180,8 +180,9 @@ If `g_password` is set, `set password "..."` on the client first.
 
 ## Tuned for the machines that will actually connect
 
-The clients are the fat binary: `ppc750`, `ppc7400`, `i386`, `x86_64` and
-`arm64` from one app. The config is aimed at the oldest of those.
+The clients are the fat binary: `ppc750`, `ppc7400` and `x86_64` from one app.
+The config is aimed at the oldest of those. Note there is no `i386` slice, so
+32-bit-only Intel Macs are not covered, and no `arm64` slice yet.
 
 `sv_minPing` and `sv_maxPing` are both 0, so nobody is refused for being on a
 slow link, which is the last thing wanted when half the fleet is a PowerPC Mac

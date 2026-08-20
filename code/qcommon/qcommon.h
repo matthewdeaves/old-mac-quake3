@@ -1059,8 +1059,21 @@ NON-PORTABLE SYSTEM SERVICES
 
 void	Sys_Init (void);
 
+// A native game module's vmMain, as the module actually DEFINES it: thirteen
+// named ints, no ellipsis (see cg_main.c, g_main.c, ui_main.c). Upstream typed
+// this pointer as (int, ...) instead, and VM_Call already passes exactly these
+// thirteen, so on x86_64 and PowerPC the two spellings compile to the same call
+// and the mismatch is invisible. On Apple arm64 it is not: a variadic call puts
+// every argument after the last NAMED one on the stack, while a non-variadic
+// callee reads x1-x7, so the module gets its first argument and garbage after.
+// Measured, with an x86_64 control that passes: the arm64 native cgame died on
+// "CG_ConfigString: bad index: -274449096". docs/adr/0017.
+typedef intptr_t (QDECL *vmMainEntry_t)( int command,
+		int arg0, int arg1, int  arg2, int  arg3, int  arg4, int arg5,
+		int arg6, int arg7, int  arg8, int  arg9, int arg10, int arg11 );
+
 // general development dll loading for virtual machine testing
-void	* QDECL Sys_LoadGameDll( const char *name, intptr_t (QDECL **entryPoint)(int, ...),
+void	* QDECL Sys_LoadGameDll( const char *name, vmMainEntry_t *entryPoint,
 				  intptr_t (QDECL *systemcalls)(intptr_t, ...) );
 void	Sys_UnloadDll( void *dllHandle );
 

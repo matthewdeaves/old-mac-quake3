@@ -1,0 +1,67 @@
+[Unit]
+Description=Quake III Arena dedicated server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=quake3
+Group=quake3
+WorkingDirectory=/opt/quake3-server
+
+# `dedicated 1` is a private internet server: it accepts connections from
+# anywhere but sends no heartbeats, so it is listed nowhere. `dedicated 2`
+# would announce it to the master servers. This is unlike Half-Life's
+# sv_lan 1, which actually refuses non-local addresses.
+#
+# The console FIFO: a plain redirect would be no good, because the server sees
+# EOF and stops reading the moment a writer closes, so exactly one command
+# would ever work. Opening the FIFO read-write on fd 3 keeps a writer attached
+# from the server's own side, so it never reaches EOF. After that:
+#
+#     echo "map q3dm17" > /run/quake3-server/console
+RuntimeDirectory=quake3-server
+RuntimeDirectoryMode=0750
+ExecStartPre=/usr/bin/mkfifo -m 0600 /run/quake3-server/console
+ExecStart=/bin/sh -c 'exec 3<>/run/quake3-server/console; \
+    exec /opt/quake3-server/ioq3ded \
+        +set dedicated 1 \
+        +set fs_basepath /opt/quake3-server \
+        +set fs_homepath /opt/quake3-server/home \
+        +set fs_game baseq3 \
+        +exec server.cfg <&3'
+
+Restart=on-failure
+RestartSec=5s
+
+# This is a 1999 UDP protocol with no encryption, reachable from the internet.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+# MemoryDenyWriteExecute is deliberately NOT set here, unlike the other three
+# servers in this family. Quake III runs its game bytecode through a JIT:
+# vm_game and vm_cgame default to 2, meaning VMI_COMPILED, so the engine
+# allocates memory and then executes what it wrote there. Denying W+X would
+# make the server die the moment it loads qagame.qvm.
+#
+# Setting `+set vm_game 1` would force the slower interpreter and let the flag
+# come back. On a server with a handful of players the interpreter is fine, so
+# that trade is available if the hardening matters more than the speed.
+
+# The server writes its config, logs and downloads under fs_homepath.
+ReadWritePaths=/opt/quake3-server/home
+
+[Install]
+WantedBy=multi-user.target

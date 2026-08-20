@@ -2949,13 +2949,33 @@ void Com_Init( char *commandLine ) {
 
 	if( Sys_WritePIDFile( ) ) {
 #ifndef DEDICATED
-		const char *message = "The last time " CLIENT_WINDOW_TITLE " ran, "
-			"it didn't exit properly. This may be due to inappropriate video "
-			"settings. Would you like to start with \"safe\" video settings?";
-
-		if( Sys_Dialog( DT_YES_NO, message, "Abnormal Exit" ) == DR_YES ) {
-			Cvar_Set( "com_abnormalExit", "1" );
-		}
+		// A stale PID file means the last run did not exit cleanly. Upstream
+		// asks, through a MODAL dialog, whether to fall back to safe video
+		// settings. That dialog is wrong for this port in both directions.
+		//
+		// For the bench and smoke harnesses it is fatal: every one of them
+		// stops the engine by killing it, which is precisely what leaves the
+		// PID file behind, so the NEXT run blocks on a dialog nobody is there
+		// to click. It renders no frames, writes no log line, and is then
+		// killed on timeout, which looks exactly like a crash or a hang. That
+		// misdiagnosis cost a real debugging session and, on a GMA 950, a
+		// wedged display that needed a power cycle.
+		//
+		// For a person it is not much better. Every fleet machine here runs a
+		// per-machine autoexec that sets the video mode explicitly on the next
+		// launch anyway, so "safe settings" would be overwritten seconds later
+		// and the question is moot.
+		//
+		// So: record it on the console and carry on.
+		//
+		// The safe-settings path is now unreachable, and deliberately so. It
+		// cannot be offered as a command-line escape hatch either:
+		// com_abnormalExit is CVAR_ROM, and Cvar_Get (cvar.c:345) forces a ROM
+		// cvar back to the engine's own value when the user set one, so
+		// "+set com_abnormalExit 1" is silently discarded. Anyone who wants it
+		// back should restore the dialog here, not reach for the cvar.
+		Com_Printf( S_COLOR_YELLOW "WARNING: the last run did not exit cleanly "
+			"(stale PID file). Continuing with the configured video settings.\n" );
 #endif
 	}
 

@@ -19,7 +19,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST="${1:?usage: $0 <machine> [version]}"
 VERSION="${2:-}"
 case "$HOST" in
-  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|mini-intel|mini-intel2|g5-panther|g5-tiger|g5-desktop|quad-tiger|quad-leopard|imac-2019) ;;
+  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|mini-intel|mini-intel2|mini-sl|g5-panther|g5-tiger|g5-desktop|quad-tiger|quad-leopard|imac-2019) ;;
   *) echo "deploy-dmg: unknown machine '$HOST'" >&2; exit 2 ;;
 esac
 if [ -z "$VERSION" ]; then

@@ -1,4 +1,4 @@
-# 9. Bench in one ssh session, at native resolution, and let the engine quit itself
+# 9. Bench in one ssh session: at native resolution, and let the engine quit itself
 
 Date: 2026-08-20
 Status: accepted

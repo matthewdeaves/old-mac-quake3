@@ -1,4 +1,4 @@
-# 7. One app self-tunes, by architecture then by `hw.model`
+# 7. One app self-tunes: by architecture then by `hw.model`
 
 Date: 2026-08-20
 Status: accepted
@@ -45,7 +45,7 @@ what makes bench rows comparable across commits.
 Validated on yosemite: with no `baseq3/autoexec.cfg` present, the `.app`
 self-applied its settings purely from `PowerMac1,1`.
 
-## Deliberate divergence: no iMac G4 / eMac profile
+## Deliberate divergence, no iMac G4 / eMac profile
 
 The QuakeSpasm and Quake II ports map `PowerMac4,2` / `PowerMac6,1` /
 `PowerMac6,3` to an `imac-g4` profile. **This port deliberately does not**, and

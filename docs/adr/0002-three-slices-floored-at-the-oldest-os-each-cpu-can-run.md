@@ -1,4 +1,4 @@
-# 2. Three slices in one fat binary, floored at the oldest OS each CPU can run
+# 2. Three slices in one fat binary: floored at the oldest OS each CPU can run
 
 Date: 2026-08-20
 Status: accepted

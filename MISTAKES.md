@@ -145,7 +145,7 @@ someone read the dependency list.
 
 ---
 
-## `-faltivec` silently un-stamps the cpusubtype - inherited, guarded here
+## `-faltivec` silently un-stamps the cpusubtype - inherited: guarded here
 
 **The smell:** `-arch ppc7400 -mcpu=7400` is on the command line, so the binary
 must be stamped `ppc7400`. It is not, and a generic `ppc` member shadows every

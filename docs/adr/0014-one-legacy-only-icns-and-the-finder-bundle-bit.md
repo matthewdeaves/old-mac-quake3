@@ -1,4 +1,4 @@
-# 14. One legacy-only `.icns`, plus a Finder bundle bit setter we ship ourselves
+# 14. One legacy-only `.icns`: plus a Finder bundle bit setter we ship ourselves
 
 Date: 2026-08-20
 Status: accepted

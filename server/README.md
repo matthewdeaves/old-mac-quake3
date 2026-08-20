@@ -1,4 +1,4 @@
-# Quake III Arena dedicated server, Linux
+# Quake III Arena dedicated server: Linux
 
 A headless Quake III server built from the same ioquake3 tree as the Mac fat
 binary. One ELF binary, no packages to install. Why it is built this way, and

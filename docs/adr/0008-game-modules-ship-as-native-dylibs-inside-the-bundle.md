@@ -1,4 +1,4 @@
-# 8. Game modules ship as native dylibs inside the bundle, with QVM fallback
+# 8. Game modules ship as native dylibs inside the bundle: with QVM fallback
 
 Date: 2026-08-20
 Status: accepted

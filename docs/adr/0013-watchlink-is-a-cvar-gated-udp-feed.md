@@ -1,4 +1,4 @@
-# 13. watchlink is a cvar-gated UDP feed, inert by default
+# 13. watchlink is a cvar-gated UDP feed: inert by default
 
 Date: 2026-08-20
 Status: accepted

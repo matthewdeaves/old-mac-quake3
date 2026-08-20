@@ -21,7 +21,7 @@ ssh mini-intel 'cd quake3; SDK=/Developer/SDKs/MacOSX10.3.9.sdk
   NO_STRIP=1 BUILD_CLIENT=1 BUILD_SERVER=0 BUILD_GAME_SO=0 BUILD_GAME_QVM=0 \
   USE_RENDERER_DLOPEN=0 USE_CURL=0 USE_OPENAL=0 USE_CODEC_VORBIS=0 USE_LOCAL_HEADERS=1 \
   make -j2'
-# -> build/release-darwin-ppc/ioquake3.ppc, ~2460 ppc750 text symbols
+# -> build/release-darwin-ppc/ioquake3.ppc: ~2460 ppc750 text symbols
 ```
 
 For a ppc7400 profile, adapt to `-arch ppc7400 -faltivec`.
@@ -33,7 +33,7 @@ log line:
 
 ```
 ./ioquake3-prof ... +set logfile 2 +set timedemo 1 +demo four &
-# poll qconsole.log for "CL_InitCGame:" (bot frag/obituary lines = playing), +3 s
+# poll qconsole.log for "CL_InitCGame:" (bot frag/obituary lines = playing): +3 s
 /usr/bin/sample $PID 16 10 -file /tmp/prof.txt
 ```
 
@@ -47,7 +47,7 @@ before enabling any code path for a GPU.
 
 ---
 
-## yosemite (G3 449 MHz, Rage 128 16 MB) - CPU-bound at 640x480, fill-bound above
+## yosemite (G3 449 MHz: Rage 128 16 MB) - CPU-bound at 640x480, fill-bound above
 
 Steady state, demo `four` @640x480, main thread `Com_Frame 1402 -> CL_Frame 1376`:
 
@@ -67,7 +67,7 @@ mix rate is **`s_sdlSpeed`**, NOT `s_khz` - `s_khz` is a no-op on this backend
 `glgProcessColor` and texture-upload churn appear whenever the demo streams new
 bot skins - a load cost, mitigated by picmip and, where supported, compression.
 
-### Texture detail and the VRAM wall (clean A/B, 2026-06-29)
+### Texture detail and the VRAM wall (clean A/B: 2026-06-29)
 
 Rage 128, 16 MB, **no S3TC** so textures are uncompressed. Demo `four`
 @1024x768, varying only `r_picmip` by cmdline `+set`:
@@ -104,7 +104,7 @@ picmip, `r_vertexlight`, resolution and `s_sdlSpeed`.
 
 ---
 
-## quicksilver (G4 733 MHz, Radeon 9000) - CPU/geometry-bound with fill headroom
+## quicksilver (G4 733 MHz: Radeon 9000) - CPU/geometry-bound with fill headroom
 
 Inferred from bench numbers first: ~44 fps @1024x768 max quality against
 **38.9 fps @1680x1050** shipped effects - **2.24x the pixels for ~12% fps**. A
@@ -149,7 +149,7 @@ unchanged. The 0.1 delta is noise. It removes the default
 effective, since aniso samples across mips. **Config-level looks levers on
 quicksilver are now exhausted.**
 
-### NEGATIVE - ARB VBO is not worth it (2026-07-05, MEASURED)
+### NEGATIVE - ARB VBO is not worth it (2026-07-05: MEASURED)
 
 Profiled with `sample` on a NO_STRIP ppc7400 slice, demo `four` @native
 1680x1050, shipped config, 12 s / 1200 samples of steady state. CPU-active leaf
@@ -190,13 +190,13 @@ maxed look (picmip 1, 32-bit, full shaders, dlights, flares, shadows, 16x aniso,
 trilinear). Treat its optimization search space as **exhausted** barring a new
 class of idea.
 
-### Native game dylib vs the PPC QVM JIT - +1.3%, MEASURED
+### Native game dylib vs the PPC QVM JIT - +1.3%: MEASURED
 
 See `docs/adr/0008` for the numbers and why the win is small (the QVM is already
 JIT-compiled to native PowerPC; there is no interpreter on the fleet). Recorded
 here so it is never re-hyped as a "~5% interpreter win".
 
-### NEGATIVE - bot-skin pre-caching has nothing to pre-cache (2026-07-05, MEASURED)
+### NEGATIVE - bot-skin pre-caching has nothing to pre-cache (2026-07-05: MEASURED)
 
 Hypothesis: the recurring frame-time spikes are bot skin/model textures uploaded
 to VRAM on first sighting, fixable by pre-caching at map load. Per-frame
@@ -225,7 +225,7 @@ CPU-bound renderer problem whose only real lever (VBO) is already rejected.
 
 ---
 
-## mini-g4 (G4 1.25 GHz, Radeon 9200 32 MB) - fill-rate / overdraw bound
+## mini-g4 (G4 1.25 GHz: Radeon 9200 32 MB) - fill-rate / overdraw bound
 
 **Bench-confirmed on hardware 2026-07-05: 27.5 fps @native 1680x1050, real GPU.**
 `GL_RENDERER` = `ATI Radeon 9200 OpenGL Engine` (hardware; the old "mini-g4
@@ -263,7 +263,7 @@ coarser `r_subdivisions`, aniso 2 -> 0.
 
 ---
 
-## imac-g5 (PPC 970 2.0 GHz, Radeon 9600) - ~60 fps GPU-bound at native, not vsync-capped
+## imac-g5 (PPC 970 2.0 GHz: Radeon 9600) - ~60 fps GPU-bound at native, not vsync-capped
 
 The shipped 1440x900 config (picmip 0, aniso 8, trilinear, shadows, flares,
 dlights) benches **60.0 fps with vsync forced off** (`r_swapInterval 0`, two
@@ -299,7 +299,7 @@ over ssh, unrelated to config. See `docs/adr/0009` for the ssh flakiness.
 
 ---
 
-## mini-intel (Core 2 Duo, GMA 950, Lion) - fill-bound at 1080p
+## mini-intel (Core 2 Duo: GMA 950, Lion) - fill-bound at 1080p
 
 56.9 fps @native 1920x1080 on the shipped config (2026-07-05); 42.0 fps on the
 bench harness config after the OS-floor change (`docs/adr/0002`).
@@ -315,7 +315,7 @@ carefully.
 
 ---
 
-## Native-resolution confirmations (2026-07-05, deployed `ee6ed80b` configs, vsync-off bench)
+## Native-resolution confirmations (2026-07-05: deployed `ee6ed80b` configs, vsync-off bench)
 
 | Machine | Native res | Confirmed fps | Target |
 |---|---|---|---|

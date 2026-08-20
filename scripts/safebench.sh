@@ -6,7 +6,7 @@
 # launching AND cleanly shutting the engine down before it returns — you should
 # never have to quit the game by hand.
 #
-# The hard-won shape of this (see docs/HANDOFF-2026-06-29.md "Session update"):
+# The hard-won shape of this (see docs/adr/0009 and MISTAKES.md):
 #
 #   * ONE ssh session does everything. The engine is BACKGROUNDED (&) but the
 #     same session then stays alive polling the log — this is load-bearing. An

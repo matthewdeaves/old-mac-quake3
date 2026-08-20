@@ -1,287 +1,171 @@
-# ioquake3 old-Mac port — guidance for Claude
+# ioquake3 old-Mac port
 
-Sister project to the **QuakeSpasm PPC port** (`~/quakespasm`) and the
-**Quake II port** (`~/quake2`). Shares the same 6-machine bench fleet, the
-`mini-intel` cross-build host, and the same tooling philosophy. The
-QuakeSpasm project is the mature template — when a tooling question isn't
-answered here, look at how `~/quakespasm` does it.
+Quake III Arena on ioquake3 as ONE fat binary across PowerPC and Intel Macs,
+from a single `ioquake3.app`. Sticky facts only, loaded every session.
+Reasoning and rejected alternatives live in `docs/adr/`; measured numbers live
+in `docs/PROFILING.md` and `benchmarks/results.csv`; lessons from things that
+broke live in `MISTAKES.md`.
 
-> **STATUS: SHIPPING. The fat binary (ppc750 + ppc7400 + x86_64) builds and runs
-> on real hardware across the fleet; per-machine auto-config (autoexec by
-> `hw.model`) is live; native-res fps is bench-CONFIRMED on all four live
-> machines (G3 22 @800×600, G4 39 @1680×1050, Lion 57 @1920×1080, G5 60 @1440×900
-> — see `benchmarks/results.csv`); a verified fat `.app` + DMG ship via the
-> release tooling; and remote reboot recovery is installed fleet-wide. Ongoing
-> work = per-class fps/graphics tuning via the `/fleet-optimize` skill. The
-> `scripts/` are validated, not drafts. See `MISTAKES.md` for the hard limits.**
+Sister projects on the same fleet and the same tooling: **old-mac-quakespasm**
+(Quake), **old-mac-quake2** (Quake II), **old-mac-halflife**. QuakeSpasm is the
+mature template - when a tooling question is not answered here, look at how it
+does it.
 
 ## Goal in one line
 
-Best-looking **ioquake3 (Quake III Arena)** for G3 Panther + G4 Tiger + Lion
-Intel, staying playable on each. Framerate targets: **≥ 60 fps on G4 / Lion,
-≥ 20 fps on G3**. The G3 floor was feared aspirational — **now PROVEN by the v0
-baseline**: yosemite (G3 449 MHz, Rage 128) does `four` at **27 fps @ 1024×768
-and 45 fps @ 640×480 with default settings** (no tuning), clearing the floor.
-G4 (quicksilver, Radeon 9000) ~60 fps (vsync-capped — real headroom hidden),
-Lion (GMA 950) 105/238 fps. imac-2019 (Sequoia / Radeon Pro 580X) is a modern
-bench reference that separates CPU-bound from GPU-bound effects.
+Best-looking ioquake3 that stays playable on each machine class, from one fat
+binary that auto-tunes per machine. Floors: **G3 >= 20 fps, G4/Lion >= 60 fps**,
+G5 and modern uncapped. **Above the floor, effects beat fps.**
 
-## THE load-bearing constraint: SDL 1.2, NOT SDL 2
+## Commands
 
-Modern ioquake3 (upstream `HEAD`) uses **CMake + SDL2**, and its PPC build
-path targets the **10.5 SDK** — `make-macosx.sh` says verbatim *"For PPC
-macs, G4's or better are required to run ioquake3."* **SDL2 never supported
-macOS 10.3 or 10.4.** Our PPC fleet runs **Panther 10.3.9** (yosemite) and
-**Tiger 10.4.11** (the three G4s) — none run Leopard 10.5. So a modern
-ioquake3 binary cannot run on a single one of our PPC Macs.
+```sh
+scripts/pick-build-host.sh --status      # which Intel mini is free
+scripts/build.sh <g3|g4|lion>            # one slice -> build/ioquake3-<t>
+scripts/build-fat.sh                     # all three + lipo -> build/ioquake3-fat
+scripts/build-gamedylibs.sh              # the 6 native game dylibs
+scripts/make-app.sh                      # -> build/ioquake3.app
+scripts/make-dmg.sh [version]            # Tiger G4 ONLY, see hard rules
+scripts/deploy.sh <machine>              # fat binary + app + cfg -> ~/Desktop/quake3/
+scripts/deploy-dmg.sh <machine> [ver]    # install the DMG as a user would
+scripts/smoke-dmg.sh <machine>           # does the installed app actually run
+scripts/distribute-data.sh <machine>     # ship baseq3 pk3s from mini-intel
+scripts/safebench.sh <machine> <WxH>     # THE safe timedemo. Use this.
+scripts/bench.sh <machine> <demo> <WxH> [runs]
+scripts/parallel-bench.sh [--quick|--reset|--no-<machine>]
+scripts/build-server-linux.sh [--arch x86_64|aarch64]
+scripts/install-host-tools.sh <host>     # one-time reboot-recovery setup
+```
 
-Therefore the code baseline is pinned to the **last SDL 1.2 commit**:
+The build scripts run locally here and drive a claimed Intel mini over ssh; they
+never hardcode which mini. `BUILD_HOST=<alias>` pins one.
 
-- branch **`master`**, rooted at **`4432a80a`** (2013-01-17 "Add vim stuff to
-  .gitignore"), the commit immediately before `f478761e "Use SDL 2 instead
-  of SDL 1.2"`. (This was originally branch `oldmac-base`; renamed to `master`
-  once the port diverged into its own repo.) Its Makefile uses `sdl-config` and
-  links `code/libs/macosx/libSDL-1.2.0.dylib` — the same SDL 1.2.x world
-  QuakeSpasm lives in, so the QuakeSpasm cross-build recipe transfers.
-- The `upstream` remote (ioquake/ioq3) holds HEAD (SDL2/CMake) **for reference
-  only** — never build the PPC fleet from it; its push URL is disabled.
-- **Fallback** if `4432a80a` won't compile against the 10.3.9 SDK: the 1.36
-  release era (`b003422d`, 2011-05) — older but the same SDL 1.2 line, and
-  the version actually installed on the mini.
+## Facts
 
-This is exactly the kind of "modern is better" assumption that breaks on old
-hardware — see `MISTAKES.md`.
+- **Baseline is the last SDL 1.2 commit, `4432a80a`** (2013-01-17), branch
+  `master`, the commit before `f478761e` "Use SDL 2 instead of SDL 1.2".
+  Fallback, never needed: `b003422d` (1.36 era). ioquake3 drives its own
+  env-var top-level `Makefile`, not QuakeSpasm's `Makefile.darwin`.
+  **The premise behind the pin is the one unmeasured claim in this project** -
+  read `docs/adr/0001` before quoting it, and before treating a rebase as
+  settled either way.
+- **`dyld` grades a fat binary by CPU subtype alone**, never the OS, and there
+  is no fallback to a lower slice. **Three slices:** `ppc750` (G3), `ppc7400`
+  (G4 **and G5**), `x86_64`. Each is built against the oldest OS its CPU family
+  can run: both PowerPC slices at the 10.3.9 SDK / min 10.3, Intel at min 10.6.
+  Lowering those floors measured free. **No `i386` slice** (2006 Core Solo/Duo
+  uncovered) and **no `arm64` slice**. `docs/adr/0002`, `docs/adr/0015`
+- **Never trust the compiler's cpusubtype stamp.** `-faltivec` defeats it and is
+  mandatory on the g4 slice, and Apple's ld stamps generic `ppc` (subtype 0),
+  which matches *every* PowerPC host and would hand a G3 the AltiVec build.
+  Every build re-stamps post-link (ppc750=9, ppc7400=10, the byte at offset 11)
+  and **asserts with `lipo`, never `file`** - `file` calls subtype 9 `ppc_650`.
+  `docs/adr/0003`
+- **The g4 slice needs `-isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/
+  include`**: `-faltivec` wants `<altivec.h>`, a *compiler* header `-isysroot`
+  hides. The g3 slice gets no AltiVec at all - a 750 has no vector unit.
+- **One `.app` self-tunes**: a per-arch baseline cfg picked by compile-time
+  macro, then a `hw.model` overlay, both read from the bundle before renderer
+  and sound init (`Com_AutoConfigForMachine`, `code/qcommon/common.c`).
+  `+set com_archAutoexec 0` turns both off, which is what makes bench rows
+  comparable. `docs/adr/0007`
+- **Game modules ship as native dylibs inside the bundle** at
+  `Contents/MacOS/baseq3/`, with `vm_cgame`/`vm_game`/`vm_ui` `0`. Measured
+  **+1.3%** over the QVM. Stock ioquake3 already JIT-compiles the QVM to native
+  PowerPC, so this is *not* an interpreter win. `FS_FindVM` falls back to the
+  QVM automatically. `docs/adr/0008`
+- **The user's `baseq3` stays outside the bundle.** `Sys_StripAppBundle()` makes
+  `fs_basepath` the directory *containing* the `.app`. We ship no game data.
+  `docs/adr/0011`
+- **SDL 1.2 is bundled inside the `.app`** (`Contents/MacOS/libSDL-1.2.0.dylib`,
+  via `@executable_path`) and `libSDLmain` is compiled from source per slice.
+  The prebuilt blobs are 10.4+ and SIGSEGV on Panther. `docs/adr/0006`
+- **`yosemite` and `yosemite-tiger` are the same G3**, booted from its 10.3.9 or
+  its 10.4.11 partition. One IP, one OS at a time.
 
-### Re-examined 2026-08-20: the premise above is the one unmeasured claim here
+## Machines
 
-An audit of this repo's decisions found something worth writing down. Nearly
-every constraint in this project is backed by evidence: the SDK floor A/B is a
-bench table, the dyld subtype grading is an `otool -L` diff, the AltiVec
-claim is a disassembly count. **"SDL2 never supported macOS 10.3 or 10.4" is
-backed by nothing in this tree.** `MISTAKES.md` labels it "caught at planning",
-which is honest: it was reasoned, not tested.
-
-Two supporting claims are weaker than they read:
-
-- **"Upstream's PPC path targets the 10.5 SDK / G4-or-better."** That text is
-  `make-macosx.sh:76` and `:82-86` — a file that exists **in this pinned 2013
-  tree already**, and which our build bypasses entirely by driving the
-  top-level `Makefile` with our own env vars. It says nothing about SDL2-era
-  upstream.
-- **"None of our PPC Macs run 10.5."** Out of date. `imac-g5` runs Leopard
-  10.5.8 and is a benched fleet member.
-
-Counter-evidence from the sister Half-Life port: it ships **`panther-sdl2`
-2.0.3, targeting 10.3 and 10.4**, statically linked into its PowerPC slices,
-and it runs on the G3 on Panther. So "SDL2 never supported 10.3/10.4" is true
-of *upstream* SDL and not of the forks that exist.
-
-**None of that means the pin is wrong.** The migration cost is real and is
-separately documented. It means the pin should be re-decided on measurement
-rather than re-quoted, and `KICKOFF_PROMPT.md`'s "do not relitigate" should be
-read as "do not relitigate casually", not "never look again".
-
-### arm64 does not require the rebase
-
-Recorded here because the two keep being treated as one decision.
-
-What blocks an arm64 slice is that SDL 1.2 upstream never produced an arm64
-build, so no arm64 SDL exists to link. That needs an **arm64 implementation of
-the SDL 1.2 API**, which `sdl12-compat` (libsdl-org) is, rather than a newer
-engine. Each slice of a fat Mach-O carries its own `LC_LOAD_DYLIB`, so an
-arm64 slice can link the shim while PowerPC and Intel keep real SDL 1.2.
-
-Two arm64 specifics for this engine, both found by reading rather than
-building, so treat as INFERRED until a build confirms them:
-
-- **The QVM has no arm64 backend and the Makefile will not warn you.**
-  `Makefile:400` sets `HAVE_VM_COMPILED=true` unconditionally for
-  `PLATFORM=darwin`, before any arch test, and the backend selection at
-  `Makefile:1766+` is a chain of `ifeq` with no `else`. So an arm64 darwin
-  build claims a JIT, links no `vm_*.o`, and does not get `-DNO_VM_COMPILED`.
-  It should fail loudly at link time. The fix is one line: gate darwin on arch
-  the way the Linux block already does.
-- **Apple Silicon enforces W^X**, so a QVM JIT would need `MAP_JIT` plus
-  `pthread_jit_write_protect_np`. Largely moot in practice: every shipped
-  `autoexec-*.cfg` sets `vm_game`/`vm_cgame`/`vm_ui` to `0`, meaning native
-  dylibs, not the JIT. An arm64 slice would want a fourth set of those
-  dylibs, taking `build-gamedylibs.sh` from 9 builds and 3 lipos to 12 and 4.
-
-## Host matrix (shared with QuakeSpasm / Quake II)
-
-| Machine | CPU | GPU | macOS | Build slice | ssh alias |
+| Machine | CPU | GPU | macOS | Slice | Role |
 |---|---|---|---|---|---|
-| yosemite | G3 449 MHz | Rage 128 16 MB | Panther 10.3.9 | g3 (ppc750) | yosemite |
-| sawtooth | G4 500 MHz | GeForce2 MX 32 MB | Tiger 10.4.11 | g4 (ppc7400) | sawtooth |
-| quicksilver | G4 733 MHz | Radeon 9000 Pro 64 MB | Tiger 10.4.11 | g4 (ppc7400) | quicksilver |
-| mini-g4 | G4 1.25 GHz | Radeon 9200 32 MB | Tiger 10.4.11 | g4 (ppc7400) | mini-g4 |
-| mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | lion (x86_64) | mini-intel |
-| imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7.5 | lion (x86_64) | imac-2019 |
+| yosemite | G3 449 MHz | Rage 128 16 MB | Panther 10.3.9 (also 10.4.11) | ppc750 | bench |
+| sawtooth | G4 500 MHz | GeForce2 MX 32 MB | Tiger 10.4.11 | ppc7400 | bench |
+| quicksilver | G4 733 MHz | Radeon 9000 Pro 64 MB | Tiger 10.4.11 | ppc7400 | bench, DMG fallback |
+| mini-g4 | G4 1.25 GHz | Radeon 9200 32 MB | Tiger 10.4.11 | ppc7400 | bench, DMG host |
+| imac-g5 | G5 2.0 GHz | Radeon 9600 128 MB | Leopard 10.5.8 | ppc7400 | bench |
+| mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | x86_64 | **build**, bench, data source |
+| mini-intel2 | Core 2 Duo | - | Lion 10.7.5 | - | **build** |
+| imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7 | x86_64 | modern reference |
 
-Build TARGET names (`g3`/`g4`/`lion`) = chip family + SDK, NOT machines. One
-`g4` (ppc7400) binary serves sawtooth/quicksilver/mini-g4; one `lion`
-(x86_64) binary serves mini-intel/imac-2019. The deployed artifact is a
-single **fat binary** (`ppc750` + `ppc7400` + `x86_64`) — dyld picks the
-slice at runtime. Multi-subtype ppc lipo (ppc750 + ppc7400 in one Mach-O)
-is proven to work by QuakeSpasm.
+Build TARGET names (`g3`/`g4`/`lion`) are chip family plus SDK, not machines.
+The two Intel minis are interchangeable Macmini2,1 / 10.7.5 boxes with the same
+toolchain: `mini-intel` is 10.188.1.190, `mini-intel2` was recorded here as
+10.188.1.216 and in the sister Half-Life repo as 10.188.1.164 - **use the ssh
+alias, never an IP**. The read-only Q3 install lives at
+`mini-intel:/Users/mini/Games/ioquake3/`; the staged copy is
+`mini-intel:~/Desktop/quake3/baseq3/`.
 
-## Build path (ioquake3 ≠ QuakeSpasm)
+## Hardware that can be wedged or damaged
 
-QuakeSpasm uses `Quake/Makefile.darwin`; **ioquake3 uses its own top-level
-`Makefile`** driven by env vars. Per slice, on `mini-intel`, roughly:
+Read `docs/adr/0009` before benching anything. In short:
 
-```
-PLATFORM=darwin ARCH=<ppc|x86_64> CC=<gcc-4.0|clang> \
-  MACOSX_VERSION_MIN=<10.3|10.3|10.6> \
-  CFLAGS="-isysroot <SDK> -arch <ppc|x86_64> <-mcpu/-maltivec/-O3>" \
-  make
-```
+- **Never `killall -KILL` a rendering fullscreen engine.** It sticks in
+  uninterruptible GPU-driver exit (`ps` state `E`) and hangs the whole
+  WindowServer until a reboot. Use `+set nextdemo quit` and let it exit itself.
+- **Native resolution only.** A non-native fullscreen set is a real mode switch;
+  **the G5's Leopard R300 driver hard-hangs the OS on one**, and the other old
+  GPUs corrupt their display.
+- **Never `pkill`** - absent on Tiger and Panther.
+- **Never run `/sbin/reboot` with any argument to "test" it.** BSD `reboot`
+  ignores unknown flags and just reboots. A `--help` probe rebooted the G3.
+- Reboot recovery (`~/bin/qsreboot.sh`) only works after the one-time NOPASSWD
+  setup, and its Finder fallback returns success without rebooting. Verify the
+  host actually drops off the net and returns.
 
-- **g3:** `ARCH=ppc CC=gcc-4.0`, SDK `MacOSX10.3.9.sdk`, `-arch ppc750 -mcpu=750 -mmacosx-version-min=10.3 -O3` (NO AltiVec — a 750 has no vector unit)
-- **g4:** `ARCH=ppc CC=gcc-4.0`, SDK `MacOSX10.3.9.sdk`, `-arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=10.3 -O3 -isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/include`
-- **lion:** `ARCH=x86_64 CC=clang`, min 10.6, `-O3`
+## Traps
 
-**Why both PPC slices target the 10.3.9 SDK at min 10.3.** dyld grades a fat
-binary by **CPU subtype alone** — the OS plays no part. A G4 running Panther is
-handed the `ppc7400` slice with no fallback to the min-10.3 `ppc750` one, so a
-10.4-built G4 slice is simply dead there. AltiVec codegen is independent of the
-SDK, so this costs nothing on Tiger (A/B'd — see `docs/STATUS.md`). Likewise
-`x86_64` is min 10.6, not 10.7, so a 64-bit Intel Mac on Snow Leopard can load
-it; the bundled `libSDL-1.2.0.dylib` was already built that way.
+- **NEVER trust a build's "done".** Every slice's cpusubtype is asserted with
+  `lipo` or the build fails; a pipeline returns its LAST command's status, so
+  `driver.sh | tail && next.sh` reads `tail`'s.
+- **Never build g3 and g4 in parallel from one shell** - both are `ARCH=ppc`,
+  share the remote tree, and race `.o` files into a wrong-subtype binary.
+- **rsync target is always `<host>:quake3/`** - never `quakespasm/`, `quake2/`
+  or `<host>:~/`.
+- **Never modify `mini-intel:/Users/mini/Games/ioquake3/`** or the shared
+  `/Developer/SDKs` - recovery is multi-hour.
+- **Tiger's `ps` lies.** `comm` is not a valid keyword on 10.4 and `ps ax`
+  truncates at 79 columns. Use `killall -0 <name>` or `ps -axc -o pid,ucomm`.
+- **Panther's `/bin/sleep` is integer-only**; `sleep 0.2` returns instantly.
+- **yosemite rsync needs `--protocol=29`** (Panther ships rsync 2.5.x).
+- **`mini-intel` sleeps** - "No route to host" means asleep; wake and retry.
+- **`benchmarks/results.csv` is rolling history** - never wipe it mid-round.
 
-`-isystem` is required on the g4 slice: `-faltivec` makes the compiler want
-`<altivec.h>`, which is a **compiler** header that `-isysroot` hides.
-- All slices build `USE_RENDERER_DLOPEN=0` (monolithic, opengl1 linked in; no
-  renderer dylib; skips rend2). The Makefile's hardcoded ppc `-arch ppc -faltivec`
-  was removed — `scripts/build.sh` supplies arch/AltiVec/version-min per target.
+## Hard rules
 
-Output lands in `build/release-darwin-<arch>/ioquake3.<arch>`. Both PPC slices
-are `ARCH=ppc`, so they collide on the same filename — `build.sh` renames to
-`ioquake3-g3` / `ioquake3-g4` and **re-stamps the Mach-O cpusubtype** (ppc750=9,
-ppc7400=10) post-link, because the generic bundled `libSDLmain`/crt make Apple
-ld stamp subtype 0; otherwise the two slices collide in lipo. `CLIENTBIN=ioquake3`,
-`BASEGAME=baseq3`.
+- **Build the release DMG only on a Tiger G4**, `-format UDZO`, and md5 every
+  binary inside the finished image. `hdiutil verify` is not enough - it has
+  already passed a corrupt image in this family. `docs/adr/0005`
+- **We ship code, not content.** No id assets, ever. `docs/adr/0011`
+- **Measure, don't guess.** A change without a known bottleneck is a guess.
+  3 runs, median of 2 and 3; two commits per phase (code, then bench data);
+  revert any regression; **record every negative result** in
+  `docs/PROFILING.md` so it is never re-chased.
+- **No em dashes anywhere**, prose or shipped strings.
+- **Never rate or praise work**, ours or upstream's; attribution is a fact.
+- No Claude co-author on commits.
 
-**Never trust the compiler's stamp — assert it.** `-faltivec` silently defeats
-`-mcpu=`'s subtype stamping, and it is mandatory on the g4 slice, so that slice
-loses its stamp on *every* build. A generic `ppc` member is not cosmetic: it
-matches every PowerPC host, so it shadows the correct slice and a G3 gets the
-AltiVec build. `build.sh`, `build-gamedylibs.sh` and `build-fat.sh` all re-stamp
-and then **verify with `lipo`** (not `file`, which misreports subtype 9 as
-`ppc_650` on a modern host) and exit non-zero on a mismatch. The cpusubtype is
-the 4-byte big-endian field at offset 8 of a thin Mach-O header.
+## Read on demand
 
-**Build items — ALL RESOLVED (2026-05-26):**
-1. ✅ **SDL 1.2.** The bundled fat `libSDL-1.2.0.dylib` AND prebuilt `libSDLmain.a`
-   were 10.4+ builds that SIGSEGV on Panther (objc_msgSend via `bla 0xfffeff00`,
-   unmapped on 10.3.9). Fix: compile `code/libs/macosx/SDLMain.m` from source
-   (Makefile rule), and swap in QuakeSpasm's Panther-safe SDL 1.2.15. See `MISTAKES.md`.
-2. ✅ **Builds against 10.3.9 SDK / gcc-4.0** — no source tweaks needed beyond
-   the SDL fix; g3/g4/lion all compile.
-3. ✅ **Raw binary proven** on all three arches. `.app` bundle + icon is the
-   remaining nicety (one fat-binary `.app` for all machines).
-4. ✅ **Game logic** = QVMs inside `baseq3/pak8.pk3`; no game dylibs built.
-
-## Game data + per-machine config
-
-- **baseq3 is already staged** at `mini-intel:~/Desktop/quake3/baseq3/`
-  (9 pk3s: `PAK0.PK3` + `pak1-8.pk3`, copied read-only from the installed
-  ioquake3 1.36 at `/Users/mini/Games/ioquake3/`). **Never modify the
-  install.** All stock maps + demos live inside the pk3s.
-- Q3 config: cvars in `autoexec.cfg` (read from `fs_homepath`/`baseq3`).
-  Per-machine defaults = per-machine `autoexec-<machine>.cfg` (analogous to
-  QuakeSpasm's per-machine autoexec). Relevant Q3 visual/perf knobs:
-  `r_picmip`, `r_mode`/`r_customwidth`/`r_customheight`, `r_texturebits`,
-  `r_colorbits`, `r_vertexlight`, `r_subdivisions`, `r_lodbias`,
-  `r_ext_texture_filter_anisotropic`, `r_ext_compressed_textures`,
-  `cg_drawfps`, `com_maxfps`. Inventory them in `docs/KNOBS.md` as added.
-
-## Benchmark discipline
-
-Q3 uses `timedemo`, not Quake's: launch with `+set timedemo 1 +demo <name>`.
-Demo names must be enumerated from the staged pk3s (point-release `.dm_68`
-demos live in `pak8.pk3`) — the new session lists them and picks a canonical
-2–3. Otherwise the QuakeSpasm rules carry over: **3 runs, median of 2 & 3**,
-append to `benchmarks/results.csv` (rolling history, never wipe mid-round),
-raw logs in `benchmarks/raw/`, two commits per phase (code, then bench),
-tag rows with `(commit, machine, demo, res)`.
-
-## Multi-tenancy on the Intel minis (FOUR projects, TWO build boxes)
-
-There are now **TWO interchangeable Intel cross-build minis**: `mini-intel`
-(10.188.1.190) and `mini-intel2` (10.188.1.216) — same Macmini2,1 / 10.7.5 /
-identical toolchain, so either can build any slice. **All three scripts that
-compile** — `build.sh`, `build-fat.sh` and `build-gamedylibs.sh` — call
-`scripts/pick-build-host.sh --acquire` to take a host that is reachable and idle,
-and release it on exit; none of them hardcode one. So this port and the
-QuakeSpasm / Quake II / Half-Life sister projects can build **at the same time on
-different minis**. `BUILD_HOST=<alias>` pins one;
-`scripts/pick-build-host.sh --status` shows both.
-
-`build-fat.sh` and `build-gamedylibs.sh` claim ONE host up front and hold it for
-their whole run (three slices plus the `lipo`), rather than re-picking per slice —
-the slices have to be lipo'd together on the same box, and a sister project must
-not take it midway.
-
-Other scripts naming `mini-intel` are NOT build-host references and are correct as
-they stand: it is a bench target (`bench.sh`, `parallel-bench.sh`, `smoke-dmg.sh`,
-`screenshot.sh`, `deploy*.sh`) and the game-data source (`distribute-data.sh`).
-
-**Why the claim lives on the mini, not in the repo:** the per-checkout `flock`
-below cannot see a build another repo (or another Claude) started on the same
-box. The picker locks `/tmp/.retro-build-lock` ON the host and also counts
-running compiler processes as busy, so it detects builds started outside it.
-
-The isolation table below still applies **per host** — the rsync dirs and flocks
-keep the four projects apart when they land on the same mini:
-
-| Resource | QuakeSpasm | Quake II | **Quake III** |
-|---|---|---|---|
-| rsync target | `<host>:quakespasm/` | `<host>:quake2/` | **`<host>:quake3/`** |
-| local flock | `~/quakespasm/build/.build.lock` | `~/quake2/build/.build.lock` | **`~/quake3/build/.build.lock`** |
-| local outputs | `~/quakespasm/build/quakespasm-*` | `~/quake2/build/q2-*` | **`~/quake3/build/ioquake3-*`** |
-
-Shared read-only: `/Developer/SDKs/{MacOSX10.3.9.sdk,MacOSX10.4u.sdk}`,
-`/usr/bin/{gcc-4.0,clang}`. **Never modify** — recovery is multi-hour. Never
-let `build.sh` rsync to `mini-intel:~/` or another project's dir.
-
-## Operational gotchas (inherited from the fleet — all still apply)
-
-- **Don't run g3 + g4 builds in parallel** from one shell → `.o` races stamp
-  the wrong CPU subtype. `build.sh` flocks; serialize if you bypass. After a
-  build, sanity-check `file build/ioquake3-g3` says `ppc750`, `-g4` says
-  `ppc7400`.
-- **Panther `/bin/sleep` is integer-only** — `sleep 0.2` returns instantly.
-  Poll loops on yosemite use `sleep 1`.
-- **Ending the engine on a bench machine: make it QUIT ITSELF — never KILL a
-  fullscreen app.** `killall -KILL` on a rendering fullscreen ioquake3 leaves it
-  stuck in uninterruptible GPU-driver exit (ps state `E`), hanging the whole
-  WindowServer until a reboot. Use `+set nextdemo quit` so the engine runs `quit`
-  after the timedemo and exits normally (SDL restores the display). `killall
-  -TERM` is a safe last-resort backstop; `killall -KILL` is not. **Never `pkill`**
-  (absent on Tiger/Panther). See `MISTAKES.md` (2026-07-05).
-- **Benching over ssh = ONE session that outlives the app.** An app launched with
-  `&` whose ssh session then returns dies instantly (`CFMessagePortCreateLocal
-  failed` — lost WindowServer session). `scripts/safebench.sh` launches
-  backgrounded but polls the log *in the same session*, then lets the engine
-  self-quit. Also `rm -f ~/Library/Application Support/Quake3/ioq3.pid` before
-  each launch or a stale pid pops a modal dialog that hangs headless.
-- **Old-Mac SSH needs legacy crypto** — `~/.ssh/config` already has the
-  `+ssh-rsa` / pre-2014 KEX entries and `id_rsa_tiger`.
-- **`mini-intel` sleeps aggressively** — "No route to host" = asleep; wake
-  and retry.
-- **Remote reboot recovery — verify, don't trust.** `ssh <host> '~/bin/
-  qsreboot.sh'` reboots a wedged Mac, but ONLY after the one-time NOPASSWD setup
-  (`scripts/install-host-tools.sh <host>` then `ssh <host> 'sudo ~/bin/
-  qsreboot-setup.sh'`). Without it, qsreboot's Finder fallback returns success
-  without rebooting. Confirm the host actually cycles (drops off net + returns).
-  **Never probe the sudoers entry by running `/sbin/reboot --help`** — BSD reboot
-  ignores the flag and reboots. All six machines have the setup installed
-  (2026-07-05); credentials are per-machine admin (fleet ops).
-
-## Tooling
-
-Adapted from QuakeSpasm; see `scripts/README.md` (host matrix, contracts) and
-`scripts/CLAUDE.md` (gotchas). `build.sh <g3|g4|lion>` → `build-fat.sh` →
-`deploy.sh <machine>` → `bench.sh` / `parallel-bench.sh` / `bench-and-commit.sh`.
-**Validated and in daily use — the build/deploy/bench/release pipeline is proven.**
+- `docs/adr/`: 0001 the SDL 1.2 pin (and its re-examination), 0002 slices and OS
+  floors, 0003 cpusubtype stamping, 0004 cross-building on a claimed mini, 0005
+  DMG on Tiger, 0006 rebuilding prebuilt libs for Panther, 0007 the self-tuning
+  app, 0008 native game dylibs, 0009 safe benching **and the hardware hazards**,
+  0010 the LaunchServices repair, 0011 code not content, 0012 the Linux server,
+  0013 watchlink, 0014 icons and the bundle bit, 0015 arm64
+- `MISTAKES.md` - what already broke, and why. Never re-chase a recorded
+  negative.
+- `docs/PROFILING.md` - the on-hardware profiling method, every measured
+  hotspot, and every measured negative, per machine class.
+- `docs/KNOBS.md` - the cvar and cmdline inventory used for tuning.
+- `README.md` - public overview, fleet matrix, framerates, releases.
+- `server/README.md` - installing and running the Linux dedicated server.
+- `scripts/README.md`, `scripts/CLAUDE.md` - pipeline contracts and gotchas.

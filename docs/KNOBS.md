@@ -1,9 +1,10 @@
-# KNOBS — Quake III tuning inventory
+# KNOBS - Quake III tuning inventory
 
-Cvars and cmdline flags used for per-machine tuning. Every per-target knob
-must be flippable at runtime (cvar) or launch (cmdline) so end-of-round review
-can A/B contributions without a rebuild. Per-machine defaults live in
-`scripts/bundle/autoexec-<machine>.cfg`.
+Cvars and cmdline flags used for per-machine tuning. Every per-target knob must
+be flippable at runtime (cvar) or at launch (cmdline) so a round-end review can
+A/B contributions without a rebuild. Per-machine defaults live in
+`scripts/bundle/autoexec-<machine>.cfg` (`docs/adr/0007`). Measured effects are
+in `docs/PROFILING.md`.
 
 ## Resolution / framebuffer
 
@@ -13,6 +14,7 @@ can A/B contributions without a rebuild. Per-machine defaults live in
 | `r_customwidth` / `r_customheight` | resolution when `r_mode -1` |
 | `r_fullscreen` | 0 windowed / 1 fullscreen |
 | `r_colorbits` / `r_depthbits` | framebuffer precision (16/32, 16/24) |
+| `r_ext_multisample` | FSAA samples; `CVAR_LATCH`, read once at GL init, driven through `SDL_GL_MULTISAMPLE*` at context creation (`sdl_glimp.c:375`) |
 
 ## Texture quality / VRAM
 
@@ -20,83 +22,61 @@ can A/B contributions without a rebuild. Per-machine defaults live in
 |---|---|
 | `r_picmip` | texture detail; 0 = sharpest, 3 = blurriest/fastest |
 | `r_texturebits` | 16 or 32-bit textures |
-| `r_ext_compressed_textures` | S3TC compression — big VRAM saver (Rage 128!) |
+| `r_ext_compressed_textures` | S3TC compression, a big VRAM saver where supported. **The Rage 128 has none.** |
 | `r_ext_texture_filter_anisotropic` + `r_ext_max_anisotropy` | AF level |
+| `r_textureMode` | `GL_LINEAR_MIPMAP_NEAREST` (default) or `GL_LINEAR_MIPMAP_LINEAR` (trilinear) |
 
 ## Lighting / geometry / effects
 
 | cvar | meaning |
 |---|---|
-| `r_vertexlight` | 1 = vertex lighting (fast), 0 = lightmaps (pretty) |
-| `r_dynamiclight` | dynamic lights on/off |
+| `r_vertexlight` | 1 = vertex lighting (fast, but collapses every map shader to one flat stage), 0 = lightmaps plus full shaders |
+| `r_dynamiclight` | dynamic lights on/off (rocket and plasma glow) |
 | `r_subdivisions` | curved-surface tessellation; higher = coarser/faster |
-| `r_lodbias` | model LOD aggressiveness; higher = lower detail sooner |
+| `r_lodbias` / `r_lodscale` | model LOD aggressiveness |
 | `cg_shadows` | blob/stencil shadows |
 | `r_flares` / `r_fastsky` | flare sprites / cheap sky |
+| `r_detailtextures` | detail texture pass |
 
-## Framerate / HUD
+## Framerate / HUD / present
 
 | cvar | meaning |
 |---|---|
-| `com_maxfps` | fps cap (0 = uncapped) — note: classic Q3 physics is tuned to 125 |
+| `com_maxfps` | fps cap (0 = uncapped). Classic Q3 physics is tuned to 125, and jump heights depend on fps - keep it consistent for benching. |
+| `r_swapInterval` | vsync. **Separate from `com_maxfps`** - `com_maxfps 0` does NOT defeat vsync. |
 | `cg_drawfps` | on-screen fps counter |
-| `cg_draw3dIcons` | **0 on Rage 128.** Status bar draws 3 real MD3 models into HUD viewports (ammo/head/armor); the Rage 128's GL renders them as garbage smudges. 0 = clean 2D-icon fallback, also faster. |
-| `cg_lagometer` | 0 to remove the bottom-right net-graph; on the Rage 128 it showed as a corrupted red/blue/green block. |
+| `cg_draw3dIcons` | **0 on the Rage 128.** The status bar draws three real MD3 models into HUD viewports (ammo/head/armor) and the Rage 128 renders them as garbage smudges. 0 gives a clean 2D-icon fallback, also faster. |
+| `cg_lagometer` | 0 to remove the bottom-right net-graph. On the Rage 128 it showed as a corrupted red/green/blue block. Off fleet-wide. |
 
-### Finding: G3 picmip / VRAM wall at 1024×768 (clean A/B, 2026-06-29)
-
-On yosemite (Rage 128, 16 MB, **no S3TC** so textures are uncompressed) the `four`
-timedemo @ 1024×768, varying ONLY r_picmip via cmdline `+set`:
-
-| r_picmip | fps | notes |
-|---|---|---|
-| 3 (1/8 res) | 28.2 | "very basic" textures |
-| **1 (1/2 res)** | **27.0** | nearly free vs picmip 3 → fill-bound between 3 and 1 |
-| 0 (full res) | 20.8 | hits the 16 MB VRAM wall — 211 ms frame spikes (texture thrash) |
-
-So picmip **1 is the sweet spot**: much sharper than 3 at ~1 fps cost, while picmip
-0 collapses to the 20 fps floor with VRAM thrashing. Takeaway: between picmip 3↔1
-the G3 is fill-bound (texture detail ~free); picmip 0 is gated by VRAM, not fill.
-At 640×480 the G3 is CPU-bound (sound mixing dominates — see PROFILING.md), so CPU
-wins (e.g. s_sdlSpeed 11025) lift that regime and the worst-case combat frames.
-
-## Game modules (native dylib vs bytecode)
+## Sound
 
 | cvar | meaning |
 |---|---|
-| `vm_cgame` / `vm_game` / `vm_ui` | how each game module is run: **`0` = native dylib** (load `<mod><arch>.dylib` from a search dir), `1` = pure bytecode interpreter, `2` = bytecode JIT-compiled to native (stock default) |
+| `s_sdlSpeed` | SDL backend mix rate. **This is the knob, not `s_khz`**, which is a no-op on this backend (`code/sdl/sdl_snd.c`). `11025` roughly halves the scalar mix work; the biggest single G3 CPU lever. |
+| `com_altivec` | 1 on the ppc7400 slice, which selects `S_PaintChannelFrom16_altivec` in `snd_mix.c` |
 
-The port ships native `cgame`/`qagame`/`ui` dylibs (fat ppc750+ppc7400 + x86_64)
-inside the `.app` at `Contents/MacOS/baseq3/`, and the arch autoexec cfgs set
-`vm_* 0` so they load in place of `pak8.pk3`'s `vm/*.qvm`. On macOS that bundle
-path is `fs_apppath/baseq3`, which `FS_FindVM` scans **before** the user's pak
-QVM. Because stock ioquake3 already JIT-compiles the QVM to native PPC (`vm_* 2`),
-native `0` is only a modest win — a real compiler's codegen + no per-access VM
-sandbox masking. **Bench-measured +1.3% on quicksilver** (41.10→41.65 fps, demo
-four @1680×1050, `vm_cgame 2` vs `0`, only that variable). `FS_FindVM` falls back
-to the QVM automatically if the dylib is absent, wrong-arch, or the client is on a
-pure server (`fs_numServerPaks > 0`), so `vm_* 0` is always safe. See
-`docs/PROFILING.md` for the measurement and why it isn't larger. Built by
-`scripts/build-gamedylibs.sh`.
+## Game modules
+
+| cvar | meaning |
+|---|---|
+| `vm_cgame` / `vm_game` / `vm_ui` | **`0` = native dylib** (loads `<mod><arch>.dylib` from a search dir), `1` = bytecode interpreter, `2` = bytecode JIT-compiled to native (stock default) |
+
+The port ships `0`. See `docs/adr/0008` for what that buys and why it is safe.
 
 ## Cmdline flags (bench / launch)
 
 | flag | meaning |
 |---|---|
-| `+set timedemo 1 +demo <name>` | run a timedemo (benchmark) |
-| `+set logfile 2` | line-flushed `qconsole.log` (poll target for bench.sh) |
-| `+set fs_basepath` / `+set fs_homepath` | data + write dirs |
+| `+set timedemo 1 +demo <name>` | run a timedemo |
+| `+set nextdemo quit` | make the engine quit itself when the demo ends. **Load-bearing** - see `docs/adr/0009` |
+| `+set logfile 2` | line-flushed `qconsole.log`, the poll target for the bench scripts |
+| `+set com_archAutoexec 0` | disable both auto-config layers so cmdline `+set` owns the run |
+| `+set fs_basepath` / `+set fs_homepath` | data and write directories |
+| `+set cl_timedemoLog <file>` | per-frame durations, used to find frame-time spikes |
 
-## To investigate (kickoff)
+## Still open
 
-- **`r_swapInterval` / vsync — confirmed relevant.** The v0 baseline showed
-  quicksilver (G4) pinned at ~60 fps at BOTH 1024×768 and 640×480, while
-  mini-intel (Lion) hit 105/238 fps. That flat ~60 on the G4 is vsync at the
-  60 Hz display refresh hiding real headroom. For benchmarking true GPU/CPU
-  cost, set `r_swapInterval 0` (vsync off); for play, vsync-on avoids tearing.
-  Bench `com_maxfps 0` does NOT defeat vsync — `r_swapInterval` is separate.
-- Which `r_mode` presets are usable per GPU; whether GMA 950 / Rage 128 need
-  `r_colorbits 16`.
-- `com_maxfps` vs physics: Q3 jump heights depend on fps — keep consistent
-  for bench, document for play.
+- Which `r_mode` presets are usable per GPU (in practice everything ships at
+  `r_mode -1` plus the machine's native custom resolution).
 - Whether the SDL 1.2-era renderer exposes any of the later `r_ext_*` knobs.
+- `r_smp` on the two-core Intel mini: historically flaky, gate and test.

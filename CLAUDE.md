@@ -98,9 +98,9 @@ never hardcode which mini. `BUILD_HOST=<alias>` pins one.
 
 Build TARGET names (`g3`/`g4`/`lion`) are chip family plus SDK, not machines.
 The two Intel minis are interchangeable Macmini2,1 / 10.7.5 boxes with the same
-toolchain: `mini-intel` is 10.188.1.190, `mini-intel2` was recorded here as
-10.188.1.216 and in the sister Half-Life repo as 10.188.1.164 - **use the ssh
-alias, never an IP**. The read-only Q3 install lives at
+toolchain: `mini-intel` is 10.188.1.190, `mini-intel2` is **10.188.1.164**. The
+.216 recorded here previously was stale, settled 2026-08-20: only .164 answers,
+and it is what `~/.ssh/config` has. **Use the ssh alias, never an IP.** The read-only Q3 install lives at
 `mini-intel:/Users/mini/Games/ioquake3/`; the staged copy is
 `mini-intel:~/Desktop/quake3/baseq3/`.
 

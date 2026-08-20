@@ -83,3 +83,50 @@ baseline. Conflating the two makes the rebase look mandatory when it is not.
 
 - Nothing above has been compiled. The first arm64 build attempt is what
   promotes these from INFERRED to measured.
+
+## Addendum, 2026-08-20: both inferences confirmed by building
+
+The two items above were marked INFERRED, from reading the tree. An arm64
+build was attempted and both are now measured.
+
+**The QVM claim was right, and it fails exactly as described.** A darwin arm64
+build claims a JIT, links no `vm_*.o`, gets no `-DNO_VM_COMPILED`, and dies at
+link on `_VM_CallCompiled` and `_VM_Compile`. `HAVE_VM_COMPILED=false` on the
+make command line is enough to get past it.
+
+**Two things this ADR did not anticipate, both in `q_platform.h`:**
+
+- The 2013 baseline has **no arm64 case at all**. The build stops on
+  `"Architecture not supported"` and `"Endianness not defined"`, which reads
+  like a porting problem rather than a missing `#elif`. Added, mirroring
+  current upstream's macOS block: `ARCH_STRING "arm64"`, `Q3_LITTLE_ENDIAN`,
+  and deliberately no `HAVE_VM_COMPILED`.
+- **`idx64` must NOT be set for arm64.** Despite the name it does not mean
+  "64-bit", it means 64-bit **x86**: it gates the SSE helpers. Setting it
+  alongside `ARCH_STRING "arm64"`, which is the obvious thing to do by
+  analogy with the `__x86_64__` branch directly above, pulls in `qftolsse`,
+  `qsnapvectorsse` and `qvmftolsse` and the link fails on all three. Current
+  upstream's `__aarch64__` branch omits it, which is the tell.
+
+**Result: `ioq3ded.arm64` builds, native arm64.** The dedicated server, so
+the whole engine bar the client's SDL-facing code. The client link then fails
+on SDL symbols only (`SDL_CreateThread`, `SDL_CloseAudio` and the rest).
+
+So this ADR's central claim is now measured rather than argued: **the blocker
+is an arm64 implementation of the SDL 1.2 API and nothing else in the
+engine.** The sister Quake II port reached the identical result the same day
+by the same route, `q2ded` and `game.so` native arm64 with only the four
+SDL-facing client files failing.
+
+**The shim is now the worse-evidenced path, not the cheaper one.** Homebrew's
+`sdl12-compat` for arm64 `dlopen`s SDL2, and the SDL2 beside it is
+`sdl2-compat`, itself a shim over SDL3, so the stack would be engine ->
+sdl12-compat -> sdl2-compat -> SDL3. Meanwhile ADR 0016 established that a
+current ioquake3, which uses SDL2 directly, builds for `ppc750`, and the
+sister port ran the equivalent on a G3. On a current engine arm64 needs no
+shim at all.
+
+**Status unchanged: no arm64 slice ships.** What changed is why. It is no
+longer "we have not tried"; it is that arm64 belongs to the engine-bump
+decision (ADR 0016), where it comes nearly free, rather than to a shim stack
+under a 2013 baseline. `ioq3ded.arm64` was built but never run.

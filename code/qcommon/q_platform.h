@@ -161,6 +161,21 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define idx64 1
 #define ARCH_STRING "x86_64"
 #define Q3_LITTLE_ENDIAN
+#elif defined __aarch64__
+// Apple Silicon. This 2013 baseline predates arm64 entirely, so without
+// this branch the build stops on "Architecture not supported" followed by
+// "Endianness not defined", which reads like a porting problem rather than
+// a missing case. Deliberately no HAVE_VM_COMPILED: there is no arm64 QVM
+// backend, which current upstream also reflects by giving __aarch64__ an
+// ARCH_STRING and no JIT define. Costs nothing here, because every shipped
+// autoexec sets vm_game / vm_cgame / vm_ui to 0 and runs native dylibs.
+//
+// Deliberately no idx64 either, matching current upstream. Despite the
+// name, idx64 does not mean "64-bit", it means 64-bit x86: it gates the
+// SSE helpers, so setting it on arm64 pulls in qftolsse, qsnapvectorsse
+// and qvmftolsse and the link fails on all three.
+#define ARCH_STRING "arm64"
+#define Q3_LITTLE_ENDIAN
 #endif
 
 #define DLL_EXT ".dylib"

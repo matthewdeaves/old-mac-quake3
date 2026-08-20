@@ -6,7 +6,8 @@
 # same install steps a human performs (where the Q2 port's corrupt-DMG bug hid).
 #
 # usage: scripts/deploy-dmg.sh <machine> [version]
-#   machine: yosemite | sawtooth | quicksilver | mini-g4 | imac-g5 | mini-intel | imac-2019 (ssh alias)
+#   machine: any bench-box ssh alias: yosemite[-tiger] | sawtooth | quicksilver | mini-g4 |
+#            imac-g5 | g5-{panther,tiger,desktop} | quad-{tiger,leopard} | mini-intel[2] | imac-2019
 #   version: e.g. v0.1.0  (default: newest dist/ioquake3-OldMac-*.dmg)
 #
 # Preserves the user's game data: baseq3/*.pk3 and any q3config.cfg/autoexec.cfg
@@ -18,7 +19,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST="${1:?usage: $0 <machine> [version]}"
 VERSION="${2:-}"
 case "$HOST" in
-  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|mini-intel|imac-2019) ;;
+  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|mini-intel|mini-intel2|g5-panther|g5-tiger|g5-desktop|quad-tiger|quad-leopard|imac-2019) ;;
   *) echo "deploy-dmg: unknown machine '$HOST'" >&2; exit 2 ;;
 esac
 if [ -z "$VERSION" ]; then

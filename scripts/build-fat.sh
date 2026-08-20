@@ -35,25 +35,25 @@ fi
 
 # Clear last run's slices first: if a build.sh invocation fails we must not lipo
 # a stale ioquake3-<target> from an earlier commit into the shipping fat.
-rm -f "$OUT"/ioquake3-g3 "$OUT"/ioquake3-g4 "$OUT"/ioquake3-lion "$OUT"/ioquake3-fat
+rm -f "$OUT"/ioquake3-g3 "$OUT"/ioquake3-g4 "$OUT"/ioquake3-lion "$OUT"/ioquake3-i386 "$OUT"/ioquake3-fat
 
 # Serialize the three slices (build.sh flocks anyway; this just sequences them).
-for T in g3 g4 lion; do
+for T in g3 g4 lion i386; do
   echo "############ building slice: $T ############"
   "$HERE/build.sh" "$T"
 done
 
-for T in g3 g4 lion; do
+for T in g3 g4 lion i386; do
   test -f "$OUT/ioquake3-$T" || { echo "build-fat.sh: missing slice build/ioquake3-$T"; exit 1; }
 done
 
 echo "==> lipo on $BUILD_HOST (no lipo on Linux)"
-scp -q "$OUT/ioquake3-g3" "$OUT/ioquake3-g4" "$OUT/ioquake3-lion" "$BUILD_HOST:/tmp/"
+scp -q "$OUT/ioquake3-g3" "$OUT/ioquake3-g4" "$OUT/ioquake3-lion" "$OUT/ioquake3-i386" "$BUILD_HOST:/tmp/"
 ssh "$BUILD_HOST" "cd /tmp
-  lipo -create ioquake3-g3 ioquake3-g4 ioquake3-lion -output ioquake3-fat
+  lipo -create ioquake3-g3 ioquake3-g4 ioquake3-lion ioquake3-i386 -output ioquake3-fat
   lipo -info ioquake3-fat"
 scp -q "$BUILD_HOST:/tmp/ioquake3-fat" "$OUT/ioquake3-fat"
-ssh "$BUILD_HOST" "rm -f /tmp/ioquake3-g3 /tmp/ioquake3-g4 /tmp/ioquake3-lion /tmp/ioquake3-fat"
+ssh "$BUILD_HOST" "rm -f /tmp/ioquake3-g3 /tmp/ioquake3-g4 /tmp/ioquake3-lion /tmp/ioquake3-i386 /tmp/ioquake3-fat"
 
 # Gate the result: exactly these three subtypes, in this order. A generic `ppc`
 # member here would be graded onto EVERY PowerPC host and shadow the right slice.

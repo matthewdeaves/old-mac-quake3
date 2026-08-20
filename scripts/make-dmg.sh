@@ -69,12 +69,14 @@ if command -v lipo >/dev/null 2>&1; then
 else
   ARCHS=$(file "$FAT" 2>/dev/null | tr 'A-Z' 'a-z' | sed 's/ppc_/ppc/g')  # ppc_750->ppc750, keep x86_64
 fi
-for a in ppc750 ppc7400 x86_64; do
+for a in ppc750 ppc7400 i386 x86_64; do
   case " $ARCHS " in
     *"$a"*) ;;
-    *) echo "[make-dmg] $FAT is not the 3-arch fat binary (missing $a; got: ${ARCHS:-none}) — run scripts/build-fat.sh" >&2; exit 1;;
+    *) echo "[make-dmg] $FAT is missing the $a slice (got: ${ARCHS:-none}), run scripts/build-fat.sh" >&2; exit 1;;
   esac
 done
+# arm64 is not asserted. This engine links SDL 1.2, which upstream never built
+# for arm64, so there is no arm64 slice to require. docs/adr/0015.
 
 # ---- assemble the .app (make-app.sh) + stage the disk-image contents -----
 # Pass the release label down so the bundle inside the image self-identifies as

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# build.sh <g3|g4|lion> — cross-compile ONE ioquake3 slice on the mini-intel
+# build.sh <g3|g4|lion|i386> — cross-compile ONE ioquake3 slice on the mini-intel
 # cross-build host. Adapted from ~/quakespasm/scripts/build.sh.
 #
 # IMPORTANT: ioquake3 uses its own top-level `Makefile` (env-var driven),
@@ -16,7 +16,7 @@
 #
 set -euo pipefail
 
-TARGET="${1:?usage: build.sh <g3|g4|lion>}"
+TARGET="${1:?usage: build.sh <g3|g4|lion|i386>}"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 PROJ_REMOTE="quake3"   # <build host>:quake3/  — NEVER quakespasm/ or quake2/
 
@@ -76,7 +76,32 @@ case "$TARGET" in
     # min 10.6, not 10.7: a 64-bit Intel Mac on Snow Leopard grades to this
     # slice too. The shipped libSDL-1.2.0.dylib is already built at 10.6.
     CPUFLAGS="-arch x86_64 -mmacosx-version-min=$VMIN -O3 -Qunused-arguments" ;;
-  *) echo "build.sh: unknown target '$TARGET' (want g3|g4|lion)"; exit 2 ;;
+  i386)
+    # 32-bit-only Intel: the 2006 Core Solo / Core Duo machines (Mac mini 1,1,
+    # iMac 4,1, MacBook 1,1, MacBook Pro 1,1). The only Intel Macs with no
+    # 64-bit mode, and they stop at 10.6.8.
+    #
+    # dyld grades by CPU subtype alone and never falls back, so without this
+    # slice those machines are handed nothing at all and the app does not
+    # launch. The shipped code/libs/macosx/libSDL-1.2.0.dylib already carries
+    # an i386 slice, so nothing else has to move.
+    #
+    # min 10.4, lower than the x86_64 slice's 10.6: an i386-only Mac may still
+    # be on Tiger or Leopard and there is nothing below this slice.
+    #
+    # ARCH=x86 rather than i386: that is what ioquake3's Makefile calls it,
+    # and q_platform.h keys ARCH_STRING "i386" off __i386__ regardless.
+    #
+    # NOT TESTED ON HARDWARE: no 32-bit-only Intel Mac exists in the fleet.
+    ARCH=x86;    CC=/usr/bin/clang
+    SDK=;        VMIN=10.4; SUBTYPE=i386
+    CPUFLAGS="-arch i386 -mmacosx-version-min=$VMIN -O3 -Qunused-arguments" ;;
+  arm64)
+    echo "build.sh: arm64 cannot be built on a Lion mini (its Xcode 4.6" >&2
+    echo "build.sh: toolchain predates arm64), and the SDL 1.2 this engine" >&2
+    echo "build.sh: links has no arm64 build. See docs/adr/0015." >&2
+    exit 2 ;;
+  *) echo "build.sh: unknown target '$TARGET' (want g3|g4|lion|i386)"; exit 2 ;;
 esac
 
 echo "==> [$TARGET] rsync $PROJ_LOCAL/ -> $BUILD_HOST:$PROJ_REMOTE/"

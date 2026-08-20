@@ -2464,6 +2464,10 @@ static void Com_AutoConfigForMachine( void )
 	Com_ExecConfigFromBundle( "autoexec-ppc750" );  // G3 slice (no AltiVec)
 #elif defined(__x86_64__) || defined(__amd64__)
 	Com_ExecConfigFromBundle( "autoexec-x86_64" );
+#elif defined(__i386__)
+	// 2006 Core Solo / Core Duo, the only Intel Macs with no 64-bit mode,
+	// so they are never handed the x86_64 slice.
+	Com_ExecConfigFromBundle( "autoexec-i386" );
 #endif
 
 	// per-machine overlay (hw.model lookup); unknown models keep the baseline

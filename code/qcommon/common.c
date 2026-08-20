@@ -2468,6 +2468,12 @@ static void Com_AutoConfigForMachine( void )
 	// 2006 Core Solo / Core Duo, the only Intel Macs with no 64-bit mode,
 	// so they are never handed the x86_64 slice.
 	Com_ExecConfigFromBundle( "autoexec-i386" );
+#elif defined(__aarch64__) || defined(__arm64__)
+	// Apple Silicon. Rosetta 2 would run the x86_64 slice, but dyld prefers a
+	// native arm64 one whenever the fat carries it, so this is what an M-series
+	// Mac actually executes. It is also the only slice with no bytecode JIT,
+	// which is why the config below leaves com_hunkMegs high.
+	Com_ExecConfigFromBundle( "autoexec-arm64" );
 #endif
 
 	// per-machine overlay (hw.model lookup); unknown models keep the baseline

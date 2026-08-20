@@ -25,6 +25,7 @@ set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/.." && pwd)"
 FAT="$PROJ/build/ioquake3-fat"
 SDL="$PROJ/code/libs/macosx/libSDL-1.2.0.dylib"
+SDL2="$PROJ/code/libs/macosx/libSDL2-2.0.0.dylib"   # arm64 only; see below
 ICNS="$PROJ/MacOSX/ioquake3.icns"
 PLIST="$PROJ/scripts/bundle/Info.plist"
 GAMEDYLIBS="$PROJ/build/gamedylibs"
@@ -53,6 +54,18 @@ cp "$FAT"  "$APP/Contents/MacOS/ioquake3"; chmod +x "$APP/Contents/MacOS/ioquake
 cp "$SDL"  "$APP/Contents/MacOS/libSDL-1.2.0.dylib"   # binary refs @executable_path/libSDL-1.2.0.dylib
 cp "$ICNS" "$APP/Contents/Resources/ioquake3.icns"
 
+# The arm64 member of that fat SDL is sdl12-compat, which dlopen()s a real SDL2
+# at runtime. Ship ours beside the binary so it is what gets found, rather than
+# whatever SDL2 the machine happens to have. The other four slices link genuine
+# SDL 1.2 and never open this file, so on PowerPC and Intel it is inert. It is
+# optional for the same reason the arm64 engine slice is. docs/adr/0017.
+if [ -f "$SDL2" ]; then
+  cp "$SDL2" "$APP/Contents/MacOS/libSDL2-2.0.0.dylib"
+  echo "==> bundled libSDL2-2.0.0.dylib ($(lipo -archs "$SDL2" 2>/dev/null || echo arm64)) for the arm64 slice"
+else
+  echo "==> no $SDL2 — arm64 slice will find no SDL2 and fail to start"
+fi
+
 # Per-arch + per-machine auto-config: the engine (Com_AutoConfigForMachine in
 # code/qcommon/common.c) reads these from the bundle Resources at startup via
 # CFBundle, keyed on hw.model, so ONE universal .app self-tunes on every fleet
@@ -76,7 +89,21 @@ if [ -d "$GAMEDYLIBS" ]; then
     cp "$dyl" "$APP/Contents/MacOS/baseq3/$(basename "$dyl")"
     DYN=$((DYN+1))
   done
+  # arm64 modules are OPTIONAL, exactly like the arm64 engine slice: a mini
+  # cannot build them, and FS_FindVM falls back to the QVM per-module when one
+  # is absent. Missing them costs Apple Silicon the interpreter, not the game.
+  A64=0
+  for dyl in "$GAMEDYLIBS"/{cgame,qagame,ui}arm64.dylib; do
+    [ -f "$dyl" ] || continue
+    cp "$dyl" "$APP/Contents/MacOS/baseq3/$(basename "$dyl")"
+    DYN=$((DYN+1)); A64=$((A64+1))
+  done
   echo "==> bundled $DYN native game dylib(s) into Contents/MacOS/baseq3/"
+  if [ "$A64" -eq 3 ]; then
+    echo "    including all three arm64 modules"
+  else
+    echo "    arm64 modules: $A64 of 3 (run scripts/build-gamedylibs-arm64.sh here for the rest)"
+  fi
 else
   echo "make-app: missing $GAMEDYLIBS — run scripts/build-gamedylibs.sh first"; exit 1
 fi

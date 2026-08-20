@@ -21,6 +21,7 @@ PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 FAT="$PROJ_LOCAL/build/ioquake3-fat"
 SDL_DYLIB="$PROJ_LOCAL/code/libs/macosx/libSDL-1.2.0.dylib"
+SDL2_DYLIB="$PROJ_LOCAL/code/libs/macosx/libSDL2-2.0.0.dylib"   # arm64 slice only
 BUNDLE="$PROJ_LOCAL/scripts/bundle"
 APP="$PROJ_LOCAL/build/ioquake3.app"
 SBB="$BUNDLE/set-bundle-bit"     # fat (ppc+x86_64) Finder bundle-bit setter
@@ -49,8 +50,18 @@ ssh "$MACHINE" "chmod +x $REMOTE_DIR/ioquake3"
 
 echo "==> [$MACHINE] ship SDL 1.2 dylib -> $REMOTE_DIR/libSDL-1.2.0.dylib"
 # The binary links @executable_path/libSDL-1.2.0.dylib; the fat dylib (ppc +
-# x86_64 + i386) must sit next to it. dyld picks the matching slice at runtime.
+# i386 + x86_64 + arm64) must sit next to it. dyld picks the matching slice at
+# runtime. The first three members are genuine SDL 1.2; the arm64 one is
+# sdl12-compat, because SDL 1.2 has no arm64 build. docs/adr/0017.
 rsync -av --partial --checksum $RSYNC_EXTRA "$SDL_DYLIB" "$MACHINE:$REMOTE_DIR/libSDL-1.2.0.dylib"
+
+# The shim dlopen()s a real SDL2 at runtime, "@loader_path/libSDL2-2.0.0.dylib"
+# first, so ship ours beside the binary rather than leave it to find whatever is
+# installed. Inert on PowerPC and Intel, which never open it.
+if [ -f "$SDL2_DYLIB" ]; then
+  echo "==> [$MACHINE] ship SDL2 dylib (for the arm64 slice) -> $REMOTE_DIR/libSDL2-2.0.0.dylib"
+  rsync -av --partial --checksum $RSYNC_EXTRA "$SDL2_DYLIB" "$MACHINE:$REMOTE_DIR/libSDL2-2.0.0.dylib"
+fi
 
 if [ -f "$BUNDLE/autoexec-$MACHINE.cfg" ]; then
   echo "==> [$MACHINE] stage per-machine autoexec.cfg"

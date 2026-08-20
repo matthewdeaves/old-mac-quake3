@@ -75,8 +75,18 @@ for a in ppc750 ppc7400 i386 x86_64; do
     *) echo "[make-dmg] $FAT is missing the $a slice (got: ${ARCHS:-none}), run scripts/build-fat.sh" >&2; exit 1;;
   esac
 done
-# arm64 is not asserted. This engine links SDL 1.2, which upstream never built
-# for arm64, so there is no arm64 slice to require. docs/adr/0015.
+# arm64 is REPORTED, not asserted. It cannot be cross-built on a mini, so
+# requiring it would make a release impossible from the normal build path; and
+# its absence is a Rosetta 2 downgrade rather than a fault. Saying which of the
+# two happened is the point: a release must never be silently short a slice.
+case " $ARCHS " in
+  *arm64*)
+    echo "[make-dmg] arm64 slice present: native on Apple Silicon"
+    ARM64_LINE="  • Apple Silicon (arm64)  - macOS 11 Big Sur or later" ;;
+  *)
+    echo "[make-dmg] NO arm64 slice: Apple Silicon will use Rosetta 2"
+    ARM64_LINE="  (no Apple Silicon slice in this build: it runs under Rosetta 2)" ;;
+esac
 
 # ---- assemble the .app (make-app.sh) + stage the disk-image contents -----
 # Pass the release label down so the bundle inside the image self-identifies as
@@ -103,15 +113,20 @@ ioquake3 — OldMac fat build ($VERSION)
 ======================================
 
 A single universal build of ioquake3 (SDL 1.2 baseline) for vintage Macs:
-  • PowerPC G3  (ppc750)   — Mac OS X 10.3.9 Panther or later
-  • PowerPC G4  (ppc7400)  — Mac OS X 10.3.9 Panther or later
-  • PowerPC G5  (ppc7400)  — Mac OS X 10.3.9 Panther or later (shares the G4 slice)
-  • Intel       (x86_64)   — Mac OS X 10.6 Snow Leopard or later
-dyld picks the slice by CPU alone — the OS plays no part, and there is no
-fallback — so every slice is built against the oldest OS its CPU can run.
-Tested here on 10.3.9 (G3), 10.4.11 (G4), 10.5.8 (G5), 10.7.5 and 15.7 (Intel);
-older combinations should work but have not been run on hardware. There is no
-32-bit i386 slice, so Core Duo / Core Solo Macs are not supported.
+  • PowerPC G3  (ppc750)   - Mac OS X 10.3.9 Panther or later
+  • PowerPC G4  (ppc7400)  - Mac OS X 10.3.9 Panther or later
+  • PowerPC G5  (ppc7400)  - Mac OS X 10.3.9 Panther or later (shares the G4 slice)
+  • Intel 32    (i386)     - Mac OS X 10.4 Tiger through 10.6.8 Snow Leopard
+  • Intel 64    (x86_64)   - Mac OS X 10.6 Snow Leopard or later
+$ARM64_LINE
+dyld picks the slice by CPU alone - the OS plays no part, and there is no
+fallback - so every slice is built against the oldest OS its CPU can run.
+The i386 slice exists for the 2006 Core Solo / Core Duo machines, the only
+Intel Macs with no 64-bit mode; without it they are handed nothing at all.
+Tested here on 10.3.9 (G3), 10.4.11 (G4), 10.5.8 (G5), 10.7.5 and 15.7 (Intel)
+and on Apple Silicon; older combinations should work but have not been run on
+hardware. The i386 slice has NOT been run on hardware: no 32-bit-only Intel Mac
+exists in this fleet.
 The game modules
 (cgame/qagame/ui) ship as native dylibs inside the app too, loaded in place of
 the bytecode for a small speed-up (falls back to the bytecode automatically).
@@ -166,12 +181,27 @@ RSYNC_EXTRA=""
 # The corruptible binaries whose fidelity we assert end-to-end. The staged $IMG
 # copies are a plain cp -a of build/ioquake3.app, so $IMG md5s ARE the true
 # source md5s.
-VERIFY_FILES="ioquake3.app/Contents/MacOS/ioquake3 ioquake3.app/Contents/MacOS/libSDL-1.2.0.dylib \
-ioquake3.app/Contents/MacOS/baseq3/cgameppc.dylib ioquake3.app/Contents/MacOS/baseq3/cgamex86_64.dylib \
-ioquake3.app/Contents/MacOS/baseq3/qagameppc.dylib ioquake3.app/Contents/MacOS/baseq3/qagamex86_64.dylib \
-ioquake3.app/Contents/MacOS/baseq3/uippc.dylib ioquake3.app/Contents/MacOS/baseq3/uix86_64.dylib"
-SRC_SUMS=$(cd "$IMG" && for f in $VERIFY_FILES; do \
+#
+# DERIVED from what is actually staged, not hardcoded. Several of these are
+# optional (the arm64 engine slice brings libSDL2 and three arm64 modules with
+# it, and none of them can be built on a mini), and a hardcoded list would
+# either fail on a four-slice build or silently skip the arm64 files on a
+# five-slice one. Deriving it also removes the second copy of the list that
+# used to live in the remote heredoc below, which was a standing drift hazard.
+VERIFY_FILES=$( cd "$IMG" && find ioquake3.app/Contents/MacOS \
+                  -type f \( -name 'ioquake3' -o -name '*.dylib' \) | LC_ALL=C sort )
+SRC_SUMS=$(cd "$IMG" && printf '%s\n' "$VERIFY_FILES" | while read -r f; do \
+             [ -n "$f" ] || continue; \
              printf '%s  %s\n' "$(md5sum "$f" | cut -d' ' -f1)" "$f"; done)
+echo "[make-dmg] end-to-end md5 verify covers $(printf '%s\n' "$VERIFY_FILES" | grep -c .) binaries"
+# Colon-separated so the whole list crosses ssh as ONE token with no whitespace
+# and no newlines in it. Passing it as a plain multi-path argument does not
+# work: ssh joins its arguments into a single remote command string, so the
+# spaces word-split and only the first path survives, and embedded newlines
+# would be read as command separators. NOT base64: the DMG host is a Tiger G4
+# and 10.4 ships no base64(1) at all (verified: "no base64 in /usr/bin /bin
+# /usr/sbin /sbin"). Bundle paths never contain a colon.
+VERIFY_LIST=$(printf '%s\n' "$VERIFY_FILES" | grep . | tr '\n' ':')
 
 mkdir -p "$REPO_ROOT/dist"
 
@@ -189,20 +219,22 @@ while [ "$attempt" -lt 3 ]; do
 
   # md5 the binaries INSIDE the finished image (mount -> hash -> detach). Mount
   # at a private mountpoint (not /Volumes) to dodge a stale same-name mount.
-  # NB: the file list is hardcoded in the remote script (NOT passed as args) —
-  # ssh word-splits a multi-path "$VERIFY_FILES" arg to its first path only.
-  # Keep this list in sync with $VERIFY_FILES above.
-  DMG_SUMS=$(ssh "$DMG_HOST" bash -s "$REMOTE" <<'REMOTE_EOF' || true
-REM="$1"; MP="$REM/mnt"
+  # The file list arrives colon-separated as $2, so there is exactly ONE copy of
+  # it (built above from what was actually staged) rather than a second
+  # hardcoded copy here to drift out of sync.
+  DMG_SUMS=$(ssh "$DMG_HOST" bash -s "$REMOTE" "$VERIFY_LIST" <<'REMOTE_EOF' || true
+REM="$1"; LIST="$2"; MP="$REM/mnt"
 mkdir -p "$MP"
 hdiutil detach "$MP" >/dev/null 2>&1 || true
 hdiutil attach -nobrowse -readonly -mountpoint "$MP" "$REM/out.dmg" >/dev/null 2>&1 || exit 7
-for f in ioquake3.app/Contents/MacOS/ioquake3 ioquake3.app/Contents/MacOS/libSDL-1.2.0.dylib \
-         ioquake3.app/Contents/MacOS/baseq3/cgameppc.dylib ioquake3.app/Contents/MacOS/baseq3/cgamex86_64.dylib \
-         ioquake3.app/Contents/MacOS/baseq3/qagameppc.dylib ioquake3.app/Contents/MacOS/baseq3/qagamex86_64.dylib \
-         ioquake3.app/Contents/MacOS/baseq3/uippc.dylib ioquake3.app/Contents/MacOS/baseq3/uix86_64.dylib; do
+OIFS=$IFS; IFS=:
+for f in $LIST; do
+  IFS=$OIFS
+  [ -n "$f" ] || continue
   printf '%s  %s\n' "$(md5 "$MP/$f" 2>/dev/null | awk '{print $NF}')" "$f"
+  IFS=:
 done
+IFS=$OIFS
 hdiutil detach "$MP" >/dev/null 2>&1 || hdiutil detach -force "$MP" >/dev/null 2>&1 || true
 REMOTE_EOF
 )

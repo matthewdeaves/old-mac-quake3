@@ -1,0 +1,6 @@
+label,fps,raw
+interval-1-upstream,24.6,"1260 frames 51.2 seconds 24.6 fps 7.0/40.7/117.0/19.3 ms"
+interval-4,32.0,"1260 frames 39.4 seconds 32.0 fps 7.0/31.3/157.0/15.9 ms"
+interval-8,33.9,"1260 frames 37.2 seconds 33.9 fps 8.0/29.5/126.0/13.1 ms"
+interval-30,35.3,"1260 frames 35.7 seconds 35.3 fps 10.0/28.3/108.0/10.7 ms"
+flares-off,35.8,"1260 frames 35.2 seconds 35.8 fps 9.0/27.9/82.0/9.8 ms"

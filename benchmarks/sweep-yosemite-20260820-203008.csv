@@ -1,0 +1,7 @@
+label,fps,raw
+flares-on-default,24.8,"1260 frames 50.7 seconds 24.8 fps 8.0/40.3/117.0/18.8 ms"
+flaresize-20,24.8,"1260 frames 50.9 seconds 24.8 fps 7.0/40.4/116.0/18.9 ms"
+flaresize-10,24.7,"1260 frames 51.0 seconds 24.7 fps 8.0/40.5/120.0/19.2 ms"
+flaresize-2,24.7,"1260 frames 51.0 seconds 24.7 fps 7.0/40.4/116.0/19.2 ms"
+flarecoeff-huge,24.6,"1260 frames 51.1 seconds 24.6 fps 8.0/40.6/128.0/19.4 ms"
+flares-off,35.9,"1260 frames 35.1 seconds 35.9 fps 9.0/27.8/84.0/9.5 ms"

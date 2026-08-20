@@ -1,0 +1,12 @@
+label,fps,raw
+baseline,23.4,"1260 frames 54.0 seconds 23.4 fps 8.0/42.8/128.0/20.1 ms"
+windowed-control,13.7,"1260 frames 92.1 seconds 13.7 fps 40.0/73.1/139.0/16.1 ms"
+nearest-mip-nearest,23.9,"1260 frames 52.7 seconds 23.9 fps 8.0/41.8/126.0/20.3 ms"
+linear-mip-linear,23.0,"1260 frames 54.8 seconds 23.0 fps 8.0/43.5/136.0/20.9 ms"
+vertexlight,27.8,"1260 frames 45.4 seconds 27.8 fps 7.0/36.0/113.0/17.7 ms"
+lightmap-only,24.1,"1260 frames 52.2 seconds 24.1 fps 7.0/41.5/121.0/19.8 ms"
+no-dlight-no-flare,36.5,"1260 frames 34.6 seconds 36.5 fps 11.0/27.4/98.0/9.0 ms"
+no-marks,24.3,"1260 frames 51.8 seconds 24.3 fps 7.0/41.1/134.0/19.3 ms"
+depth16-color16,24.3,"1260 frames 51.8 seconds 24.3 fps 8.0/41.1/115.0/19.1 ms"
+depth24-color32,24.3,"1260 frames 51.8 seconds 24.3 fps 7.0/41.1/121.0/19.3 ms"
+combo-quality-keep,39.3,"1260 frames 32.1 seconds 39.3 fps 10.0/25.5/81.0/8.2 ms"

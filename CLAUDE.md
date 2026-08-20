@@ -52,6 +52,61 @@ Therefore the code baseline is pinned to the **last SDL 1.2 commit**:
 This is exactly the kind of "modern is better" assumption that breaks on old
 hardware — see `MISTAKES.md`.
 
+### Re-examined 2026-08-20: the premise above is the one unmeasured claim here
+
+An audit of this repo's decisions found something worth writing down. Nearly
+every constraint in this project is backed by evidence: the SDK floor A/B is a
+bench table, the dyld subtype grading is an `otool -L` diff, the AltiVec
+claim is a disassembly count. **"SDL2 never supported macOS 10.3 or 10.4" is
+backed by nothing in this tree.** `MISTAKES.md` labels it "caught at planning",
+which is honest: it was reasoned, not tested.
+
+Two supporting claims are weaker than they read:
+
+- **"Upstream's PPC path targets the 10.5 SDK / G4-or-better."** That text is
+  `make-macosx.sh:76` and `:82-86` — a file that exists **in this pinned 2013
+  tree already**, and which our build bypasses entirely by driving the
+  top-level `Makefile` with our own env vars. It says nothing about SDL2-era
+  upstream.
+- **"None of our PPC Macs run 10.5."** Out of date. `imac-g5` runs Leopard
+  10.5.8 and is a benched fleet member.
+
+Counter-evidence from the sister Half-Life port: it ships **`panther-sdl2`
+2.0.3, targeting 10.3 and 10.4**, statically linked into its PowerPC slices,
+and it runs on the G3 on Panther. So "SDL2 never supported 10.3/10.4" is true
+of *upstream* SDL and not of the forks that exist.
+
+**None of that means the pin is wrong.** The migration cost is real and is
+separately documented. It means the pin should be re-decided on measurement
+rather than re-quoted, and `KICKOFF_PROMPT.md`'s "do not relitigate" should be
+read as "do not relitigate casually", not "never look again".
+
+### arm64 does not require the rebase
+
+Recorded here because the two keep being treated as one decision.
+
+What blocks an arm64 slice is that SDL 1.2 upstream never produced an arm64
+build, so no arm64 SDL exists to link. That needs an **arm64 implementation of
+the SDL 1.2 API**, which `sdl12-compat` (libsdl-org) is, rather than a newer
+engine. Each slice of a fat Mach-O carries its own `LC_LOAD_DYLIB`, so an
+arm64 slice can link the shim while PowerPC and Intel keep real SDL 1.2.
+
+Two arm64 specifics for this engine, both found by reading rather than
+building, so treat as INFERRED until a build confirms them:
+
+- **The QVM has no arm64 backend and the Makefile will not warn you.**
+  `Makefile:400` sets `HAVE_VM_COMPILED=true` unconditionally for
+  `PLATFORM=darwin`, before any arch test, and the backend selection at
+  `Makefile:1766+` is a chain of `ifeq` with no `else`. So an arm64 darwin
+  build claims a JIT, links no `vm_*.o`, and does not get `-DNO_VM_COMPILED`.
+  It should fail loudly at link time. The fix is one line: gate darwin on arch
+  the way the Linux block already does.
+- **Apple Silicon enforces W^X**, so a QVM JIT would need `MAP_JIT` plus
+  `pthread_jit_write_protect_np`. Largely moot in practice: every shipped
+  `autoexec-*.cfg` sets `vm_game`/`vm_cgame`/`vm_ui` to `0`, meaning native
+  dylibs, not the JIT. An arm64 slice would want a fourth set of those
+  dylibs, taking `build-gamedylibs.sh` from 9 builds and 3 lipos to 12 and 4.
+
 ## Host matrix (shared with QuakeSpasm / Quake II)
 
 | Machine | CPU | GPU | macOS | Build slice | ssh alias |

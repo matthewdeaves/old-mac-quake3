@@ -101,11 +101,18 @@ export LDFLAGS="-Wl,-z,relro,-z,now -Wl,-z,noexecstack -pie"
 echo "[container] building ioq3ded"
 # Server only. No client, no renderer, no game .so and no QVM compilation: the
 # game bytecode comes from id's pak files and is CPU independent.
+# The 'set -e' at the top of this script would abort the instant make returned
+# non-zero, BEFORE the MAKE_RC check below could tail the log to stderr. That is
+# not theoretical: it made two aarch64 builds fail in total silence, printing
+# only "[container] building ioq3ded" and exiting 2 with no reason given, and
+# the real error (an unsupported-architecture #error) was sitting in
+# /work/build.log the whole time. '|| MAKE_RC=\$?' keeps make out of set -e's
+# reach so the diagnostics below actually run.
+MAKE_RC=0
 make BUILD_CLIENT=0 BUILD_SERVER=1 \\
      BUILD_GAME_SO=0 BUILD_GAME_QVM=0 BUILD_MISSIONPACK=0 \\
      BUILD_RENDERER_OPENGL2=0 \\
-     -j"\$(nproc)" > /work/build.log 2>&1
-MAKE_RC=\$?
+     -j"\$(nproc)" > /work/build.log 2>&1 || MAKE_RC=\$?
 
 if [ "\$MAKE_RC" -ne 0 ]; then
 	echo "[container] make failed:" >&2
@@ -139,10 +146,20 @@ echo "[container] hardening: canaries yes, full RELRO, NX, PIE"
 
 # Everything loaded must be part of glibc. Anything else is a package the
 # operator would have to install, which is what this build exists to avoid.
+# The previous form of this check could not pass on any architecture. It piped
+# grep -o through `tr -d '[:space:]'`, which strips NEWLINES as well as spaces,
+# so every library name was welded into one string:
+#   linux-vdso.so.1libdl.so.2libm.so.6libc.so.6
+# That blob then matched none of the allowed names and the build was refused
+# with "depends on libraries outside glibc", naming libc and libm as the
+# offenders. It also never allowed linux-vdso, which the kernel always injects.
+# awk keeps one name per line and sed strips the directory, because the loader
+# appears as an absolute path (/lib/ld-linux-aarch64.so.1).
 ldd /work/out/ioq3ded > /work/ldd.txt 2>&1 || true
-BAD=\$(grep -oE '^[[:space:]]*[a-zA-Z0-9_.+-]+\\.so[0-9.]*' /work/ldd.txt \\
-	| tr -d '[:space:]' \\
-	| grep -vE '^(libc|libm|libdl|libpthread|librt|libgcc_s|ld-linux.*)\\.so' || true)
+BAD=\$(awk '{print \$1}' /work/ldd.txt \\
+	| sed 's|.*/||' \\
+	| grep -E '\\.so' \\
+	| grep -vE '^(linux-vdso|libc|libm|libdl|libpthread|librt|libgcc_s|ld-linux.*)\\.so' || true)
 if [ -n "\$BAD" ]; then
 	echo "[container] binary depends on libraries outside glibc:" >&2
 	echo "\$BAD" >&2

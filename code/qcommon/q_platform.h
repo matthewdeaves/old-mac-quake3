@@ -222,6 +222,19 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define ARCH_STRING "alpha"
 #elif defined __sparc__
 #define ARCH_STRING "sparc"
+#elif defined __aarch64__
+// 64-bit ARM. Absent from this 2013 baseline, which predates it, so a Linux
+// aarch64 build fell through to "#error Architecture not supported". That is
+// the ARM VPS case for the dedicated server.
+//
+// Deliberately NO idx64, for the same reason the Apple Silicon branch above
+// gives: despite the name it means 64-bit x86, not 64-bit, and it gates the
+// SSE helpers. Setting it here got exactly the failure that comment predicts,
+// "undefined reference to qftolsse" at link time.
+//
+// gcc does not define __arm__ on aarch64, so this cannot be folded into the
+// __arm__ branch below.
+#define ARCH_STRING "aarch64"
 #elif defined __arm__
 #define ARCH_STRING "arm"
 #elif defined __cris__

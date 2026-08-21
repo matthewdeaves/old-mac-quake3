@@ -25,6 +25,8 @@ their evidence live in [`adr/`](adr/).
 
 ## Live references
 
+- [`RELEASE.md`](RELEASE.md) - the pre-tag order and the manual double-click
+  gate, which `scripts/release-check.sh` enforces.
 - [`PROFILING.md`](PROFILING.md) - the on-hardware profiling method and every
   measured result, wins and negatives, per machine class.
 - [`KNOBS.md`](KNOBS.md) - the cvar and cmdline inventory used for tuning.

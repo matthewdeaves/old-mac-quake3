@@ -98,7 +98,44 @@ PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
 # run while the previous engine was still tearing down fullscreen. That is how
 # machines got wedged. `killall -0` works on Tiger but is unverified on
 # Panther, so OR the two — alive if either says so, which fails safe.
-ALIVE_FN='alive() { killall -0 ioquake3 2>/dev/null || ps ax 2>/dev/null | grep -q "[i]oquake3"; }'
+#
+# BOTH NAMES, in the check and in the kill, and they must never disagree.
+#
+# The loose bench binary is called `ioquake3-bench`, so the process it starts is
+# called `ioquake3-bench` too, and macOS `killall` matches on the process name.
+# Measured on this box: with a process running as `ioquake3-bench`,
+# `killall -0 ioquake3` reports NO MATCH while `ps ax | grep "[i]oquake3"`
+# reports MATCH.
+#
+# So a check that ORs those two and a kill that names only `ioquake3` disagree
+# by construction: alive() says yes forever, every killall hits nothing, the
+# grace loops spin their full 15 seconds, and the next run launches fullscreen
+# on top of an engine that is still holding the display. That is the exact
+# failure MISTAKES.md records for 2026-07-25, and it needed power-button resets
+# on four Macs.
+#
+# Both names, both places. The app's own binary is still called `ioquake3`, and
+# killing that too before a bench is intended: an engine somebody left running
+# from a double-click has to go before the next fullscreen launch either way.
+#
+# KNOWN, and deliberately not fixed here: the `ps ax` branch also matches the
+# enclosing shell. sshd runs this whole snippet as `sh -c '<snippet>'`, and the
+# snippet contains the literal string `ioquake3-bench` in the two lines above,
+# so the shell's own argv matches its own grep. The `[i]` bracket trick only
+# stops grep matching grep. So alive() over-reports.
+#
+# That over-report is in the SAFE direction: it makes the script wait and kill
+# rather than launch on top of a live engine, and the cost is up to 15 seconds
+# of grace per run. It only became dangerous in combination with the killall
+# name mismatch above, where alive() said yes forever and the kill hit nothing,
+# so the grace expired and the next run launched anyway.
+#
+# The real fix is to stop matching on names at all: record the engine's pid at
+# launch and have alive() use `kill -0` on it. That rewrites the wedge-critical
+# teardown path, so it wants a real fullscreen run on a PowerPC box to verify,
+# not a grep.
+ALIVE_FN='alive() { killall -0 ioquake3-bench 2>/dev/null || killall -0 ioquake3 2>/dev/null || ps ax 2>/dev/null | grep -q "[i]oquake3"; }'
+KILL_FN='engine_kill() { killall -$1 ioquake3-bench 2>/dev/null; killall -$1 ioquake3 2>/dev/null; true; }'
 
 # Also stop any engine we left running. If this script dies (Ctrl-C, a parent
 # shell going away, a killed background job) the REMOTE engine keeps rendering
@@ -108,11 +145,12 @@ ALIVE_FN='alive() { killall -0 ioquake3 2>/dev/null || ps ax 2>/dev/null | grep 
 # come up on the "safe settings" modal.
 bench_cleanup() {
   ssh -o ConnectTimeout=10 "$MACHINE" "$ALIVE_FN
+    $KILL_FN
     cd $REMOTE_DIR 2>/dev/null
     if alive; then
-      killall -TERM ioquake3 2>/dev/null
+      engine_kill TERM
       g=0; while [ \$g -lt 15 ]; do alive || break; sleep 1; g=\$((g+1)); done
-      alive && killall -KILL ioquake3 2>/dev/null
+      alive && engine_kill KILL
     fi
     rm -f \"$PIDF\"
     [ -f baseq3/autoexec.cfg.bench-aside ] && mv -f baseq3/autoexec.cfg.bench-aside baseq3/autoexec.cfg
@@ -131,8 +169,9 @@ for ((r=1; r<=RUNS; r++)); do
   # cd/rm/launch carefully: only the engine goes to background (cd && X & would
   # background the whole chain). Integer sleeps only — Panther sleep is int-only.
   ssh "$MACHINE" "$ALIVE_FN
+    $KILL_FN
     cd $REMOTE_DIR
-    killall -TERM ioquake3 2>/dev/null
+    engine_kill TERM
     g=0; while [ \$g -lt 12 ]; do alive || break; sleep 1; g=\$((g+1)); done
     rm -f baseq3/qconsole.log \"$PIDF\"
     ./ioquake3-bench +set com_archAutoexec 0 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
@@ -164,9 +203,9 @@ for ((r=1; r<=RUNS; r++)); do
     # what wedged four Macs on 2026-07-25. The fix is the GRACE, not removing
     # KILL: never KILL while it may still hold the fullscreen GL context.
     if alive; then
-      killall -TERM ioquake3 2>/dev/null
+      engine_kill TERM
       g=0; while [ \$g -lt 15 ]; do alive || break; sleep 1; g=\$((g+1)); done
-      alive && killall -KILL ioquake3 2>/dev/null
+      alive && engine_kill KILL
     fi
     rm -f \"$PIDF\"
     # Settle before the next run — see COOLDOWN above. Skipping this is what lets

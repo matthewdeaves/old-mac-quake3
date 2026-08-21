@@ -52,9 +52,15 @@ if [ "$RESET" = 1 ] && [ -f "$CSV" ]; then
   echo "reset: backed up + wiped results.csv"
 fi
 
+# Both names. The loose bench binary is ioquake3-bench, so its process is called
+# ioquake3-bench, and macOS killall matches on the process name: `killall
+# ioquake3` does not touch it. Naming only one of the two here left stale bench
+# engines running fullscreen on the very machines this line exists to clear,
+# which is how a fleet run ends in power-button resets. Same reasoning as the
+# ALIVE_FN/KILL_FN pair in bench.sh.
 echo "==> pre-kill stale engines"
 for m in "${ALL[@]}"; do [ -n "${SKIP[$m]:-}" ] && continue
-  ssh -o ConnectTimeout=5 "$m" 'killall -KILL ioquake3 2>/dev/null; true' & done; wait
+  ssh -o ConnectTimeout=5 "$m" 'killall -KILL ioquake3-bench 2>/dev/null; killall -KILL ioquake3 2>/dev/null; true' & done; wait
 
 mkdir -p /tmp/q3-parallel-bench
 echo "==> launching legs (commit $COMMIT, demos: ${DEMOS[*]}, res: ${RESES[*]}, runs: $RUNS)"

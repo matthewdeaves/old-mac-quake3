@@ -45,3 +45,4 @@ timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps
 2026-08-21T20:05:36Z,96833666-prim2-pinned,yosemite-tiger,four,800x600,21.3,21.4,21.4,21.40
 2026-08-21T20:36:04Z,96833666-interleaved-prim3,yosemite,four,800x600,33.4,33.3,33.3,33.35
 2026-08-21T20:36:04Z,96833666-interleaved-prim2,yosemite,four,800x600,31.6,31.8,31.7,31.70
+2026-08-21T21:14:57Z,7a52a379,yosemite,four,800x600,33.4,33.3,NA,33.35

@@ -5,15 +5,17 @@
 # ioquake3: old-Mac port
 
 **Quake III Arena running again on vintage Macs**, Panther on a G3, Tiger on a
-G4, Lion on Intel, all from a single fat binary.
+G4, Leopard on a G5, Lion on Intel, and natively on Apple Silicon, all from a
+single fat binary.
 
 </div>
 
-A port of [ioquake3](https://ioquake3.org/) built as one fat PowerPC + Intel
-binary, tested on a range of old Macs. One Mach-O bundle (`ppc750` + `ppc7400` +
-`x86_64`) drops onto every machine and `dyld` picks the right slice at runtime,
-down to a 449 MHz iMac G3 with a 16 MB Rage 128, right at the minimum spec when
-Q3 shipped in 1999.
+A port of [ioquake3](https://ioquake3.org/) built as one fat binary spanning
+**twenty-six years of Macs**, tested on a range of real hardware. One Mach-O
+bundle carries **five slices** (`ppc750` + `ppc7400` + `i386` + `x86_64` +
+`arm64`) and `dyld` picks the right one at runtime, from a 449 MHz iMac G3 with
+a 16 MB Rage 128, right at the minimum spec when Q3 shipped in 1999, up to an
+M-series Mac where it runs native rather than under Rosetta.
 
 > **About this project.** A personal project, I love Quake and I collect and
 > tinker with old Macs. My part is the setup and testing: the build, deploy and
@@ -45,10 +47,13 @@ Q3 shipped in 1999.
 | imac-g5 | G5 2.0 GHz | Radeon 9600 128 MB | Leopard 10.5.8 | ppc7400 |
 | mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | Lion 10.7.5 | x86_64 |
 | imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7 | x86_64 |
+| mini-sl | Core 2 Duo 2.26 GHz | GeForce 9400 | Snow Leopard 10.6.8 | x86_64 |
+| quad-leopard | G5 quad 2.5 GHz | - | Leopard 10.5.8 | ppc7400 |
+| (orchestration Mac) | Apple M5 | - | macOS 26 | arm64 |
 
 ### Which OS each CPU needs
 
-Three slices cover four CPU families, the G5 runs the same `ppc7400` slice as the G4s.
+Five slices cover six CPU families, the G5 running the same `ppc7400` slice as the G4s.
 Each is built against the **oldest** OS its CPU family can run, not the OS the machines
 here happen to run:
 
@@ -57,7 +62,21 @@ here happen to run:
 | G3 (750) | `ppc750` | 10.3.9 Panther or later | 10.3.9 |
 | G4 (7400 / 7450 / 7447A) | `ppc7400` | 10.3.9 Panther or later | 10.4.11 |
 | G5 (970) | `ppc7400` | 10.3.9 Panther or later | 10.5.8 |
+| Intel, 32-bit only | `i386` | 10.4 Tiger through 10.6.8 | **not run on hardware** |
 | Intel, 64-bit | `x86_64` | 10.6 Snow Leopard or later | 10.7.5 and 15.7 |
+| Apple Silicon | `arm64` | 11.0 Big Sur or later | macOS 26 |
+
+The `i386` slice exists for the 2006 Core Solo and Core Duo machines (Mac mini 1,1,
+iMac 4,1, MacBook 1,1, MacBook Pro 1,1), the only Intel Macs with no 64-bit mode.
+Without it those machines are handed nothing at all and the app does not launch. There
+is no such machine here, so its settings come from documented capability rather than
+measurement, and the config says so.
+
+The `arm64` slice is the only one that does not link a real SDL 1.2, because none
+exists for that architecture. It links `sdl12-compat` over an SDL 2.32.4 that this
+project builds and ships itself, so the stack is two layers we control end to end
+rather than whatever a package manager would resolve to. PowerPC and Intel are
+untouched by that and keep the genuine SDL 1.2. See `docs/adr/0017`.
 
 `dyld` picks a slice by **CPU subtype alone**, the OS plays no part. A Mac running an
 OS older than its slice was built for gets that slice anyway rather than falling back to
@@ -70,8 +89,9 @@ The right-hand column is the honest part: **a G4 on Panther, and a G5 on Panther
 Tiger, should work but have not been run on hardware**, there's no such machine here.
 Same for an Intel Mac on Snow Leopard.
 
-32-bit-only Intel Macs (Core Duo / Core Solo, 2006) have no slice at all: there is no
-`i386` build, and no such machine here to make one on.
+32-bit-only Intel Macs (Core Duo / Core Solo, 2006) **do** now have a slice. There is
+still no such machine here to run it on, so it is build-correct rather than tested, and
+its config says so in its own comments.
 
 ### What lowering the floor cost
 
@@ -105,22 +125,39 @@ Each machine runs a per-machine config at its native panel resolution. The
 G5 (1440×900); tuning is ongoing, and live numbers are in
 [`benchmarks/results.csv`](benchmarks/results.csv).
 
-**G3 performance is still being worked on, on both Panther and Tiger.** The
-449 MHz G3 with a 16 MB Rage 128 is the machine this port has to fight hardest
-for, and it is the one with the least settled configuration. It plays on both
-10.3.9 and 10.4.11, that much is confirmed on hardware for v0.5.0, but the
-`ppc750` profile is deliberately cautious (800×600, `r_picmip 1`, 16-bit colour
-and depth, cheap sky) and has not been re-measured on either OS since. Two open
-questions: whether that baseline is leaving framerate on the table, and whether
-Panther and Tiger actually differ on this hardware. Treat the ~22 fps figure as
-the last known good number rather than a current one.
+**The G3 got a lot faster in v0.6.0: 21.6 → 33.3 fps**, measured on the production
+path on 10.3.9, and its mirrors work again.
+
+The machine was profiled rather than guessed at. It spends **93% of the frame in the
+renderer backend** (67 ms of 72), and the resolution ladder is almost perfectly inverse
+with pixel count (20.8 / 13.8 / 4.4 fps at 640×480 / 800×600 / 1024×768), so it is
+bound by texels rasterised and nothing else. Texture size, geometry detail, LOD bias,
+mipmap mode, vertex submission path and compiled vertex arrays were all measured and are
+all inside noise. `r_ext_compressed_textures` had never done anything at all: the Rage
+128 driver reports no S3TC.
+
+Two things actually paid, and both are in v0.6.0:
+
+- **Mirrors were black because of this port's own `r_fastsky 2`.** That setting dodged
+  the gate that disables portals, but the same style of truthy test clears the colour
+  buffer to black for the portal's view too, so the reflection was drawn and then wiped.
+  Real sky is also marginally *faster* here, so the cheap sky had cost every reflection
+  in the game for nothing.
+- **Flares cost 45% of the frame**, and it is not fill: shrinking them changed nothing.
+  Each flare does a one-pixel `glReadPixels` of the depth buffer, and the first such
+  sync in a frame drains the command queue and destroys CPU/GPU overlap for that whole
+  frame. `r_flareTestInterval` re-tests occlusion every Nth frame instead of every
+  frame, which keeps the flares and recovers most of the cost.
+
+Panther and Tiger still have not been compared on this hardware; that remains open.
 
 ## Features
 
-- **One fat binary for every machine**, `ppc750` (G3), `ppc7400` (G4 AltiVec)
-  and `x86_64` (Intel) slices in a single Mach-O.
-- Runs on **Mac OS X 10.3.9 Panther through Lion** on PowerPC and early Intel, and
-  on modern macOS via the Intel slice.
+- **One fat binary for every machine**, `ppc750` (G3), `ppc7400` (G4/G5 AltiVec),
+  `i386` (2006 Core Solo/Duo), `x86_64` (Intel) and `arm64` (Apple Silicon) slices in
+  a single Mach-O.
+- Runs on **Mac OS X 10.3.9 Panther through current macOS**, natively on every one,
+  including Apple Silicon rather than under Rosetta.
 - **SDL 1.2**, the last SDL line that supports Panther and Tiger, with a
   monolithic OpenGL1 renderer.
 - **Per-machine auto-config**, reads `hw.model` at boot and applies a tuned

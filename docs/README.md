@@ -8,7 +8,7 @@ their evidence live in [`adr/`](adr/).
 | ADR | Subject |
 |---|---|
 | [0001](adr/0001-the-baseline-is-the-last-sdl-1-2-commit.md) | The engine baseline is the last SDL 1.2 commit, and the re-examination of that premise |
-| [0002](adr/0002-three-slices-floored-at-the-oldest-os-each-cpu-can-run.md) | Three slices in one fat binary, floored at the oldest OS each CPU can run |
+| [0002](adr/0002-three-slices-floored-at-the-oldest-os-each-cpu-can-run.md) | Slices in one fat binary, floored at the oldest OS each CPU can run (three at the time; five since arm64 and i386, see 0017) |
 | [0003](adr/0003-every-powerpc-slice-is-re-stamped-and-asserted.md) | Every PowerPC slice is re-stamped after link and asserted with `lipo` |
 | [0004](adr/0004-cross-compile-on-a-claimed-intel-lion-mini.md) | Cross-compile every slice on a claimed Intel Lion mini |
 | [0005](adr/0005-package-the-disk-image-on-a-tiger-g4.md) | Package the disk image on a Tiger G4, and verify its contents end to end |

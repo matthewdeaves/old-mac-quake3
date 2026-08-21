@@ -9,10 +9,15 @@ the measured amplification and hardening trade-offs, are in
 
 ```
 ioq3ded                      the server
-server.cfg                   configuration, goes in baseq3/
+baseq3/server.cfg            configuration, already in the game directory
+home/baseq3/                 empty, this is fs_homepath
 systemd/ioq3ded.service
 BUILD-INFO.txt               what this was built from
 ```
+
+Both directories are laid out so the tarball works unpacked as it is. `baseq3/`
+is where the engine looks for `server.cfg`, and `home/` is `fs_homepath`, which
+has to exist before systemd can start the unit at all.
 
 No game data. Quake III's content is id Software's and is not ours to ship. You
 supply the pak files from your own copy. There is no separate game library,
@@ -29,10 +34,9 @@ The only shared libraries loaded are part of glibc.
 
 ```sh
 sudo useradd --system --home /opt/quake3-server --shell /usr/sbin/nologin quake3
-sudo mkdir -p /opt/quake3-server/baseq3 /opt/quake3-server/home
+sudo mkdir -p /opt/quake3-server
 sudo tar xzf quake3-server-*-linux-x86_64.tar.gz --strip-components=1 \
      -C /opt/quake3-server
-sudo cp /opt/quake3-server/server.cfg /opt/quake3-server/baseq3/server.cfg
 
 # your own copy of the game: pak0.pk3 through pak8.pk3
 sudo cp pak*.pk3 /opt/quake3-server/baseq3/
@@ -57,9 +61,24 @@ cd /opt/quake3-server/baseq3 && for f in *.PK3; do mv "$f" "${f%.PK3}.pk3"; done
 ```
 
 **`server.cfg` has to be in `baseq3/`**, not next to `ioq3ded`: `exec` searches
-the game directory and says nothing when it finds nothing.
+the game directory and says nothing when it finds nothing. The tarball ships it
+in the right place, so this only matters if you move it. The symptom of getting
+it wrong is one `couldn't exec server.cfg` line in the journal and a server
+running on defaults, which otherwise looks completely healthy.
 
 Set `g_password` and `rconPassword` in `server.cfg` before exposing the port.
+
+## Upgrading
+
+Unpacking a newer tarball over an existing install **overwrites
+`baseq3/server.cfg`**, because that is where the tarball now carries it. Keep
+your own copy first:
+
+```sh
+sudo cp /opt/quake3-server/baseq3/server.cfg /opt/quake3-server/server.cfg.mine
+```
+
+Your pak files are untouched: the tarball contains no game content.
 
 ## Changing the map
 

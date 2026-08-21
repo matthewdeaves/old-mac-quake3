@@ -195,8 +195,28 @@ STAGE="$WORK/pkg/quake3-server-$VERSION-linux-$ARCH"
 rm -rf "$WORK/pkg"
 mkdir -p "$STAGE/systemd"
 
+# server.cfg goes in baseq3/, NOT beside the binary.
+#
+# The launch line says `+exec server.cfg`, and Quake III's exec searches the
+# GAME directory, never the directory ioq3ded sits in. A copy left at the
+# install root is silently never read: the server starts, binds its port, looks
+# healthy, logs "couldn't exec server.cfg" once, and then runs on defaults with
+# the default hostname, no passwords and none of the privacy settings in the
+# shipped config. This tarball used to ship it at the root, which is exactly the
+# location the README says does not work. Issue #14.
+mkdir -p "$STAGE/baseq3"
+cp "$REPO_ROOT/server/server.cfg"       "$STAGE/baseq3/server.cfg"
+
+# fs_homepath, shipped as an empty directory on purpose.
+#
+# The unit sets ProtectSystem=strict and names this path in ReadWritePaths=.
+# systemd cannot mount a read-write path that does not exist, so a clean install
+# without it fails at 226/NAMESPACE before the engine ever runs, and restart
+# loops. The unit also creates it defensively; shipping it means a hand install
+# that never reads the unit still works. Issue #13.
+mkdir -p "$STAGE/home/baseq3"
+
 cp "$WORK/out/ioq3ded"                  "$STAGE/ioq3ded"
-cp "$REPO_ROOT/server/server.cfg"       "$STAGE/server.cfg"
 cp "$REPO_ROOT/server/README.md"        "$STAGE/README.md"
 cp "$REPO_ROOT/server/ioq3ded.service"  "$STAGE/systemd/"
 cp "$REPO_ROOT/COPYING.txt"             "$STAGE/COPYING.txt" 2>/dev/null || true

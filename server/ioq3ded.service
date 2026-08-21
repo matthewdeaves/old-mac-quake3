@@ -23,6 +23,24 @@ WorkingDirectory=/opt/quake3-server
 RuntimeDirectory=quake3-server
 RuntimeDirectoryMode=0750
 ExecStartPre=/usr/bin/mkfifo -m 0600 /run/quake3-server/console
+
+# fs_homepath has to exist before the namespace is built, and the `+` is what
+# makes this line work at all.
+#
+# ProtectSystem=strict mounts the whole filesystem read-only and then bind
+# mounts the ReadWritePaths= entries back. systemd cannot mount a path that does
+# not exist, so on a clean install where nothing has created
+# /opt/quake3-server/home the unit dies at 226/NAMESPACE and restart loops. It
+# fails during namespace setup, which happens per exec command and BEFORE the
+# command runs, so an ordinary ExecStartPre=/bin/mkdir would fail the same way
+# the mkfifo above does. A `+` prefix runs the command outside the namespace,
+# which is the whole point here.
+#
+# systemctl status is misleading on this: ExecMainStatus=0 and
+# SubState=auto-restart make it look like the binary is exiting cleanly rather
+# than like the unit never started. Issue #13.
+ExecStartPre=+/bin/mkdir -p /opt/quake3-server/home/baseq3
+ExecStartPre=+/bin/chown -R quake3:quake3 /opt/quake3-server/home
 ExecStart=/bin/sh -c 'exec 3<>/run/quake3-server/console; \
     exec /opt/quake3-server/ioq3ded \
         +set dedicated 1 \

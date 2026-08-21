@@ -188,6 +188,40 @@ RSYNC_EXTRA=""
 # either fail on a four-slice build or silently skip the arm64 files on a
 # five-slice one. Deriving it also removes the second copy of the list that
 # used to live in the remote heredoc below, which was a standing drift hazard.
+# ---- ad-hoc code-sign the staged bundle ----------------------------------
+# macOS on arm64 refuses to map a page whose code signature does not validate
+# and kills the process with CODESIGNING / Invalid Page. Signing also gives the
+# bundle a stable identity, so macOS stops re-asking for Desktop/Documents
+# access on every launch, which it does for an app it cannot identify.
+#
+# Order is not optional: codesign validates a bundle's nested code when it signs
+# the bundle, so anything inside must already be signed. Plain dylibs first,
+# then each framework as a DIRECTORY (never by its inner binary path), then the
+# .app last. Signed here rather than on DMG_HOST, which is a Tiger G4 with no
+# codesign, and before the checksums so the byte verification hashes what ships.
+if command -v codesign >/dev/null 2>&1; then
+	echo "[make-dmg] ad-hoc code-signing the staged bundle"
+	SAPP="$IMG/ioquake3.app"
+	find "$SAPP" -type f \( -name '*.dylib' -o -name '*.so' \) -not -path '*.framework/*' -print0 2>/dev/null \
+	  | while IFS= read -r -d '' f; do codesign --force --sign - "$f" >/dev/null 2>&1 || true; done
+	for fw in "$SAPP"/Contents/MacOS/*.framework "$SAPP"/Contents/Frameworks/*.framework; do
+		[ -d "$fw" ] || continue
+		for stray in "$fw"/*; do
+			[ -L "$stray" ] && continue
+			[ "$(basename "$stray")" = "Versions" ] && continue
+			mkdir -p "$fw/Versions/A/Resources"
+			mv "$stray" "$fw/Versions/A/Resources/" 2>/dev/null || true
+		done
+		codesign --force --sign - "$fw" >/dev/null 2>&1 || true
+	done
+	codesign --force --sign - "$SAPP" >/dev/null 2>&1 || true
+	codesign -v "$SAPP" >/dev/null 2>&1 || {
+		echo "[make-dmg] FATAL: the .app bundle signature does not validate" >&2; exit 1; }
+	echo "[make-dmg] signatures verified on the bundle"
+else
+	echo "[make-dmg] WARN: no codesign here; the bundle will NOT run on Apple Silicon" >&2
+fi
+
 VERIFY_FILES=$( cd "$IMG" && find ioquake3.app/Contents/MacOS \
                   -type f \( -name 'ioquake3' -o -name '*.dylib' \) | LC_ALL=C sort )
 SRC_SUMS=$(cd "$IMG" && printf '%s\n' "$VERIFY_FILES" | while read -r f; do \

@@ -196,6 +196,32 @@ for ((r=1; r<=RUNS; r++)); do
       grep -q 'frames.*seconds.*fps\\|ERROR:' baseq3/qconsole.log 2>/dev/null && break
       sleep 1; t=\$((t+1))
     done
+    # The fps line appears BEFORE the engine has finished quitting, so give it
+    # room to finish on its own before signalling it. This is not politeness,
+    # it is a crash.
+    #
+    # The engine is launched with 'nextdemo quit', so when the demo ends it
+    # walks Com_Quit_f -> CL_Shutdown -> RE_Shutdown -> GLimp_Shutdown ->
+    # SDL_VideoQuit -> QZ_UnsetVideoMode -> CGReleaseAllDisplays. A TERM
+    # delivered inside that window runs Sys_SigHandler -> Sys_Exit ->
+    # SDL_Quit, which re-enters the SAME SDL video teardown already in
+    # progress and releases an Objective-C object twice:
+    #
+    #   0 libobjc.A.dylib  objc_msgSend
+    #   1 libSDL-1.2.0     QZ_TearDownOpenGL
+    #   ...
+    #   9 libSystem.B      _sigtramp          <- signal landed here
+    #  12 CoreGraphics     _CGSSetDisplayOption
+    #
+    # Measured on yosemite 2026-08-21: 12 EXC_BAD_ACCESS crashes in one bench
+    # round, one CrashReporter dialog each, all of them caused by this script
+    # signalling an engine that was already exiting cleanly. Sys_SigHandler
+    # guards against a SECOND signal but not against a signal arriving during
+    # a normal shutdown.
+    #
+    # So: wait for the self-quit first. Only the engine that overruns gets
+    # signalled, which is what the teardown below was always for.
+    q=0; while [ \$q -lt 20 ]; do alive || break; sleep 1; q=\$((q+1)); done
     # Teardown: TERM, a REAL grace period, then KILL only if it is still there.
     # KILL is kept deliberately — the sister ports document that SDL/CoreAudio
     # threads do not always answer SIGTERM, and an engine left running is worse

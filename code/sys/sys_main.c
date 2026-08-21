@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <signal.h>
 #include <stdlib.h>
+#include <unistd.h>	// _exit, for the mid-shutdown signal bail-out in Sys_SigHandler
 #include <limits.h>
 #include <sys/types.h>
 #include <stdarg.h>
@@ -551,6 +552,30 @@ Sys_SigHandler
 void Sys_SigHandler( int signal )
 {
 	static qboolean signalcaught = qfalse;
+
+	// A signal that lands DURING a normal shutdown must not restart that
+	// shutdown, it must get out of the way.
+	//
+	// signalcaught below only guards against a SECOND signal. It does not
+	// guard against the first signal arriving while Com_Quit_f is already
+	// walking CL_Shutdown -> RE_Shutdown -> GLimp_Shutdown -> SDL_VideoQuit.
+	// Take a TERM inside CGReleaseAllDisplays, as a bench script sending one
+	// to an engine that is already exiting will, and the handler calls
+	// Sys_Exit -> SDL_Quit, which re-enters the same SDL video teardown and
+	// sends objc_msgSend to an object the first pass has already released:
+	//
+	//   0 libobjc.A.dylib  objc_msgSend            EXC_BAD_ACCESS
+	//   1 libSDL-1.2.0     QZ_TearDownOpenGL
+	//   9 libSystem.B      _sigtramp               <- signal landed here
+	//  12 CoreGraphics     _CGSSetDisplayOption
+	//
+	// Measured on yosemite (G3, 10.3.9) 2026-08-21: 12 such crashes in one
+	// bench round. The harness is fixed to wait for the self-quit, but an
+	// engine should not be crashable by a well-formed TERM at an awkward
+	// moment, so exit immediately instead of unwinding a second time. No
+	// atexit handlers, no SDL, nothing that can re-enter.
+	if( com_quitting )
+		_exit( 1 );
 
 	if( signalcaught )
 	{

@@ -119,6 +119,9 @@ int			com_frameTime;
 int			com_frameNumber;
 
 qboolean	com_errorEntered = qfalse;
+// Set once a normal shutdown has begun, so a signal arriving mid-teardown can
+// bail out instead of re-entering it. See Sys_SigHandler.
+qboolean	com_quitting = qfalse;
 qboolean	com_fullyInitialized = qfalse;
 qboolean	com_gameRestarting = qfalse;
 
@@ -363,6 +366,7 @@ do the apropriate things.
 void Com_Quit_f( void ) {
 	// don't try to shutdown if we are in a recursive error
 	char *p = Cmd_Args( );
+	com_quitting = qtrue;
 	if ( !com_errorEntered ) {
 		// Some VMs might execute "quit" command directly,
 		// which would trigger an unload of active VM error.

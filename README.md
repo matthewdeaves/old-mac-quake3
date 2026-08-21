@@ -171,6 +171,19 @@ Panther and Tiger still have not been compared on this hardware; that remains op
 - Optional **Apple Watch "tactical computer" companion** (`watchlink`), off by
   default; enable with `seta watch_host "auto"`.
 
+## The Linux dedicated server
+
+There is also a headless Linux server, so a game does not have to be hosted on
+one of the old Macs. It builds from the same tree and ships as its own release
+(`server-v*`), for x86_64 and aarch64. It needs glibc 2.31 or newer, so Ubuntu
+20.04 or Debian 11 upward, and it ships no content.
+
+Read [`server/README.md`](server/README.md) before putting one on the internet.
+The firewall rules there are not optional: the engine answers unauthenticated
+status queries with about 32 times what it was asked for, so an open server can
+be used to reflect traffic at someone else. Quake III at least rate limits this
+itself, which the other three engines in this family do not.
+
 ## Get the latest release
 
 Download the latest disk image from

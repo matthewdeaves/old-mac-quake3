@@ -57,9 +57,33 @@ OUT="$(ssh -o ConnectTimeout=15 "$MACHINE" "
       \"\$lsr\" -f \"\$app\" >/dev/null 2>&1
       # Assert the repair took. A blank \`executable:\` is precisely the broken
       # state this script exists to clear, so an unchecked -f proves nothing.
+      #
+      # TWO dump formats, and only one of them has labels. 10.4 and later print
+      # key-value lines, \`path: ...\` and \`executable: ...\`. PANTHER prints a
+      # compact columnar block with no field names at all:
+      #
+      #   B00002352  APPL/....  Fri Aug 21 18:51:00 2026  ioquake3.app
+      #              -pad----hn----------!            v0  ioquake3
+      #              Contents/Resources/ioquake3.icns     org.ioquake...
+      #              Contents/MacOS/ioquake3              106610, 106626, Mach-O
+      #              V00000008 /Users/mini/Desktop/quake3/ioquake3.app
+      #
+      # So the labelled parse finds nothing on 10.3 no matter how healthy the
+      # record is, and this script called every Panther box BLANK. That is not
+      # a cosmetic false alarm: release-check.sh matches on the warning text, so
+      # a G3 in the machine list failed a release for a record that was fine.
+      # Measured on yosemite 2026-08-21: labelled parse empty, block parse
+      # returns Contents/MacOS/ioquake3.
+      #
+      # Try the labelled form, fall back to the block form. Paragraph mode finds
+      # the block whose text contains the app path, then takes the first
+      # Contents/MacOS/ field in it.
       exe=\$(\"\$lsr\" -dump 2>/dev/null \
               | grep -A20 \"path: *\$app\\\$\" \
               | sed -n 's/^[[:space:]]*executable:[[:space:]]*//p' | head -1)
+      [ -n \"\$exe\" ] || exe=\$(\"\$lsr\" -dump 2>/dev/null \
+              | awk -v app=\"\$app\" 'BEGIN{RS=\"\"} index(\$0, app){ for(i=1;i<=NF;i++) if(\$i ~ /^Contents\\/MacOS\\//){ print \$i; exit } }' \
+              | head -1)
       [ -n \"\$exe\" ] && echo \"OK \$exe\" || echo 'BLANK'
       exit 0
     fi

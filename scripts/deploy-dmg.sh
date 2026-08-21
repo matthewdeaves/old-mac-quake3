@@ -76,10 +76,17 @@ done
 [ "$appok" = yes ] || { echo "  FATAL: app binary still corrupt after retries" >&2; exit 7; }
 echo "  [verify] installed ioquake3 binary matches the image byte-for-byte"
 
-# Also keep the loose ./ioquake3 + libSDL the rsync deploy.sh uses in sync, so
-# bench.sh (which runs ./ioquake3) and the DMG path agree. Pull both out of the
-# bundle we just verified.
-cp -p "$DEST/ioquake3.app/Contents/MacOS/ioquake3"            "$DEST/ioquake3"            && chmod +x "$DEST/ioquake3" || true
+# Also keep the loose bench binary + libSDL that deploy.sh ships in sync, so
+# bench.sh and the DMG path agree. Pull both out of the bundle we just verified.
+#
+# ioquake3-bench, NOT ioquake3. Finder hides the .app extension, so a loose
+# Mach-O called ioquake3 appears in the install dir as a SECOND "ioquake3" with
+# a generic executable icon, and double-clicking it cannot work because it is
+# not a bundle. This line was the source of that duplicate: it recreated the
+# file on every DMG install, so renaming it in deploy.sh alone did not remove
+# it. Issue #10.
+cp -p "$DEST/ioquake3.app/Contents/MacOS/ioquake3"            "$DEST/ioquake3-bench"      && chmod +x "$DEST/ioquake3-bench" || true
+rm -f "$DEST/ioquake3"
 cp -p "$DEST/ioquake3.app/Contents/MacOS/libSDL-1.2.0.dylib"  "$DEST/libSDL-1.2.0.dylib"  || true
 
 # Set the Finder bundle bit so Panther/Tiger show the app icon, not a folder.

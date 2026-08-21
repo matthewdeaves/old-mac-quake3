@@ -105,6 +105,30 @@ separately documented. It means the pin should be re-decided on measurement
 rather than re-quoted. The original kickoff instruction "do not relitigate"
 should be read as "do not relitigate casually", not "never look again".
 
+### Amendment 2026-08-21: the gamepad cost is no longer unavoidable
+
+The paragraph above says a move to SDL2 would trade PowerPC gamepads away
+"unless the pre-10.5 backend were backported into the fork first". That
+backport now exists.
+
+Our `panther-sdl2` fork carries `SDL_sysjoystick_legacy.c`, an SDL2 joystick
+driver written against the older IOCFPlugIn / `IOHIDDeviceInterface` API that
+the 10.3.9 and 10.4u SDKs do have. Both of the Half-Life port's PowerPC build
+drivers now configure `--enable-joystick`, and its shipped v1.9.2 binary
+carries `SDL_gamecontroller.c` sitting on a real IOHID driver rather than the
+dummy one, on both the `ppc` and `ppc7400` slices. `--disable-haptic` stays:
+force feedback needs the 10.5-only FFB API too.
+
+So the narrow reason recorded above for keeping the SDL 1.2 pin here has been
+answered elsewhere in the family. **The pin still stands**, on the rest of its
+grounds: the tree, the toolchain and the per-slice arch flags are proven on
+this hardware, and a migration would be a large rewrite bought with no
+measured gain. What has changed is that "SDL2 costs gamepads on PowerPC" is no
+longer one of the arguments for it. Not tested with a physical controller on a
+G3 or G4 yet.
+
+matthewdeaves/old-mac-half-life-1#2.
+
 ## Alternatives rejected
 
 **Build from upstream `HEAD` (CMake + SDL2).** Rejected on the reasoning above,

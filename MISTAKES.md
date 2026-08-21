@@ -38,6 +38,12 @@ still supports keeping the SDL 1.2 pin for this port, but for a different and
 much narrower reason than the one originally written down: gamepads, not
 "it would not launch".
 
+**And then that reason went too, later the same day.** The Half-Life port
+backported a pre-10.5 joystick driver into our `panther-sdl2` fork, built on
+the IOCFPlugIn API the old SDKs do have, and ships `SDL_GameController` working
+on both its PowerPC slices as of v1.9.2. The pin here still stands on its other
+grounds, but not on that one. `docs/adr/0001`, amendment at the end.
+
 **Lesson:** for this fleet, "best port" is decided by the OS + SDL + GPU envelope
 of the *oldest* target, not by upstream activity. And label a claim measured or
 reasoned when you write it down, or it hardens into a fact nobody rechecks.

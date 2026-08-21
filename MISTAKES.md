@@ -23,9 +23,27 @@ project. Two of its supporting facts are now known to be weak (the
 `make-macosx.sh` quote is from *this* 2013 tree, and imac-g5 *does* run 10.5).
 Read `docs/adr/0001` before repeating it.
 
+**Measured 2026-08-21, and the claim as written is wrong.** `panther-sdl2`
+2.0.3 was built for `ppc` against the 10.3.9 SDK and against the 10.5 SDK,
+changing nothing but the SDK. Video, audio and events build and run on 10.3.9;
+that is what the sister Half-Life port already ships. **Joystick,
+GameController and haptic do not build there at all** (`make` exit 2), and do
+build clean on 10.5. SDL2's macOS joystick backend targets the IOHIDManager
+API, whose headers first appear in the 10.5 SDK, while SDL 1.2 uses the older
+IOCFPlugIn path that the old SDKs do have. Full A/B table and mechanism in
+`docs/adr/0001`.
+
+So the honest form is **"SDL2 on 10.3/10.4 is partial, not impossible"**. That
+still supports keeping the SDL 1.2 pin for this port, but for a different and
+much narrower reason than the one originally written down: gamepads, not
+"it would not launch".
+
 **Lesson:** for this fleet, "best port" is decided by the OS + SDL + GPU envelope
 of the *oldest* target, not by upstream activity. And label a claim measured or
 reasoned when you write it down, or it hardens into a fact nobody rechecks.
+This one hardened for months and was wrong in both directions: too pessimistic
+about whether SDL2 runs at all, and silent about the part that genuinely does
+not work.
 
 ---
 

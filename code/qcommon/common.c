@@ -2422,6 +2422,7 @@ static const struct { const char *model; const char *cfg; } com_machineMap[] = {
 	{ "PowerMac8,1",  "autoexec-imac-g5"     }, // iMac G5
 	{ "PowerMac8,2",  "autoexec-imac-g5"     }, // iMac G5 (bench unit)
 	{ "PowerMac12,1", "autoexec-imac-g5"     }, // iMac G5 (iSight / nv)
+	{ "PowerMac11,2", "autoexec-quad-g5"     }, // Power Mac G5 Quad / GeForce 6600
 	{ "Macmini2,1",   "autoexec-mini-intel"  }, // Core 2 Duo mini / GMA 950 / Lion
 	{ "iMac19,1",     "autoexec-imac-2019"   }, // i5-9600K / Radeon Pro 580X
 	// NO iMac G4 / eMac entry, and that is deliberate — not an oversight. The

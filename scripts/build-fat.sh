@@ -20,6 +20,24 @@ PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$PROJ_LOCAL/build"
 
+# Source hashing for the arm64 slice. See scripts/source-stamp.sh, which is a
+# byte-identical copy of the canonical file in old-mac-build-host; a drift check
+# enforces that, so do not edit it here.
+#
+# THE EXCLUDE LIST IS THIS REPO'S, not the primitive's. It has no default on
+# purpose. These four names mirror scripts/build.sh's rsync excludes, so what is
+# hashed is what is shipped to the mini: anything outside the set cannot affect a
+# build, anything inside it must change the hash. build/ is this repo's build
+# output living inside the source tree, and hashing it would move the hash
+# whenever a build had run.
+. "$HERE/source-stamp.sh"
+Q3_STAMP_EXCLUDES='.git/
+build/
+benchmarks/
+.venv/
+*.o
+*.d'
+
 # Pin ONE Intel build host for the whole fat build and claim it up front, so all
 # four cross-built slices and the final lipo use the same mini and no sister project
 # (Q1/Q2/Half-Life) takes the box between slices. Explicit BUILD_HOST always wins.
@@ -73,9 +91,37 @@ done
 SLICES="ioquake3-g3 ioquake3-g4 ioquake3-lion ioquake3-i386"
 WANT="ppc750 ppc7400 i386 x86_64"
 if [ -f "$OUT/ioquake3-arm64" ]; then
+  # Existence is not currency. This used to be the whole check, and it would
+  # fuse an arm64 slice built from source that has since moved, printing a
+  # success line while doing it. Issue #20.
+  #
+  # A mismatch is refused rather than warned about: it is a PROVEN stale slice,
+  # and the shipping fat binary is the one artifact where quietly carrying old
+  # code is worst. A missing stamp is refused too but named differently, because
+  # it is a different situation: not proven stale, just not proven current.
+  _want_stamp="$(source_stamp_compute "$PROJ_LOCAL" "$Q3_STAMP_EXCLUDES")"
+  # Capture the status explicitly. Reading $? inside an else branch is ambiguous
+  # under set -e, and the two failure codes have to be told apart: 1 is stale,
+  # 3 is no stamp at all.
+  _stamp_rc=0
+  source_stamp_verify "$OUT/.arm64-stamp" "$_want_stamp" || _stamp_rc=$?
+  if [ "$_stamp_rc" -ne 0 ]; then
+    case "$_stamp_rc" in
+      3) echo "build-fat.sh: build/ioquake3-arm64 has NO source stamp, so it" >&2
+         echo "  cannot be shown to match this tree. Re-run scripts/build-arm64.sh" >&2
+         echo "  on the orchestration Mac, or delete build/ioquake3-arm64 to fuse" >&2
+         echo "  four slices deliberately." >&2 ;;
+      *) echo "build-fat.sh: build/ioquake3-arm64 is STALE. It was built from" >&2
+         echo "  different source than this tree." >&2
+         echo "    tree now : $_want_stamp" >&2
+         echo "    slice    : $(source_stamp_read "$OUT/.arm64-stamp")" >&2
+         echo "  Re-run scripts/build-arm64.sh on the orchestration Mac." >&2 ;;
+    esac
+    exit 1
+  fi
   SLICES="$SLICES ioquake3-arm64"
   WANT="$WANT arm64"
-  echo "==> arm64 slice present, fusing five"
+  echo "==> arm64 slice present and current, fusing five"
 else
   echo "==> NO arm64 slice (build/ioquake3-arm64 absent), fusing four"
   echo "    Apple Silicon will run the x86_64 slice under Rosetta 2."

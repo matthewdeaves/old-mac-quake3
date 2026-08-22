@@ -34,6 +34,24 @@ set -euo pipefail
 
 PROJ="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$PROJ/build"
+
+# Source hashing for the arm64 slice. See scripts/source-stamp.sh, which is a
+# byte-identical copy of the canonical file in old-mac-build-host; a drift check
+# enforces that, so do not edit it here.
+#
+# THE EXCLUDE LIST IS THIS REPO'S, not the primitive's. It has no default on
+# purpose. These four names mirror scripts/build.sh's rsync excludes, so what is
+# hashed is what is shipped to the mini: anything outside the set cannot affect a
+# build, anything inside it must change the hash. build/ is this repo's build
+# output living inside the source tree, and hashing it would move the hash
+# whenever a build had run.
+. "$(cd "$(dirname "$0")" && pwd)/source-stamp.sh"
+Q3_STAMP_EXCLUDES='.git/
+build/
+benchmarks/
+.venv/
+*.o
+*.d'
 VMIN="${Q3_ARM64_MIN:-11.0}"
 PREFIX="${Q3_ARM64_PREFIX:-$HOME/.cache/oldmac-q3-arm64}"
 
@@ -130,6 +148,21 @@ test -f "$BIN" || { echo "build-arm64.sh: make produced no $BIN" >&2; exit 1; }
 
 rm -f "$OUT/ioquake3-arm64"
 cp "$BIN" "$OUT/ioquake3-arm64"
+
+# Record WHAT THIS SLICE WAS BUILT FROM, next to the slice itself.
+#
+# arm64 is the only slice build-fat.sh does not rebuild: no Lion mini can
+# produce it, so it is built here and left in build/ to be fused later, possibly
+# days later and possibly after the source has moved. Every other slice is
+# recompiled in place on each fat build and cannot drift. This stamp is what
+# lets build-fat.sh tell a current arm64 slice from a stale one; without it the
+# check there is `[ -f ]`, which only ever asked whether the file exists.
+#
+# Written into its own directory rather than build/, because build/ holds all
+# five slices and a bare build/SOURCE-STAMP would read as describing the lot.
+mkdir -p "$OUT/.arm64-stamp"
+source_stamp_write "$OUT/.arm64-stamp" "$(source_stamp_compute "$PROJ" "$Q3_STAMP_EXCLUDES")"
+echo "==> arm64 source stamp: $(source_stamp_read "$OUT/.arm64-stamp")"
 
 # --- 3) stage the SDL pair, sign, verify --------------------------------------
 # Sign BEFORE the fuse, never after: build-fat.sh lipos on a Lion mini, which

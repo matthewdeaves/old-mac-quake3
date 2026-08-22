@@ -27,6 +27,8 @@ their evidence live in [`adr/`](adr/).
 
 - [`RELEASE.md`](RELEASE.md) - the pre-tag order and the manual double-click
   gate, which `scripts/release-check.sh` enforces.
+- [`WII-PORT-REVIEW.md`](WII-PORT-REVIEW.md) - what the ioQuake3-Wii port had
+  that we could use, what was rejected and why, and the two traps it warned about.
 - [`PROFILING.md`](PROFILING.md) - the on-hardware profiling method and every
   measured result, wins and negatives, per machine class.
 - [`KNOBS.md`](KNOBS.md) - the cvar and cmdline inventory used for tuning.

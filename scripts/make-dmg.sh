@@ -63,6 +63,16 @@ VERSION="${1:-$(git rev-parse --short HEAD)}"
 # behaviour of taking no lock at all.
 _PICK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pick-bench-host.sh"
 if [ -z "${RETRO_BENCH_LOCK:-}" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] && [ -x "$_PICK" ]; then
+  # Export a claim nonce before the probe acquire below. Without it the probe
+  # writes an owner file with no claim= and releases by matching user@host:repo,
+  # which is identical for every session in this repo. Two scripts in the whole
+  # fleet were still doing that and this was one of them; it is also why the
+  # picker cannot yet drop its old-format fallback, because a claim-less writer
+  # still has to be able to release itself. old-mac-build-host#7, #24.
+  #
+  # The exec below inherits this, so the --run acquire and its release use the
+  # same nonce too.
+  export BENCH_LOCK_CLAIM="${BENCH_LOCK_CLAIM:-$$.$(date +%s).${RANDOM:-0}}"
   _cands="${DMG_HOST:-mini-g4 quicksilver}"
   for cand in $_cands; do
     if "$_PICK" --acquire "$cand" "quake3 make-dmg probe" >/dev/null 2>&1; then

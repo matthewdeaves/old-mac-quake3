@@ -66,8 +66,36 @@ reachable || { echo "[$M] unreachable"; exit 3; }
 # alive via the poll loop, so the app keeps its WindowServer session and renders),
 # let the engine SELF-QUIT via nextdemo=quit, then read the fps off the on-disk log
 # (logfile 2 is line-flushed). Self-bounding: the poll is an integer counter
-# (Panther's /bin/sleep is integer-only). Host-side `timeout` is a last backstop.
-out=$(timeout "$DEADLINE" ssh $SSHO "$M" "
+# (Panther's /bin/sleep is integer-only). Host-side deadline is a last backstop.
+#
+# NOT `timeout`. GNU coreutils' timeout is not on stock macOS, and this
+# workstation has neither it nor gtimeout (measured 2026-08-22). This script
+# runs `set -uo pipefail` with no `-e`, so a missing binary failed SILENTLY:
+# $out came back empty, every run printed NO-FPS-LINE, and the bench machine was
+# never contacted at all. A green-looking failure that never reached the
+# hardware is the worst shape this script can have, so the deadline is portable
+# now and only falls back when a real timeout exists.
+#
+# Killing the LOCAL ssh client is safe. The remote block is self-bounding on its
+# own poll counter, so the engine still self-quits via nextdemo and restores the
+# display even if we stop listening. Nothing is ever signalled to the fullscreen
+# app, which is the rule that matters (docs/adr/0009).
+TIMEOUT_BIN="$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)"
+run_deadline() {
+  _secs="$1"; shift
+  if [ -n "$TIMEOUT_BIN" ]; then "$TIMEOUT_BIN" "$_secs" "$@"; return $?; fi
+  "$@" &
+  _p=$!; _t=0
+  while [ "$_t" -lt "$_secs" ]; do
+    kill -0 "$_p" 2>/dev/null || break
+    sleep 1; _t=$((_t+1))
+  done
+  if kill -0 "$_p" 2>/dev/null; then
+    kill -TERM "$_p" 2>/dev/null; sleep 2; kill -KILL "$_p" 2>/dev/null
+  fi
+  wait "$_p" 2>/dev/null
+}
+out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
   cd $RDIR || exit 9
   # gentle pre-clean: TERM any stray + clear the stale pid/log. No KILL here — a
   # wedged fullscreen app won't die cleanly to KILL, and the health check reboots

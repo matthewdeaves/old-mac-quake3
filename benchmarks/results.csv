@@ -48,3 +48,5 @@ timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps
 2026-08-21T21:14:57Z,7a52a379,yosemite,four,800x600,33.4,33.3,NA,33.35
 2026-08-22T12:16:57Z,0c57428b,yosemite,four,800x600,33.2,33.4,31.7,32.55
 2026-08-22T12:30:16Z,075390fa-claimed,yosemite,four,800x600,33.5,32.0,33.4,32.70
+2026-08-22T21:05:00Z,dd154e29-baseline,yosemite,four,800x600,33.3,33.3,33.4,33.35
+2026-08-22T22:10:00Z,d1d39401-darwin7quality,yosemite,four,800x600,29.1,30.0,30.2,30.10

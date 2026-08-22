@@ -196,6 +196,18 @@ See `docs/adr/0008` for the numbers and why the win is small (the QVM is already
 JIT-compiled to native PowerPC; there is no interpreter on the fleet). Recorded
 here so it is never re-hyped as a "~5% interpreter win".
 
+**Corroborated independently, 2026-08-22.** The ioQuake3-Wii port runs the same
+PPC750 family and reached the same conclusion from its own measurements: the
+JIT "gives no FPS gain, the bottleneck is the render backend, not VM execution.
+Don't chase it for framerate."
+
+**But do not read that as "the JIT is useless."** Their note continues: its
+value is **lower hunk use**, because compiled code lives off-hunk, so big maps
+that would exhaust memory under the interpreter will load. That is a memory
+lever, not a speed one, and it is a different lever from everything else on this
+page. If a map on the G3 ever fails to load rather than merely running slowly,
+this is the thing to reach for. Issue #7.
+
 ### NEGATIVE - bot-skin pre-caching has nothing to pre-cache (2026-07-05: MEASURED)
 
 Hypothesis: the recurring frame-time spikes are bot skin/model textures uploaded

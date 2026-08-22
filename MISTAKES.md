@@ -217,3 +217,30 @@ cause. Re-registering at deploy time produced a good record, verified green, and
 was still worthless. The cheap test that would have caught it immediately, and
 that was skipped in favour of a plausible story about rsync: break it, apply the
 fix, then run the rest of the pipeline and look again.
+
+---
+
+## The Makefile has two ARCH ladders that look alike, and only the second one is ours - 2026-08-22
+
+Checking whether the `i386` slice JIT-compiles the QVM or interprets it, I read
+the ARCH cases at `Makefile:314-345`. They list `x86_64`, `i386`, `ppc`,
+`ppc64`, `sparc`, `alpha`, each setting `HAVE_VM_COMPILED=true`. There is no
+`x86` case. `scripts/build.sh:96` passes `ARCH=x86` for that slice, so the
+obvious reading is that it falls through, gets `-DNO_VM_COMPILED`, and
+interprets bytecode on a 32-bit Intel Mac.
+
+That reading is wrong and the conclusion is backwards. `Makefile:314-345` is the
+**Linux** block. It ends at `Makefile:393` with `else # ifeq Linux`. Our builds
+pass `PLATFORM=darwin`, and the darwin block starting at `Makefile:399` opens
+with an unconditional `HAVE_VM_COMPILED=true` for every ARCH. The dispatch at
+`Makefile:1766-1774` then adds `vm_x86.o` for `ARCH=x86` as well as for
+`ARCH=i386`. So the slice does get the JIT.
+
+Caught before it was reported, but only by checking where the block ended
+instead of trusting that a block full of ARCH cases was the ARCH block.
+
+**Lesson:** in this Makefile, an `ifeq ($(ARCH),...)` ladder means nothing until
+you know which `PLATFORM` block encloses it, and the two are hundreds of lines
+apart with no visual break between them. Before drawing a conclusion from any
+ARCH case here, find the enclosing `ifeq ($(PLATFORM),...)` first. The same
+shape will read as authoritative and be irrelevant every time.

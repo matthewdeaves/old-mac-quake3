@@ -74,8 +74,12 @@ never hardcode which mini. `BUILD_HOST=<alias>` pins one.
   `Contents/MacOS/baseq3/`, with `vm_cgame`/`vm_game`/`vm_ui` `0`. Measured
   **+1.3%** over the QVM. Stock ioquake3 already JIT-compiles the QVM to native
   PowerPC, so this is *not* an interpreter win. `FS_FindVM` falls back to the
-  QVM automatically, which is what the **`i386` slice gets: no i386 dylibs are
-  built**, so it runs bytecode. `docs/adr/0008`
+  QVM automatically. The **`i386` slice has no dylibs built for it**, but it
+  does NOT interpret: `autoexec-i386.cfg` sets `vm_cgame`/`vm_game`/`vm_ui` to
+  `2` (VMI_COMPILED) and the slice ships the x86 JIT, so it runs COMPILED QVM.
+  Native dylibs could not be loaded there anyway, because `ARCH_STRING` is
+  `i386` on Darwin (`q_platform.h:156`) while the Makefile would name the output
+  `qagamex86.dylib`. `docs/adr/0008`, issue #23
 - **The user's `baseq3` stays outside the bundle.** `Sys_StripAppBundle()` makes
   `fs_basepath` the directory *containing* the `.app`. We ship no game data.
   `docs/adr/0011`

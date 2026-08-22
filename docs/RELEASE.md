@@ -4,7 +4,7 @@ The gate is `scripts/release-check.sh`. It refuses to pass until a human has
 confirmed the one thing that cannot be automated here.
 
 ```sh
-scripts/release-check.sh v0.6.2 mini-g4 yosemite mini-intel
+scripts/release-check.sh v0.6.4 mini-g4 yosemite mini-intel
 ```
 
 ## Why there is a manual step

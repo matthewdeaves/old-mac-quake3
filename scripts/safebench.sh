@@ -38,6 +38,29 @@
 # Prints: "[machine WxH] <N> frames <S> seconds <F> fps ...".
 set -uo pipefail
 M="${1:?usage: safebench.sh <machine> <WxH> [demo] [extra +set...]}"
+
+# Claim this machine for the whole run, exactly as bench.sh:42-46 does.
+#
+# This was missing, and safebench is the script CLAUDE.md points at as THE safe
+# timedemo, so it was the most-used way to drive a bench machine without
+# claiming it. Caught on 2026-08-22 when the picker showed yosemite busy with
+# two processes, no lock and no owner, during a run of this script.
+#
+# Re-exec under the picker rather than acquire-here-and-trap: this script sets
+# its own EXIT-adjacent handling, and bash traps REPLACE rather than compose, so
+# a release trap installed here could be silently discarded and leave the
+# machine claimed until the stale reclaim. `--run` makes the lock a property of
+# the INVOCATION, so it is released however this exits.
+#
+# RETRO_BENCH_LOCK guards against the re-exec recursing. BENCH_NO_LOCK=1 skips
+# the lock, for debugging the picker itself. It is not a way to get past a
+# machine someone else is using.
+_PICK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pick-bench-host.sh"
+if [ -z "${RETRO_BENCH_LOCK:-}" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] && [ -x "$_PICK" ]; then
+	export RETRO_BENCH_LOCK="$M"
+	exec "$_PICK" --run "$M" "safebench" -- "$0" "$@"
+fi
+
 RES="${2:?need WxH}"; W=${RES%x*}; H=${RES#*x}
 DEMO="${3:-four}"
 EXTRA="${4:-}"

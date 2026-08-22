@@ -544,6 +544,9 @@ the simple info query.
 static void SVC_Status( netadr_t from ) {
 	char	player[1024];
 	char	status[MAX_MSGLEN];
+	char	teams[MAX_CLIENTS + 1];
+	int		teamsLength;
+	qboolean teamsWanted = qfalse;
 	int		i;
 	client_t	*cl;
 	playerState_t	*ps;
@@ -614,11 +617,14 @@ static void SVC_Status( netadr_t from ) {
 					sv.configstrings[ 6 ] );	// CS_SCORES1
 			Info_SetValueForKey( infostring, "score_blue",
 					sv.configstrings[ 7 ] );	// CS_SCORES2
+			teamsWanted = qtrue;
 		}
 	}
 
 	status[0] = 0;
 	statusLength = 0;
+	teams[0] = 0;
+	teamsLength = 0;
 
 	for (i=0 ; i < sv_maxclients->integer ; i++) {
 		cl = &svs.clients[i];
@@ -632,7 +638,45 @@ static void SVC_Status( netadr_t from ) {
 			}
 			strcpy (status + statusLength, player);
 			statusLength += playerLength;
+
+			// One character per player line, in the SAME order, appended in
+			// the same iteration that emits the line so the two cannot drift.
+			// See the \teams\ note below for why it is positional rather than
+			// a list of client slots. Issue #18.
+			if ( teamsLength < sizeof(teams) - 1 ) {
+				char t;
+
+				switch ( ps->persistant[PERS_TEAM] ) {
+					case TEAM_RED:			t = 'R'; break;
+					case TEAM_BLUE:			t = 'B'; break;
+					case TEAM_SPECTATOR:	t = 'S'; break;
+					default:				t = 'F'; break;	// TEAM_FREE
+				}
+
+				teams[teamsLength++] = t;
+				teams[teamsLength] = 0;
+			}
 		}
+	}
+
+	// \teams\ : one character per player line, in the same order as the lines.
+	//
+	// R red, B blue, S spectator, F free (no team). So teams[i] is the side of
+	// the i'th player line, and a reader indexes it directly.
+	//
+	// POSITIONAL ON PURPOSE, rather than the two lists of client slots that
+	// issue #18 suggested. The loop above walks slots 0..sv_maxclients but only
+	// emits a line for a connected client, and breaks early if the status
+	// buffer fills. So player-line position and client slot are NOT the same
+	// number as soon as there is a gap: with slots 0 and 2 occupied, the second
+	// player line is slot 2, and a roster of slot numbers would put that player
+	// against the wrong line. A positional string cannot come apart from the
+	// lines, because it is built in the same iteration that writes them.
+	//
+	// Team gametypes only, matching \score_red\ and \score_blue\. In
+	// free-for-all every player is TEAM_FREE and the key would say nothing.
+	if ( teamsWanted ) {
+		Info_SetValueForKey( infostring, "teams", teams );
 	}
 
 	NET_OutOfBandPrint( NS_SERVER, from, "statusResponse\n%s\n%s", infostring, status );

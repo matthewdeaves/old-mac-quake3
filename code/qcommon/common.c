@@ -36,6 +36,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // per-arch + per-machine settings shipped inside the .app bundle. Mirrors the
 // QuakeSpasm / Quake II ports so one universal binary self-tunes on each Mac.
 #include <sys/sysctl.h>
+#include <errno.h>
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
@@ -2519,11 +2520,32 @@ static void Com_AutoConfigForMachine( void )
 		{
 			char	osrel[64];
 			size_t	olen = sizeof( osrel );
+			int	osmib[2];
+			int	osrc;
 
-			if ( sysctlbyname( "kern.osrelease", osrel, &olen, NULL, 0 ) == 0 )
+			// Report BOTH outcomes. The first cut of this only printed on the
+			// success path, so when the sysctl failed the whole layer went
+			// silent and looked identical to "no overlay file for this OS".
+			// That cost a bench session: three runs on the G3 showed the
+			// overlay not taking effect and the log could not say why.
+			// CTL_KERN/KERN_OSRELEASE by NUMERIC MIB, not sysctlbyname("kern.
+			// osrelease"). The name lookup does not resolve on Panther: measured
+			// on yosemite 10.3.9, sysctlbyname returns -1 with errno 2 (ENOENT),
+			// while /usr/sbin/sysctl -n kern.osrelease on the same machine prints
+			// 7.9.0 quite happily, because the CLI goes by MIB. The numeric form
+			// is in <sys/sysctl.h> on every Darwin from 10.3 up, so it is the
+			// portable spelling here. hw.model above has no numeric MIB and has
+			// to stay a name lookup, which is why the two lines differ.
+			memset( osrel, 0, sizeof( osrel ) );
+			osmib[0] = CTL_KERN;
+			osmib[1] = KERN_OSRELEASE;
+			osrc = sysctl( osmib, 2, osrel, &olen, NULL, 0 );
+			if ( osrc == 0 )
 			{
 				int	darwinMajor = atoi( osrel );
 
+				Com_Printf( "Auto-config: kern.osrelease = %s (darwin %d)\n",
+					osrel, darwinMajor );
 				if ( darwinMajor > 0 )
 				{
 					char	oscfg[MAX_QPATH];
@@ -2531,9 +2553,12 @@ static void Com_AutoConfigForMachine( void )
 					Com_sprintf( oscfg, sizeof( oscfg ), "%s-darwin%d",
 						machineCfg, darwinMajor );
 					Com_ExecConfigFromBundle( oscfg );
-					Com_Printf( "Auto-config: kern.osrelease = %s (darwin %d)\n",
-						osrel, darwinMajor );
 				}
+			}
+			else
+			{
+				Com_Printf( "Auto-config: kern.osrelease unavailable"
+					" (sysctl rc %d, errno %d)\n", osrc, errno );
 			}
 		}
 	}

@@ -144,7 +144,7 @@ mkdir -p "$IMG"
 cp -a "$APP_SRC" "$IMG/ioquake3.app"
 
 cat > "$IMG/README.txt" <<EOF
-ioquake3 — OldMac fat build ($VERSION)
+ioquake3 - OldMac fat build ($VERSION)
 ======================================
 
 A single universal build of ioquake3 (SDL 1.2 baseline) for vintage Macs:

@@ -157,9 +157,11 @@ Read `docs/adr/0009` before benching anything. In short:
 
 ## Working alongside the other repos
 
-Five repos are worked on together: the four game ports and the private
-`retro-server-infra`, which runs the servers those ports build. A session may be
-open in each at once. Three rules keep them out of each other's way.
+Seven repos are worked on together: the four game ports, the private
+`retro-server-infra` which runs the servers those ports build,
+`old-mac-build-host` which owns the shared host pickers and the source-stamp
+primitive, and `retro-agents` which holds the briefs. A session may be open in
+each at once. Three rules keep them out of each other's way.
 
 **Hardware is claimed, never assumed free.** Every script that deploys to,
 benches on, or otherwise drives a fleet machine re-execs itself under
@@ -169,10 +171,12 @@ with the build lock and visible to every repo, agent and workstation. Check
 `scripts/pick-bench-host.sh --status` before assuming a box is idle, and never
 work around a busy one. `BENCH_NO_LOCK=1` exists only for debugging the picker.
 
-**Cross-repo work goes through GitHub, not chat.** One board covers all five
+**Cross-repo work goes through GitHub, not chat.** One board covers all seven
 repos: <https://github.com/users/matthewdeaves/projects/8>. Columns are
-`Triage / Measuring / Ready / In progress / Blocked / Done`, with `Source` and
-`Evidence` fields. File cross-repo work as an issue and put it on the board:
+`Triage / Measuring / Ready / In progress / Blocked / Review / Done`, with
+`Source` and `Evidence` fields. **`Review` is where your own work stops.** Move
+a finished ticket there, not to `Done`; `Done` is the user's. File cross-repo
+work as an issue and put it on the board:
 
 ```sh
 gh issue create -R matthewdeaves/<repo> --project Retro \

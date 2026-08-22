@@ -244,3 +244,42 @@ you know which `PLATFORM` block encloses it, and the two are hundreds of lines
 apart with no visual break between them. Before drawing a conclusion from any
 ARCH case here, find the enclosing `ifeq ($(PLATFORM),...)` first. The same
 shape will read as authoritative and be irrelevant every time.
+
+## A quoted heredoc protects the shell, not the GitHub gate (2026-08-22)
+
+Three issues in this repo were closed without anyone deciding to close them.
+They were sitting in `Review`, which is where a session's own work stops and the
+user's decision begins, and the commit messages that landed the work each opened
+with an auto-closing keyword followed by the issue number. GitHub acts on that
+keyword when it parses the pushed commit. The board column stayed correct and
+said `Review`; only the issue state was wrong, so nothing looked broken.
+
+The trap is that this sits right next to a DIFFERENT commit-message trap and
+being safe from one feels like being safe from both. Backticks and `$( )` inside
+`git commit -m "..."` are command substitution and the shell runs them, and the
+fix for that is a quoted heredoc:
+
+    git commit -F - <<'MSG'
+    ...
+    MSG
+
+That is a real fix for a real problem and it was in use here. It does nothing
+whatever about the closing keywords, because those are not expanded by anything;
+they are read by GitHub out of the finished message. Two traps, same location,
+one of them invisible to the defence against the other.
+
+**Lesson, in three parts.**
+
+Write `Issue #N` or `Refs #N` in a commit message, never one of the auto-closing
+verbs with a number after it. Closing a ticket is the user's gate.
+
+Explaining the mistake re-commits the mistake. A commit message that quotes the
+offending phrase verbatim, even to warn about it, gets parsed the same way and
+closes the issue again. This exact second-order failure happened in
+old-mac-quakespasm on the same day: its first reopen worked, then the commit
+documenting the fix re-closed the ticket. Put the explanation in a ticket
+comment, which is not parsed for those keywords, and if a commit must mention it
+at all, never put the verb and a number adjacent.
+
+Read the state back afterwards. The reopen call returns "open" and is telling
+the truth at that instant, which proves nothing about what a later push does.

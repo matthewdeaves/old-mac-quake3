@@ -31,6 +31,15 @@ PROJ_REMOTE="quake3"   # <build host>:quake3/  — NEVER quakespasm/ or quake2/
 # standalone build.sh run.
 BUILD_HOST_CLAIMED=0
 if [ -z "${BUILD_HOST:-}" ]; then
+  # Export a claim nonce BEFORE the acquire so the EXIT trap below releases with
+  # the same one. Without it the picker falls back to matching user@host:repo,
+  # which is identical for two sessions in this repo, and either could drop the
+  # other's lock. old-mac-build-host#7.
+  #
+  # It must be exported, not just set: the release runs from a trap, and if the
+  # nonce did not reach it the picker would meet a claim= it cannot match and
+  # strand the lock until the 90 minute reclaim. That round trip is the test.
+  export BENCH_LOCK_CLAIM="${BENCH_LOCK_CLAIM:-$$.$(date +%s).${RANDOM:-0}}"
   BUILD_HOST="$(BUILD_LOCK_WAIT="${BUILD_LOCK_WAIT:-900}" \
     "$PROJ_LOCAL/scripts/pick-build-host.sh" --acquire "quake3 build.sh $TARGET")" || {
     echo "build.sh: no free Intel build host; see scripts/pick-build-host.sh --status" >&2

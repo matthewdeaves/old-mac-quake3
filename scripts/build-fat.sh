@@ -24,6 +24,15 @@ OUT="$PROJ_LOCAL/build"
 # four cross-built slices and the final lipo use the same mini and no sister project
 # (Q1/Q2/Half-Life) takes the box between slices. Explicit BUILD_HOST always wins.
 if [ -z "${BUILD_HOST:-}" ]; then
+  # Export a claim nonce BEFORE the acquire so the EXIT trap below releases with
+  # the same one. Without it the picker falls back to matching user@host:repo,
+  # which is identical for two sessions in this repo, and either could drop the
+  # other's lock. old-mac-build-host#7.
+  #
+  # It must be exported, not just set: the release runs from a trap, and if the
+  # nonce did not reach it the picker would meet a claim= it cannot match and
+  # strand the lock until the 90 minute reclaim. That round trip is the test.
+  export BENCH_LOCK_CLAIM="${BENCH_LOCK_CLAIM:-$$.$(date +%s).${RANDOM:-0}}"
   BUILD_HOST="$(BUILD_LOCK_WAIT="${BUILD_LOCK_WAIT:-900}" \
     "$HERE/pick-build-host.sh" --acquire "quake3 build-fat")" || {
     echo "build-fat.sh: no free Intel build host; see scripts/pick-build-host.sh --status" >&2

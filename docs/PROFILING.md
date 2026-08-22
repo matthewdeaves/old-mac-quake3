@@ -338,11 +338,48 @@ carefully.
 
 Still unconfirmed at native resolution on hardware: **sawtooth** (set up,
 deployed, `autoexec-sawtooth.cfg` at 1024x768 with effects) and **imac-2019**.
-Both were powered off during that round. **G3 performance is open on both
-Panther and Tiger** - the `ppc750` profile is deliberately cautious (800x600,
-`r_picmip 1`, 16-bit colour and depth, cheap sky) and has not been re-measured
-on either OS since v0.5.0. Treat ~22 fps as the last known good number, not a
-current one.
+Both were powered off during that round. The G3 line above has since been
+superseded; see the next section. Leaving the table as measured on the day.
+
+## G3 on both OSes (2026-08-22, issue #8)
+
+The G3 has now been measured on both partitions. The 22.2 above is no longer
+the current number, and the two OSes are far apart on identical hardware, an
+identical binary and an identical config.
+
+Demo `four`, 800x600, shipping profile:
+
+| OS | commit | runs | median |
+|---|---|---|---|
+| Panther 10.3.9 | `0c57428b` | 33.2 / 33.4 / 31.7 | **32.55** |
+| Tiger 10.4.11 | `96833666` | see below | **20.8 - 21.4** |
+
+Panther sits at roughly 1.6x Tiger. Why is issue #15 and is not answered here.
+
+**The consequence for tuning, which is the point of this entry.** Panther has
+about 63% headroom over the 20 fps floor. Tiger has about 4%. The project rule
+is that above the floor, effects beat fps, so Panther's headroom should be spent
+on effects. It cannot be, because both partitions read the same config and
+anything spent on Panther would push Tiger under the floor.
+
+`Com_AutoConfigForMachine` (`code/qcommon/common.c:2453-2496`) selects on the
+compile-time arch macro, then on a `hw.model` lookup. Neither can tell the two
+apart: it is one machine, so `hw.model` is identical whichever way it booted,
+and no OS version is consulted at any point.
+
+The same split already shows up in a setting we ship. `r_primitives` is pinned
+to 3 (`autoexec-ppc750.cfg:39`), which is right on Panther and wrong on Tiger:
+
+| | Panther | Tiger |
+|---|---|---|
+| `r_primitives 3` | **33.35** | 20.80 |
+| `r_primitives 2` | 31.70 | **21.40** |
+
+So the G3 profile is currently pinned to whichever OS is worse for each knob.
+
+**Not a negative result and not a rejected approach.** This is a mechanism gap:
+per-OS tuning is not expressible, so no per-OS tuning has been attempted. Any
+G3 effects work is blocked behind closing it.
 
 ## Open questions
 

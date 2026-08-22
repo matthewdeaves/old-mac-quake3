@@ -283,3 +283,38 @@ at all, never put the verb and a number adjacent.
 
 Read the state back afterwards. The reopen call returns "open" and is telling
 the truth at that instant, which proves nothing about what a later push does.
+
+## A one-liner that reports on six machines is itself a thing that has to be right (2026-08-23)
+
+Verifying that a stale config had been removed from six bench machines, the
+check was:
+
+    a=$(ls ~/Desktop/quake3/baseq3/autoexec.cfg 2>/dev/null && echo PRESENT || echo none)
+
+On success `ls` prints THE PATH as well as the word, so `$a` holds two lines. The
+formatted output then reported one machine as still carrying the file when it did
+not, and swallowed a whole field on another. Two different wrong answers, in
+opposite directions, from the same line. `test -f` settled it in one go:
+
+    if [ -f ~/Desktop/quake3/baseq3/autoexec.cfg ]; then a=PRESENT; else a=archived; fi
+
+There is a second, quieter fault in even the corrected version. It labels the
+absent case `archived`, but absence does not distinguish "we moved it" from "it
+was never here". Two of the six had never had the file, and the report called
+them archived anyway. Nobody was misled because the outcome was the same, but the
+check was claiming knowledge it did not have.
+
+**Lesson.** A verification step is code, and it fails the same way other code
+does, only more quietly, because its output LOOKS like evidence. Two rules from
+this one:
+
+Use a predicate that answers exactly the question. `test -f` asks whether the
+file exists. `ls` asks that and also prints something, and the printing is what
+broke it.
+
+Report only what was actually distinguished. If the check cannot tell "removed"
+from "never present", it must not print a word that means one of them.
+
+This sits with the `strings -n 3` entry and the greps that returned "0 matches"
+against an unreadable directory. Same family: the tool answered a slightly
+different question than the one being asked, and the answer looked like success.

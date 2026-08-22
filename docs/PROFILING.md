@@ -381,6 +381,40 @@ So the G3 profile is currently pinned to whichever OS is worse for each knob.
 per-OS tuning is not expressible, so no per-OS tuning has been attempted. Any
 G3 effects work is blocked behind closing it.
 
+### CLOSED 2026-08-22. The gap above is fixed; the rest of this entry stands.
+
+`Com_AutoConfigForMachine` now has a third layer,
+`autoexec-<machine>-darwin<major>`, applied after the machine cfg so it wins.
+Keyed on the Darwin major from `kern.osrelease`. Additive: an absent file is a
+silent no-op, so nothing else in the fleet changed. `dd154e29`, `dec3c4c7`.
+
+**Two traps came out of building it, both worth not repeating.**
+
+`sysctlbyname("kern.osrelease", ...)` returns -1 with errno 2 (ENOENT) on
+Panther. The name does not resolve on Darwin 7, while `/usr/sbin/sysctl -n
+kern.osrelease` on the same machine prints `7.9.0`, because the CLI goes by
+numeric MIB. Use `CTL_KERN`/`KERN_OSRELEASE`. `hw.model` has no numeric MIB and
+must stay a name lookup, so the two calls in that function differ in spelling
+and that is deliberate.
+
+**The auto-config's own output can never reach `qconsole.log`.** `com_logfile`
+is registered at `common.c:2954`, after `Com_ExecuteCfg()` at `2927`. So every
+`Applying bundled config:` and `Auto-config:` line goes to stdout only, and
+`safebench.sh` sends stdout to `/dev/null`. An absent log line says nothing
+about whether the auto-config ran. This cost a bench session: three runs were
+read as "the layer never fired" when the layer had fired and the log simply
+could not show it.
+
+**And `baseq3/autoexec.cfg` beats the bundle**, by design (`common.c:2568`, so
+the user's own file wins). The deployed one pins `r_primitives 3`. Any test of
+the bundle layer has to move it aside first or it measures the wrong thing.
+
+Verified on hardware both directions on yosemite 10.3.9, demo `four`, 800x600.
+With a test `autoexec-yosemite-darwin7.cfg` setting `r_primitives 1` the engine
+reported `rendering primitives: multiple glArrayElement`; with it absent,
+`multiple glColor4ubv + glTexCoord2fv + glVertex3fv`. Nothing else sets that
+cvar to 1, so the layer applied, and it is a clean no-op when the file is gone.
+
 ## Open questions
 
 - **Fleet-wide vsync.** Only mini-intel sets `r_swapInterval`. The trade: kills

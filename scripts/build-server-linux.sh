@@ -77,6 +77,17 @@ rm -rf "$WORK/src"
 mkdir -p "$WORK/src"
 tar cf - code Makefile misc | tar xf - -C "$WORK/src"
 
+# This heredoc is UNQUOTED on purpose: every '\$' below is escaped by hand so the
+# container script gets it literally, and quoting the delimiter would ship those
+# backslashes through as well.
+#
+# The cost is that '$', backticks and '\' are all live here, INCLUDING INSIDE
+# COMMENTS. A comment that quoted a shell fragment in backticks was therefore
+# executed at heredoc-write time, and the command inside it read stdin. When this
+# script runs with a terminal or an open pipe on stdin, that read never returns:
+# the build stops dead after "staging source" with no error, no container and no
+# output, for as long as you leave it. Fifteen minutes were lost to it on
+# 2026-08-22. Quote shell fragments in comments below with " ", never ` `.
 cat > "$WORK/build-in-container.sh" <<CONTAINER_SCRIPT
 #!/bin/sh
 set -e
@@ -147,7 +158,7 @@ echo "[container] hardening: canaries yes, full RELRO, NX, PIE"
 # Everything loaded must be part of glibc. Anything else is a package the
 # operator would have to install, which is what this build exists to avoid.
 # The previous form of this check could not pass on any architecture. It piped
-# grep -o through `tr -d '[:space:]'`, which strips NEWLINES as well as spaces,
+# grep -o through "tr -d '[:space:]'", which strips NEWLINES as well as spaces,
 # so every library name was welded into one string:
 #   linux-vdso.so.1libdl.so.2libm.so.6libc.so.6
 # That blob then matched none of the allowed names and the build was refused

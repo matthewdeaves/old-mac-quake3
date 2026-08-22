@@ -1,0 +1,72 @@
+name: CI
+
+# branches: [master], NOT main. This repo's default branch is master, and the
+# reason this file exists at all is that GitHub was showing a green badge from a
+# single 2026-05-26 run on a `main` branch that no longer exists. No `.github/`
+# had ever been committed here on any ref, so nothing had gated master in three
+# months while the repo read as passing. A workflow copied from a sibling port
+# with `branches: [main]` would reproduce exactly that. Issue #25.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# Deliberately Linux-only, and deliberately NOT a build.
+#
+# Four of the five slices are cross-compiled by gcc 4.0.1 against the 10.3.9 SDK
+# on a Lion Mac mini reached over ssh, and arm64 is built on the orchestration
+# Mac. Nothing on a GitHub runner resembles any of that, so a green ubuntu build
+# would prove nothing about a G3 and would invite someone to trust it. Benchmarks
+# and smoke tests need real fleet hardware and the bench lock, so they cannot
+# live here either.
+#
+# What is left is everything that needs no toolchain and no hardware, which is
+# more than it sounds: every bug the invariants job encodes was shipped by this
+# repo and none of them needed a compiler to catch.
+jobs:
+  shell-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse every shell script
+        run: |
+          fail=0
+          for f in scripts/*.sh tests/*.sh; do
+            if bash -n "$f"; then echo "ok   $f"; else echo "FAIL $f"; fail=1; fi
+          done
+          exit $fail
+      - name: Parse every Python script
+        run: |
+          fail=0
+          for f in scripts/*.py; do
+            [ -e "$f" ] || continue
+            if python3 -m py_compile "$f"; then echo "ok   $f"; else echo "FAIL $f"; fail=1; fi
+          done
+          exit $fail
+
+  repo-invariants:
+    # Each invariant encodes a bug this repo actually shipped, and every detector
+    # proves itself against a bad fixture and a good one before it is trusted.
+    # See tests/test-repo.sh for why that self-test is not optional here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repo invariants
+        run: tests/test-repo.sh
+
+# NO SHELLCHECK JOB YET, on purpose, and this is not an oversight to be quietly
+# fixed by adding one.
+#
+# shellcheck 0.11.0 at warning level reports 21 findings here across 6 codes, and
+# 11 of them are SC2088, "tilde in quotes will not expand". In these scripts that
+# is DELIBERATE: safebench.sh and its siblings hold paths like
+# RDIR='~/Desktop/quake3' precisely so the tilde reaches the REMOTE shell
+# unexpanded. Expanding it locally is a real bug that cost a bench session on
+# 2026-08-22, when a path expanded to the workstation's home and a test file was
+# silently never created on the target.
+#
+# So switching that job on now would either paint master red, which the user's
+# rule forbids, or invite someone to "fix" 11 sites in the direction of a known
+# bug. The findings want triaging one at a time, each fixed or suppressed at the
+# site with its reason. Filed separately rather than rushed.

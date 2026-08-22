@@ -1,7 +1,10 @@
 # 15. No arm64 slice, and adding one would not require leaving SDL 1.2
 
 Date: 2026-08-20
-Status: accepted (no arm64 slice ships)
+Status: superseded by
+[0017](0017-the-arm64-slice-ships-sdl12-compat-over-an-sdl2-we-build.md).
+An arm64 slice ships. The reasoning below is left as written; only this
+status line is changed.
 
 ## Context
 

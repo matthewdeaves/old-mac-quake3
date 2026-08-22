@@ -50,11 +50,12 @@ never hardcode which mini. `BUILD_HOST=<alias>` pins one.
   read `docs/adr/0001` before quoting it, and before treating a rebase as
   settled either way.
 - **`dyld` grades a fat binary by CPU subtype alone**, never the OS, and there
-  is no fallback to a lower slice. **Three slices:** `ppc750` (G3), `ppc7400`
-  (G4 **and G5**), `x86_64`. Each is built against the oldest OS its CPU family
-  can run: both PowerPC slices at the 10.3.9 SDK / min 10.3, Intel at min 10.6.
-  Lowering those floors measured free. **No `i386` slice** (2006 Core Solo/Duo
-  uncovered) and **no `arm64` slice**. `docs/adr/0002`, `docs/adr/0015`
+  is no fallback to a lower slice. **Five slices:** `ppc750` (G3), `ppc7400`
+  (G4 **and G5**), `x86_64`, `i386`, `arm64`. **No `ppc970`** - the G5 takes the
+  `ppc7400` slice. Each is built against the oldest OS its CPU family can run:
+  both PowerPC slices at the 10.3.9 SDK / min 10.3, Intel at min 10.6. Lowering
+  those floors measured free. Verify with `lipo -archs`, never from this list.
+  `docs/adr/0002`, `docs/adr/0017`
 - **Never trust the compiler's cpusubtype stamp.** `-faltivec` defeats it and is
   mandatory on the g4 slice, and Apple's ld stamps generic `ppc` (subtype 0),
   which matches *every* PowerPC host and would hand a G3 the AltiVec build.
@@ -73,7 +74,8 @@ never hardcode which mini. `BUILD_HOST=<alias>` pins one.
   `Contents/MacOS/baseq3/`, with `vm_cgame`/`vm_game`/`vm_ui` `0`. Measured
   **+1.3%** over the QVM. Stock ioquake3 already JIT-compiles the QVM to native
   PowerPC, so this is *not* an interpreter win. `FS_FindVM` falls back to the
-  QVM automatically. `docs/adr/0008`
+  QVM automatically, which is what the **`i386` slice gets: no i386 dylibs are
+  built**, so it runs bytecode. `docs/adr/0008`
 - **The user's `baseq3` stays outside the bundle.** `Sys_StripAppBundle()` makes
   `fs_basepath` the directory *containing* the `.app`. We ship no game data.
   `docs/adr/0011`
@@ -204,7 +206,8 @@ where it runs is not.
   DMG on Tiger, 0006 rebuilding prebuilt libs for Panther, 0007 the self-tuning
   app, 0008 native game dylibs, 0009 safe benching **and the hardware hazards**,
   0010 the LaunchServices repair, 0011 code not content, 0012 the Linux server,
-  0013 watchlink, 0014 icons and the bundle bit, 0015 arm64
+  0013 watchlink, 0014 icons and the bundle bit, 0015 arm64 (superseded by
+  0017), 0016 current ioquake3 on PowerPC, 0017 the arm64 slice and its shim
 - `MISTAKES.md` - what already broke, and why. Never re-chase a recorded
   negative.
 - `docs/PROFILING.md` - the on-hardware profiling method, every measured

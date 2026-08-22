@@ -31,6 +31,36 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/.." && pwd)"
 DMG="$REPO_ROOT/dist/ioquake3-OldMac-$VERSION.dmg"
 
+# Claim each machine before touching it. This script sshes to every machine
+# named on the command line and never took the lock, so it could interrupt
+# another repo's bench. Claimed per machine, not for the whole run, because it
+# loops. Issue #24.
+#
+# The exported nonce makes the release strict; without one the picker matches
+# user@host:repo, which is identical for every session in this repo.
+# old-mac-build-host#7.
+_PICK="$HERE/pick-bench-host.sh"
+export BENCH_LOCK_CLAIM="${BENCH_LOCK_CLAIM:-$$.$(date +%s).${RANDOM:-0}}"
+_HELD=""
+_release_held() { if [ -n "$_HELD" ]; then "$_PICK" --release "$_HELD" >/dev/null 2>&1 || true; _HELD=""; unset RETRO_BENCH_LOCK; fi; }
+trap _release_held EXIT INT TERM
+_claim_host() { # <host> -> 0 claimed / 1 skip
+    [ "${BENCH_NO_LOCK:-0}" = 1 ] && return 0
+    [ -x "$_PICK" ] || return 0
+    if "$_PICK" --acquire "$1" "quake3 release-check" >/dev/null 2>&1; then
+        _HELD="$1"
+        # Tell nested scripts the machine is already claimed. lsregister-app.sh
+        # and friends re-exec themselves under pick-bench-host.sh --run unless
+        # RETRO_BENCH_LOCK is set, and that nested acquire cannot succeed while
+        # we hold the same host: it would fail and the caller would report an
+        # inconclusive result on a machine that is perfectly fine. Caught by
+        # running this against a real host rather than by reading it.
+        export RETRO_BENCH_LOCK="$1"
+        return 0
+    fi
+    return 1
+}
+
 FAILED=0
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$*"; }
 fail() { printf '  \033[31mFAIL\033[0m  %s\n' "$*"; FAILED=1; }
@@ -77,8 +107,13 @@ fi
 # ---- 4. per-machine checks ------------------------------------------------
 for m in "${MACHINES[@]}"; do
   echo "-- $m --"
+  if ! _claim_host "$m"; then
+    warn "$m busy (another session holds it) - skipped"
+    continue
+  fi
   if ! ssh -n -o ConnectTimeout=8 "$m" true 2>/dev/null; then
     warn "$m unreachable - skipped"
+    _release_held
     continue
   fi
 
@@ -107,6 +142,7 @@ for m in "${MACHINES[@]}"; do
     *OK*)              pass "$m LaunchServices record resolves to an executable" ;;
     *)                 warn "$m lsregister inconclusive: $(echo "$LS" | tail -1)" ;;
   esac
+  _release_held
 done
 
 # ---- 5. the manual gate ---------------------------------------------------

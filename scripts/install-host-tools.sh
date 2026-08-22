@@ -28,6 +28,40 @@ SRC="$REPO_ROOT/scripts/host-bin"
 HOSTS=("$@")
 [ ${#HOSTS[@]} -eq 0 ] && HOSTS=(${HOSTS_ENV:-yosemite sawtooth quicksilver mini-g4 mini-intel imac-2019 imac-g5})
 
+# Claim each machine before touching it, and release it again before moving on.
+#
+# This script drove the whole fleet over ssh without ever taking the lock, so it
+# could walk into another repo's running bench. It claims PER HOST rather than
+# for the whole run, because it loops over many machines and holding all of them
+# for the duration would block the fleet for no reason. Issue #24.
+#
+# A nonce is exported so the release is strict: without one the picker falls back
+# to matching user@host:repo, which every session in this repo shares.
+# old-mac-build-host#7.
+_PICK="$REPO_ROOT/scripts/pick-bench-host.sh"
+export BENCH_LOCK_CLAIM="${BENCH_LOCK_CLAIM:-$$.$(date +%s).${RANDOM:-0}}"
+_HELD=""
+_release_held() { if [ -n "$_HELD" ]; then "$_PICK" --release "$_HELD" >/dev/null 2>&1 || true; _HELD=""; unset RETRO_BENCH_LOCK; fi; }
+# EXIT as well as the explicit release below, so a failure mid-host does not
+# leave the machine claimed until the stale reclaim.
+trap _release_held EXIT INT TERM
+_claim_host() { # <host> -> 0 claimed / 1 skip
+    [ "${BENCH_NO_LOCK:-0}" = 1 ] && return 0
+    [ -x "$_PICK" ] || return 0
+    if "$_PICK" --acquire "$1" "quake3 $(basename "$0")" >/dev/null 2>&1; then
+        _HELD="$1"
+        # Tell nested scripts the machine is already claimed. lsregister-app.sh
+        # and friends re-exec themselves under pick-bench-host.sh --run unless
+        # RETRO_BENCH_LOCK is set, and that nested acquire cannot succeed while
+        # we hold the same host: it would fail and the caller would report an
+        # inconclusive result on a machine that is perfectly fine. Caught by
+        # running this against a real host rather than by reading it.
+        export RETRO_BENCH_LOCK="$1"
+        return 0
+    fi
+    return 1
+}
+
 # Poll a host until it stops responding (down) or starts responding (up).
 wait_state() { # <host> <up|down> <timeout_s>
     local host="$1" want="$2" deadline="$3" t=0
@@ -44,7 +78,8 @@ wait_state() { # <host> <up|down> <timeout_s>
 
 for host in "${HOSTS[@]}"; do
     echo "=== $host ==="
-    ssh -o ConnectTimeout=10 "$host" 'mkdir -p ~/bin' || { echo "[$host] ssh failed (asleep/off?)"; continue; }
+    _claim_host "$host" || { echo "[$host] busy (another session holds it), skipping"; continue; }
+    ssh -o ConnectTimeout=10 "$host" 'mkdir -p ~/bin' || { echo "[$host] ssh failed (asleep/off?)"; _release_held; continue; }
     for script in qsreboot.sh qsreboot-setup.sh; do
         scp -q "$SRC/$script" "$host:bin/$script"
         ssh "$host" "chmod +x ~/bin/$script"
@@ -66,6 +101,7 @@ for host in "${HOSTS[@]}"; do
             echo "[$host] reboot NOT verified — host did not cycle (check qsreboot-setup)"
         fi
     fi
+    _release_held
 done
 
 echo

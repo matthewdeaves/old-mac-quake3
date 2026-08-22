@@ -7,6 +7,7 @@
 # whatever happens to be installed on the machine that ran it.
 #
 # usage: scripts/build-server-linux.sh [--arch x86_64|aarch64] [--version V]
+#        [--allow-dirty]   development build from an unclean tree, marked as such
 # output: dist/server/quake3-server-<version>-linux-<arch>.tar.gz
 #
 # Requires Docker (or Colima). No local compiler is used.
@@ -28,12 +29,15 @@ cd "$REPO_ROOT"
 
 ARCH="x86_64"
 VERSION=""
+VERSION_GIVEN=0
+ALLOW_DIRTY=0
 
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--arch)    ARCH="${2:?--arch needs a value}"; shift 2 ;;
-		--version) VERSION="${2:?--version needs a value}"; shift 2 ;;
-		-h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+		--version) VERSION="${2:?--version needs a value}"; VERSION_GIVEN=1; shift 2 ;;
+		--allow-dirty) ALLOW_DIRTY=1; shift ;;
+		-h|--help) sed -n '2,13p' "$0"; exit 0 ;;
 		*) echo "$0: unknown argument: $1" >&2; exit 2 ;;
 	esac
 done
@@ -44,12 +48,52 @@ case "$ARCH" in
 	*) echo "$0: unsupported arch: $ARCH (expected x86_64 or aarch64)" >&2; exit 2 ;;
 esac
 
+# PROVENANCE
+#
+# A published tarball has to be rebuildable from the tag it was released under.
+# v0.6.3 was not: it was built from a modified tree, and the version it was
+# given named a tag that did not point at the commit being compiled. Both slips
+# were visible in its own BUILD-INFO.txt and neither stopped the build. See
+# issue #21.
+#
+# Note git diff --quiet compares the working tree against the INDEX, so a change
+# that is staged but not committed reads as clean. Measured: with one staged
+# edit, git diff --quiet exits 0 while git diff --quiet HEAD exits 1. That is
+# why the check below is git status --porcelain, which sees staged, unstaged and
+# untracked alike. build/ and dist/ are gitignored, so ordinary build output
+# does not trip it.
 if [ -z "$VERSION" ]; then
 	VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo unknown)"
 fi
 GIT_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 GIT_DIRTY=""
-git diff --quiet 2>/dev/null || GIT_DIRTY=" (working tree modified)"
+
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+	if [ "$ALLOW_DIRTY" -eq 0 ]; then
+		echo "$0: the working tree is not clean, refusing to build." >&2
+		echo "$0: a release built from a dirty tree cannot be rebuilt from its tag." >&2
+		echo "$0: commit or stash first, or pass --allow-dirty for a throwaway build." >&2
+		git status --short >&2
+		exit 1
+	fi
+	GIT_DIRTY=" (working tree modified - NOT REPRODUCIBLE)"
+	case "$VERSION" in
+		*-dirty|*+dirty) ;;
+		*) VERSION="$VERSION+dirty" ;;
+	esac
+	echo "$0: WARNING building from a dirty tree, version is now $VERSION" >&2
+fi
+
+# An explicit --version that names an existing tag must name THIS commit.
+if [ "$VERSION_GIVEN" -eq 1 ] && git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null 2>&1; then
+	TAG_COMMIT="$(git rev-parse --short "refs/tags/$VERSION^{commit}")"
+	HEAD_COMMIT="$(git rev-parse --short HEAD)"
+	if [ "$TAG_COMMIT" != "$HEAD_COMMIT" ]; then
+		echo "$0: --version $VERSION is a tag at $TAG_COMMIT but HEAD is $HEAD_COMMIT." >&2
+		echo "$0: check out the tag, or pick a version that is not an existing tag." >&2
+		exit 1
+	fi
+fi
 BUILD_DATE="$(date -u '+%Y-%m-%d %H:%M UTC')"
 
 IMAGE="oldmac-quake3-server-build:deb11"

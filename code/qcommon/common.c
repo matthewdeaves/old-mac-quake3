@@ -2484,15 +2484,58 @@ static void Com_AutoConfigForMachine( void )
 	// per-machine overlay (hw.model lookup); unknown models keep the baseline
 	if ( sysctlbyname( "hw.model", model, &mlen, NULL, 0 ) == 0 )
 	{
+		const char	*machineCfg = NULL;
+
 		for ( i = 0; i < ARRAY_LEN( com_machineMap ); i++ )
 		{
 			if ( !strcmp( model, com_machineMap[i].model ) )
 			{
-				Com_ExecConfigFromBundle( com_machineMap[i].cfg );
+				machineCfg = com_machineMap[i].cfg;
+				Com_ExecConfigFromBundle( machineCfg );
 				break;
 			}
 		}
 		Com_Printf( "Auto-config: hw.model = %s\n", model );
+
+		// per-OS overlay, applied last so it wins over the two above.
+		//
+		// One Mac can boot more than one OS off different partitions and hand
+		// back the same hw.model on each, so the two layers above cannot tell
+		// them apart. The fleet's G3 is the case that forced this: Panther
+		// 10.3.9 and Tiger 10.4.11 on one Power Mac G3, ~1.6x apart in fps, one
+		// shared config, so the faster partition's headroom could not be spent
+		// without putting the slower one under the 20 fps floor.
+		//
+		// Keyed on the Darwin major from kern.osrelease, not the sw_vers
+		// product version: it is the same sysctl mechanism as hw.model two
+		// lines up rather than a subprocess, and this runs before renderer and
+		// sound init. Darwin major -> OS: 7 = 10.3 Panther, 8 = 10.4 Tiger,
+		// 9 = 10.5 Leopard, 10 = 10.6, 11 = 10.7 Lion, 24 = macOS 15 Sequoia.
+		//
+		// Purely additive: Com_ExecConfigFromBundle returns qfalse silently
+		// when the file is absent, so a machine with no OS-specific cfg behaves
+		// exactly as it did before this existed. No file, no change.
+		if ( machineCfg )
+		{
+			char	osrel[64];
+			size_t	olen = sizeof( osrel );
+
+			if ( sysctlbyname( "kern.osrelease", osrel, &olen, NULL, 0 ) == 0 )
+			{
+				int	darwinMajor = atoi( osrel );
+
+				if ( darwinMajor > 0 )
+				{
+					char	oscfg[MAX_QPATH];
+
+					Com_sprintf( oscfg, sizeof( oscfg ), "%s-darwin%d",
+						machineCfg, darwinMajor );
+					Com_ExecConfigFromBundle( oscfg );
+					Com_Printf( "Auto-config: kern.osrelease = %s (darwin %d)\n",
+						osrel, darwinMajor );
+				}
+			}
+		}
 	}
 
 	Cbuf_Execute();

@@ -580,6 +580,43 @@ static void SVC_Status( netadr_t from ) {
 	// to prevent timed spoofed reply packets that add ghost servers
 	Info_SetValueForKey( infostring, "challenge", Cmd_Argv(1) );
 
+	// Team scores, for the team gametypes only.
+	//
+	// getstatus answers a player line per client, `score ping "name"`, and says
+	// nothing about which side anyone is on. For free-for-all and tournament
+	// that is the whole story. For Team Deathmatch and CTF it is not: an
+	// external scoreboard gets g_gametype telling it the match is team based,
+	// then a flat list of individuals it cannot add up. A CTF game drawn as a
+	// ranking of individuals is actively misleading, because the player with
+	// the most frags is frequently on the losing team. Issue #16.
+	//
+	// No new protocol and no game module change: the game already publishes
+	// both team scores as configstrings CS_SCORES1 and CS_SCORES2 (g_main.c,
+	// CalculateRanks), so the server just has to pass on what it already holds.
+	//
+	// Added to the serverinfo rather than to the player lines on purpose. The
+	// player line format is positional, `score ping "name"`, and anything
+	// appended to it risks breaking every parser that splits on it. An info
+	// string is key-value, so a reader that does not know these keys ignores
+	// them, which is what makes this safe to add to a 1999 protocol.
+	//
+	// Sent only for the team gametypes. In FFA the game sets these to
+	// SCORE_NOT_PRESENT (-9999) and reporting that as a team score would be
+	// worse than reporting nothing.
+	{
+		int gametype = atoi( Info_ValueForKey( infostring, "g_gametype" ) );
+
+		// GT_TEAM is 3 and GT_CTF is 4 in bg_public.h; anything at or above
+		// GT_TEAM is a team mode, which keeps this correct for the 1FCTF,
+		// obelisk and harvester modes in Team Arena as well.
+		if ( gametype >= 3 ) {
+			Info_SetValueForKey( infostring, "score_red",
+					sv.configstrings[ 6 ] );	// CS_SCORES1
+			Info_SetValueForKey( infostring, "score_blue",
+					sv.configstrings[ 7 ] );	// CS_SCORES2
+		}
+	}
+
 	status[0] = 0;
 	statusLength = 0;
 

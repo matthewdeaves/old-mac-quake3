@@ -7,7 +7,8 @@
 # NOT Quake/Makefile.darwin like QuakeSpasm. Baseline is the last SDL 1.2
 # commit (branch master, rooted at 4432a80a); see ../CLAUDE.md.
 #
-# VALIDATED — this builds all three slices and they run on real hardware. The
+# VALIDATED — this builds each of the four cross-buildable slices and they run
+# on real hardware (arm64 is built by scripts/build-arm64.sh, not here). The
 # two items that were open at kickoff are both resolved (2026-05-26): the fat
 # SDL 1.2 dylib is QuakeSpasm's Panther-safe 1.2.15 with SDLMain.m compiled
 # from source (the bundled 10.4+ libSDLmain.a SIGSEGVs on Panther), and 2013
@@ -26,7 +27,7 @@ PROJ_REMOTE="quake3"   # <build host>:quake3/  — NEVER quakespasm/ or quake2/
 # reachable and idle, and CLAIM it for the duration so nothing takes it mid-build.
 # The claim is a lock ON the mini, so it is visible to the Q1/Q2/Half-Life sister
 # projects too — the flock below only serialises builds from THIS checkout.
-# build-fat.sh pins BUILD_HOST for all three slices, so this only fires for a
+# build-fat.sh pins BUILD_HOST for all four slices, so this only fires for a
 # standalone build.sh run.
 BUILD_HOST_CLAIMED=0
 if [ -z "${BUILD_HOST:-}" ]; then

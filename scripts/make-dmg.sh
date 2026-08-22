@@ -32,9 +32,10 @@
 # pre:   build/ioquake3-fat present (scripts/build-fat.sh; built here if missing)
 # post:  dist/ioquake3-OldMac-<version>.dmg
 #
-# One .dmg installs on every supported Mac — the fat binary's three slices
-# (ppc750 / ppc7400 / x86_64) + the per-machine autoexec layer mean one disk
-# image serves G3 Panther through modern Intel (the G5 runs the ppc7400 slice).
+# One .dmg installs on every supported Mac — the fat binary's five slices
+# (ppc750 / ppc7400 / x86_64 / i386 / arm64) + the per-machine autoexec layer
+# mean one disk image serves G3 Panther through Apple Silicon (the G5 runs the
+# ppc7400 slice; there is no ppc970). Verify with `lipo -archs`, not this line.
 
 set -euo pipefail
 

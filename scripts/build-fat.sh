@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 #
-# build-fat.sh — build all three ioquake3 slices and lipo them into one fat
-# binary (ppc750 + ppc7400 + x86_64). Adapted from ~/quakespasm/scripts.
+# build-fat.sh — build the four cross-buildable ioquake3 slices and lipo them
+# into one fat binary. Adapted from ~/quakespasm/scripts.
+#
+# Built here: ppc750, ppc7400, x86_64, i386. Fused as well, when present:
+# arm64, which no Intel mini can build and which scripts/build-arm64.sh
+# produces separately. So a full release fat has FIVE slices, not three.
+# Verify with `lipo -archs`, never from a comment.
 # This is the only binary we deploy. dyld picks the slice per CPU at runtime;
 # multi-subtype ppc lipo (ppc750 + ppc7400) is proven to work by QuakeSpasm.
 #
@@ -16,7 +21,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$PROJ_LOCAL/build"
 
 # Pin ONE Intel build host for the whole fat build and claim it up front, so all
-# three slices and the final lipo use the same mini and no sister project
+# four cross-built slices and the final lipo use the same mini and no sister project
 # (Q1/Q2/Half-Life) takes the box between slices. Explicit BUILD_HOST always wins.
 if [ -z "${BUILD_HOST:-}" ]; then
   BUILD_HOST="$(BUILD_LOCK_WAIT="${BUILD_LOCK_WAIT:-900}" \
@@ -27,7 +32,7 @@ if [ -z "${BUILD_HOST:-}" ]; then
   export BUILD_HOST
   # Absolute path: the trap must still resolve if anything ever cd's away.
   trap '"$HERE/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
-  echo "==> claimed build host: $BUILD_HOST (held for all three slices + lipo)"
+  echo "==> claimed build host: $BUILD_HOST (held for all four slices + lipo)"
 else
   export BUILD_HOST
   echo "==> using caller-supplied build host: $BUILD_HOST"

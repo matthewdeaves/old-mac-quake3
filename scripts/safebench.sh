@@ -56,7 +56,12 @@ M="${1:?usage: safebench.sh <machine> <WxH> [demo] [extra +set...]}"
 # the lock, for debugging the picker itself. It is not a way to get past a
 # machine someone else is using.
 _PICK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pick-bench-host.sh"
-if [ -z "${RETRO_BENCH_LOCK:-}" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] && [ -x "$_PICK" ]; then
+# Compare RETRO_BENCH_LOCK to THIS script's target rather than merely testing
+# that it is set. pick-bench-host.sh --run now exports it naming the claimed
+# host, so a bare -z test would make this script skip its own claim whenever it
+# runs inside any other claim, including one on a DIFFERENT machine. Same-host
+# still skips, which is the reentrancy this guard is for.
+if [ "${RETRO_BENCH_LOCK:-}" != "$M" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] && [ -x "$_PICK" ]; then
 	export RETRO_BENCH_LOCK="$M"
 	exec "$_PICK" --run "$M" "safebench" -- "$0" "$@"
 fi

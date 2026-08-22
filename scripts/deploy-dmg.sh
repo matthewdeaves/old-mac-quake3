@@ -34,7 +34,12 @@ HOST="${1:?usage: $0 <machine> [version]}"
 # BENCH_NO_LOCK=1 skips the lock, for when the picker itself is what you are
 # debugging. It is not a way to get past a machine someone else is using.
 _PICK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pick-bench-host.sh"
-if [ -z "${RETRO_BENCH_LOCK:-}" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] && [ -x "$_PICK" ]; then
+# Compare RETRO_BENCH_LOCK to THIS script's target rather than merely testing
+# that it is set. pick-bench-host.sh --run now exports it naming the claimed
+# host, so a bare -z test would make this script skip its own claim whenever it
+# runs inside any other claim, including one on a DIFFERENT machine. Same-host
+# still skips, which is the reentrancy this guard is for.
+if [ "${RETRO_BENCH_LOCK:-}" != "$HOST" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] && [ -x "$_PICK" ]; then
 	export RETRO_BENCH_LOCK="$HOST"
 	exec "$_PICK" --run "$HOST" "deploy-dmg" -- "$0" "$@"
 fi

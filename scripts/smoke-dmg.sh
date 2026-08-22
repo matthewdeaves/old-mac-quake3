@@ -56,7 +56,16 @@ case "$HOST" in
   g5-desktop|g5-tiger|g5-panther|quad-leopard|quad-tiger)
                TIMEOUT=120; COOLDOWN=2 ;;
   mini-intel2) TIMEOUT=90;  COOLDOWN=1 ;;
-  mini-sl)     TIMEOUT=90;  COOLDOWN=1 ;;
+  # 180, not the 90 mini-intel gets, and the reason is a fault rather than a
+  # slow machine. mini-sl is a Macmini3,1 with a GeForce 9400M, but the engine
+  # reports GL_RENDERER: Apple Software Renderer there, so it renders demo four
+  # in software and cannot finish inside 90s. Its console shows the demo
+  # progressing and then "Received signal 15", the backstop, not a crash.
+  #
+  # The timeout is raised so a machine that DOES work is not reported as broken,
+  # but the software renderer is the real defect and is tracked separately. Do
+  # not read a pass here as "mini-sl is fine".
+  mini-sl)     TIMEOUT=180; COOLDOWN=1 ;;
   *) echo "smoke-dmg: unknown machine: $HOST" >&2; exit 2 ;;
 esac
 

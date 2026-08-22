@@ -43,16 +43,40 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 VERSION="${1:-$(git rev-parse --short HEAD)}"
-# Tiger host -> image mounts on Panther->modern (see header). If DMG_HOST is not
-# set explicitly, auto-pick the first REACHABLE Tiger box so a powered-off
-# mini-g4 doesn't break the default — both write Panther-mountable images.
-if [ -z "${DMG_HOST:-}" ]; then
-  for cand in mini-g4 quicksilver; do
-    if ssh -o ConnectTimeout=6 -o BatchMode=yes "$cand" true 2>/dev/null; then DMG_HOST="$cand"; break; fi
+# Tiger host -> image mounts on Panther->modern (see header).
+#
+# PICK A HOST WE CAN CLAIM, NOT ONE THAT MERELY ANSWERS. This used to select the
+# first REACHABLE Tiger box and then, at line ~247, run `rm -rf` on it. Reachable
+# is not free: a box another session is benching or building on answers ssh
+# perfectly well. Fixed 2026-08-22, same class as the parallel-bench pre-kill and
+# the missing safebench claim.
+#
+# We re-exec under the picker rather than acquiring here and trapping, because
+# this script installs its own EXIT trap for $STAGE below and bash traps REPLACE
+# rather than compose, so a release trap set here would be silently discarded and
+# the machine would stay claimed until the stale reclaim.
+#
+# The acquire below is a probe to choose between candidates, released at once so
+# the --run can take it properly. That leaves a small window where another
+# session could take the box between the probe and the run; --run then fails and
+# says so, which is the correct outcome and is still far better than the previous
+# behaviour of taking no lock at all.
+_PICK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pick-bench-host.sh"
+if [ -z "${RETRO_BENCH_LOCK:-}" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] && [ -x "$_PICK" ]; then
+  _cands="${DMG_HOST:-mini-g4 quicksilver}"
+  for cand in $_cands; do
+    if "$_PICK" --acquire "$cand" "quake3 make-dmg probe" >/dev/null 2>&1; then
+      "$_PICK" --release "$cand" >/dev/null 2>&1
+      echo "[make-dmg] claiming Tiger host: $cand"
+      export RETRO_BENCH_LOCK="$cand" DMG_HOST="$cand"
+      exec "$_PICK" --run "$cand" "quake3 make-dmg" -- "$0" "$@"
+    fi
+    echo "[make-dmg] $cand is busy or unreachable, trying next"
   done
-  DMG_HOST="${DMG_HOST:-mini-g4}"
-  echo "[make-dmg] DMG_HOST not set — using reachable Tiger host: $DMG_HOST"
+  echo "make-dmg: no free Tiger G4 (tried: $_cands). See pick-bench-host.sh --status" >&2
+  exit 1
 fi
+DMG_HOST="${DMG_HOST:?DMG_HOST must be set by the claim above}"
 VOLNAME="ioquake3 OldMac $VERSION"
 OUT="$REPO_ROOT/dist/ioquake3-OldMac-$VERSION.dmg"
 

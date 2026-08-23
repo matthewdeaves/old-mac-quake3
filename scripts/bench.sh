@@ -67,8 +67,14 @@ esac
 W="${RES%x*}"; H="${RES#*x}"
 
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
-CSV="$PROJ_LOCAL/benchmarks/results.csv"
-RAWDIR="$PROJ_LOCAL/benchmarks/raw"
+# BENCH_CSV/BENCH_RAW_DIR override the output paths. Both default to the
+# git-tracked locations, where every row is meant to be committed with the
+# narrated decision it supports; an automated caller with nobody curating a
+# commit per row (old-mac-build-host#15) should point both at a gitignored
+# path instead. Redirect both together — BENCH_CSV alone would still leave
+# raw qconsole.log copies landing in the tracked benchmarks/raw/.
+CSV="${BENCH_CSV:-$PROJ_LOCAL/benchmarks/results.csv}"
+RAWDIR="${BENCH_RAW_DIR:-$PROJ_LOCAL/benchmarks/raw}"
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must
 # resolve on the REMOTE host's home, not this workstation's. See ci.yml.

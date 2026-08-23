@@ -3,6 +3,16 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-08-23** Any ERR_DROP during Com_Init segfaulted instead of exiting
+  with "Error during initialization" (#36, `c2fa4e50`): CL_ClearMemory
+  dereferenced com_sv_running before that cvar is registered. NULL guard,
+  matching upstream's current shape.
+- **2026-08-23** Nine client/net fixes from upstream (#17, `4c29d38e`):
+  snapshot delta against an overwritten parseEntities slot, VOIP sender
+  index read before range check, connect-string and serverinfo buffer
+  overflows, connectionless print/echo accepted from any address, console
+  history OOB, bind case-sensitivity, Alt+Enter repeat.
+
 - **2026-08-23** Ten filesystem/cvar security holes from upstream (#17,
   `4f1e8cb5`): VM/server could rewrite protected cvars, fs_game accepted
   `..` traversal from a malicious server, VM could write files with

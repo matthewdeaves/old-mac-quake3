@@ -33,8 +33,15 @@ tracked below as increments land.
   yosemite 26.1 fps crashlogs=0, mini-g4 75.0 via Jenkins, and the
   fs_game gate tested in the REFUSING direction on this workstation
   (arm64 + x86_64 slices): '../evil' is refused at FS_Startup. Known
-  limitation: an init-time ERR_DROP exits via segfault, pre-existing
-  error-path fragility, filed separately.
+  limitation: an init-time ERR_DROP exited via segfault, pre-existing
+  error-path fragility, filed as #36 and fixed the same day (`c2fa4e50`,
+  CL_ClearMemory NULL guard).
+- Increment 5 (`4c29d38e`): nine client/net fixes (91194bfc+ac621642
+  snapshot/parse-entities unification including the server side, a18ae32a,
+  ebac005c, 0853c85e, 63e6c82f, 8a50e2aa, e9436abf, 3ad427c6). Upstream
+  91194bfc carried a stray "gedit" at cl_parse.c:1, dropped. Verified with
+  the #36 fix in one build: yosemite 26.1 fps crashlogs=0, mini-g4 via
+  Jenkins, refusal path on the bundled app reaches the error dialog.
 
 ## Method
 

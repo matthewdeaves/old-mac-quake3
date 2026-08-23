@@ -239,6 +239,15 @@ CPU-bound renderer problem whose only real lever (VBO) is already rejected.
 
 ## mini-g4 (G4 1.25 GHz: Radeon 9200 32 MB) - fill-rate / overdraw bound
 
+**2026-08-23, side effect of #17 increment 5 (`4c29d38e`): demo four at
+1024x768 went from 74.6-75.0 (4 runs across two builds) to 77.6-79.7 fps
+(3 runs), ~+4%, single-run legs via the Jenkins bench job.** Frames constant
+at 1260 in every raw log both sides, so nothing was dropped; per-frame avg
+13.3 -> 12.9 ms. Suspected mechanism is the 91194bfc/ac621642 snapshot
+staleness fix in the demo-playback path but this is INFERRED, not isolated;
+yosemite (G3) is unchanged at 26.1. Screenshots q3-mini-g4-00..05 captured
+the same day render correctly and are the image baseline.
+
 **Bench-confirmed on hardware 2026-07-05: 27.5 fps @native 1680x1050, real GPU.**
 `GL_RENDERER` = `ATI Radeon 9200 OpenGL Engine` (hardware; the old "mini-g4
 headless = software GL" caveat is about a *headless* launch, and safebench's

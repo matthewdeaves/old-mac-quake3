@@ -76,36 +76,69 @@ COOLDOWN="${SMOKE_COOLDOWN:-$COOLDOWN}"
 
 # HEADLESS CHECK. A Mac with no display attached cannot be smoke-tested
 # meaningfully, and the way it fails is deeply misleading: this script reported
-# "crash or hang" for two machines that were doing nothing of the kind.
+# "the production launch did not render a demo (crash or hang)" for two machines
+# that were doing nothing of the kind.
 #
 # Measured 2026-08-23 (#28, #30). With no monitor:
-#   mini-sl    GeForce 9400M, driver loaded, but no accelerated context, so the
-#              engine binds GL_RENDERER: Apple Software Renderer and is far too
-#              slow to finish a timedemo.
+#   mini-sl    GeForce 9400M present and driver loaded, but no accelerated
+#              context, so the engine binds GL_RENDERER: Apple Software Renderer
+#              and cannot finish a timedemo at any timeout.
 #   mini-intel binds hardware GL but has no real display mode, so a 1920x1080
 #              fullscreen request falls back to 640 x 480 and never completes.
-# Two different presentations, one cause, and neither is a crash.
+# Two presentations, one cause, and neither is a crash.
 #
-# EDID is what a real monitor supplies, so its absence is the signal. mini-g4,
-# which passes, reports 1; both headless machines report 0.
+# KEYED ON IODisplayConnect, NOT ON EDID, and that distinction is the whole
+# check. The first version of this counted IODisplayEDID, which looked right
+# because a real monitor supplies EDID. It is wrong on PowerPC: measured across
+# the fleet on 2026-08-23,
 #
-# WARN rather than refuse. mini-intel does bind hardware GL headless, and a gate
-# that refuses a machine somebody has just plugged a monitor into would be worse
-# than the confusion it prevents. The point is to name the likely cause, not to
-# decide for the operator.
+#     machine      EDID  connect   renders?
+#     yosemite       0      6      YES, benched and screenshotted all night
+#     mini-g4        1      5      yes
+#     g5-desktop     1      6      yes
+#     mini-sl        0      1      no, software renderer
+#     mini-intel     0      1      no, 640x480 fallback
+#
+# so EDID=0 would have warned "no display attached" on the G3 every single run,
+# on the oldest and most awkward machine in the fleet, which is exactly where a
+# spurious warning does most damage. Confirmed by running it: it did.
+# INFERRED, not measured: the G3 probably drives an analog display, or its
+# driver never publishes EDID.
+#
+# WHAT THIS TEST IS AND IS NOT. It is measured to separate two headless Intel
+# minis from three working machines (one G3, one G4, one G5). connect<=1 has
+# only ever been observed on those two, both the same class, so treat it as a
+# useful signal rather than a law and do not apply it to untested hardware and
+# believe the answer.
+#
+# WARN, do not refuse. mini-intel does bind hardware GL while headless, and a
+# gate that refused a machine somebody had just plugged a monitor into would be
+# worse than the confusion it prevents.
 #
 # `|| true` is load-bearing: grep -c EXITS 1 WHEN THE COUNT IS ZERO, which is
 # precisely the headless case this check exists to catch. Without it, under
-# set -e, the assignment fails and the script dies silently with no output at
-# all. Written and immediately reproduced on mini-sl: the check killed the very
-# machines it was added for, and printed nothing to say so.
-EDID="$(ssh "$HOST" 'ioreg -lw0 2>/dev/null | grep -c IODisplayEDID || true' 2>/dev/null | tr -dc '0-9' || true)"
-if [ "${EDID:-1}" = 0 ]; then
+# set -euo pipefail, the assignment fails and the script dies silently with no
+# output at all. The first version did exactly that, on the two machines it was
+# written to diagnose.
+# IODisplayConnect is confirmed present on 10.3.9: yosemite reports 6. That
+# matters because the key this check ORIGINALLY used does not exist there at all
+# -- Panther's ioreg has no IODisplayEDID key, so the count was 0 for a reason
+# that had nothing to do with displays. Before reading a count as a measurement,
+# prove the key exists on that OS version; this fleet spans 10.3 to 10.7 and a
+# probe written against Lion returns confident zeros from Panther.
+#
+# An empty result means the probe could not run, which is NOT the same as zero,
+# and must never be reported as "headless".
+DCONNECT="$(ssh "$HOST" 'ioreg -lw0 2>/dev/null | grep -c IODisplayConnect || true' 2>/dev/null | tr -dc '0-9' || true)"
+if [ -z "$DCONNECT" ]; then
+  HEADLESS=0
+  echo "[smoke $HOST] note: display probe did not answer; headless state NOT DETERMINED." >&2
+elif [ "$DCONNECT" -le 1 ] 2>/dev/null; then
   HEADLESS=1
-  echo "[smoke $HOST] WARNING: no display attached (IODisplayEDID=0)." >&2
-  echo "  A headless Mac cannot give a real fullscreen mode and may bind the" >&2
-  echo "  software renderer. If this run fails, that is the first thing to" >&2
-  echo "  suspect, not the build. See issues #28 and #30." >&2
+  echo "[smoke $HOST] WARNING: looks headless (IODisplayConnect=$DCONNECT)." >&2
+  echo "  A Mac with no display cannot give a real fullscreen mode and may bind" >&2
+  echo "  the software renderer. If this run fails, suspect that before the" >&2
+  echo "  build. See issues #28 and #30." >&2
 else
   HEADLESS=0
 fi

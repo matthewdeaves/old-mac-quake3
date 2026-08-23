@@ -486,6 +486,25 @@ no message. The first attempt at this 2x2 pinned 26 cvars, which pushed
 rendered the menu, and held the machine for six minutes producing no fps line.
 `safebench.sh` now counts the groups and refuses.
 
+## SUPERSEDED - r_primitives 3 on yosemite/Panther was a visual bug, not just an unresolvable fps question (2026-08-23, issue #26)
+
+Every `r_primitives 3` fps figure above (the 33.35/33.3 rows, the 2x2 table) is
+still accurate as an fps measurement, but shipping 3 was wrong regardless: it
+renders world surfaces as flat lit gradients with no diffuse texture on this
+Rage 128 (entities unaffected), confirmed by matched-frame screenshot A/B -
+`docs/screenshots/q3-yosemite-issue26-before.jpg` / `-after.jpg`. `r_primitives
+1` and `2` both render correctly. Root cause is presumably in
+`R_ArrayElementDiscrete` (`tr_shade.c`, the `qglMultiTexCoord2fARB` immediate-
+mode path that only `r_primitives 3` exercises) meeting a Rage 128 driver
+quirk, not narrowed further since the fleet has no second Rage 128 to
+discriminate driver-specific from card-specific.
+
+Both `autoexec-ppc750.cfg` and `autoexec-yosemite.cfg` now ship `r_primitives
+2`. The "below the noise floor" finding directly above still stands as the
+reason giving up 3 cost nothing measurable in fps; it just wasn't yet known to
+also be a correctness bug. Do not re-add `r_primitives 3` on this machine
+without a second Rage 128 to test it on first.
+
 ## Open questions
 
 - **Fleet-wide vsync.** Only mini-intel sets `r_swapInterval`. The trade: kills

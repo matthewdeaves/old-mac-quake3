@@ -144,7 +144,33 @@ COOLDOWN="${SMOKE_COOLDOWN:-$COOLDOWN}"
 #
 # An empty result means the probe could not run, which is NOT the same as zero,
 # and must never be reported as "headless".
-DCONNECT="$(ssh "$HOST" 'ioreg -lw0 2>/dev/null | grep -c IODisplayConnect || true' 2>/dev/null | tr -dc '0-9' || true)"
+#
+# BOUNDED, on the LOCAL side. Root-caused 2026-08-23 on mini-sl: this ioreg
+# call went into uninterruptible kernel sleep on the remote end, unkillable by
+# TERM/KILL there, and ssh has no built-in bound on a remote command that is
+# already running - ConnectTimeout only covers connection setup, and
+# ServerAlive keepalives are answered by sshd itself, not by the stuck child
+# command. That hung this script (and the bench lock it holds) for over an
+# hour with nothing to show for it; only a reboot of the target cleared it.
+# Same run_deadline pattern as safebench.sh: killing the LOCAL ssh client is
+# always safe, whatever is stuck on the far end is a separate problem this
+# script cannot fix, and at least the caller and the lock are freed.
+TIMEOUT_BIN="$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)"
+run_deadline() {
+  _secs="$1"; shift
+  if [ -n "$TIMEOUT_BIN" ]; then "$TIMEOUT_BIN" "$_secs" "$@"; return $?; fi
+  "$@" &
+  _p=$!; _t=0
+  while [ "$_t" -lt "$_secs" ]; do
+    kill -0 "$_p" 2>/dev/null || break
+    sleep 1; _t=$((_t+1))
+  done
+  if kill -0 "$_p" 2>/dev/null; then
+    kill -TERM "$_p" 2>/dev/null; sleep 2; kill -KILL "$_p" 2>/dev/null
+  fi
+  wait "$_p" 2>/dev/null
+}
+DCONNECT="$(run_deadline 15 ssh "$HOST" 'ioreg -lw0 2>/dev/null | grep -c IODisplayConnect || true' 2>/dev/null | tr -dc '0-9' || true)"
 if [ -z "$DCONNECT" ]; then
   HEADLESS=0
   echo "[smoke $HOST] note: display probe did not answer; headless state NOT DETERMINED." >&2

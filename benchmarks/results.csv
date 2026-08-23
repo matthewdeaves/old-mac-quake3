@@ -56,3 +56,9 @@ timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps
 2026-08-23T07:59:15Z,847efd7a-issue15-p2cva1,yosemite,four,800x600,27.8,27.2,28.5,27.85
 2026-08-23T07:59:15Z,847efd7a-issue15-control-picmip0,yosemite,four,800x600,23.5,24.6,23.4,24.00
 2026-08-23T07:59:15Z,847efd7a-issue15-control-vertexlight1,yosemite,four,800x600,39.9,39.9,35.2,37.55
+2026-08-23T09:35:02Z,2b6eec5b-mi2-amplify-320x240-SINGLE-RUN,mini-intel2,four,320x240,254.7,n=1,n=1,254.7
+2026-08-23T09:35:02Z,2b6eec5b-mi2-amplify-640x480-SINGLE-RUN,mini-intel2,four,640x480,7.7,n=1,n=1,7.7
+2026-08-23T09:35:02Z,2b6eec5b-mi2-amplify-1024x768-SINGLE-RUN,mini-intel2,four,1024x768,7.0,n=1,n=1,7.0
+2026-08-23T09:35:02Z,2b6eec5b-mi2-bisect-400x300-SINGLE-RUN,mini-intel2,four,400x300,240.9,n=1,n=1,240.9
+2026-08-23T09:35:02Z,2b6eec5b-mi2-bisect-480x360-SINGLE-RUN,mini-intel2,four,480x360,225.4,n=1,n=1,225.4
+2026-08-23T09:35:02Z,2b6eec5b-mi2-bisect-560x420-SINGLE-RUN,mini-intel2,four,560x420,7.8,n=1,n=1,7.8

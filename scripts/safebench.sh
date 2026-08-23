@@ -74,6 +74,44 @@ PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
 SSHO="-o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3"
 DEADLINE=${SAFEBENCH_TIMEOUT:-260}          # per-run wall-clock budget (seconds)
 
+# REFUSE A COMMAND LINE THE ENGINE WILL SILENTLY TRUNCATE.
+#
+# Com_ParseCommandLine (code/qcommon/common.c:405,428) splits the command line
+# on '+' into at most MAX_CONSOLE_LINES = 32 entries, and when it reaches 32 it
+# `return`s. Everything after the 32nd is DISCARDED with no message of any kind.
+#
+# Entry 0 is the text before the first '+' (the binary path), so 31 '+' groups
+# survive. The launch line below contributes 12 of them, which leaves 19 for
+# $EXTRA.
+#
+# Why this needs a check and not a comment. The groups that get dropped are the
+# ones at the END, and the end of this line is `+set nextdemo quit +set timedemo
+# 1 +demo <demo>` — the three that actually run the benchmark and make the engine
+# quit. So an over-long EXTRA does not fail. The engine launches, initialises,
+# renders the main menu, and sits there fullscreen until the deadline kills it.
+# safebench then reports NO-FPS-LINE, which is indistinguishable from a crash.
+#
+# Measured 2026-08-23 on yosemite: a 26-group EXTRA pinning the G3 profile for
+# issue #15 produced exactly that. The log stopped after "--- Common
+# Initialization Complete ---", the engine held the machine for six minutes
+# doing nothing, and the run had to be TERMed by hand. Nothing in the output
+# said the command line had been truncated.
+#
+# The count is of literal '+' characters, so a cvar VALUE containing '+' counts
+# against the budget. That errs toward refusing, which is the safe direction.
+_EXTRA_PLUS=$(printf '%s' "$EXTRA" | tr -cd '+' | wc -c | tr -d ' ')
+_FIXED_PLUS=12
+_TOTAL_PLUS=$(( _FIXED_PLUS + _EXTRA_PLUS ))
+if [ "$_TOTAL_PLUS" -gt 31 ]; then
+  echo "[$M] REFUSING: command line has $_TOTAL_PLUS '+' groups ($_FIXED_PLUS fixed + $_EXTRA_PLUS in EXTRA)." >&2
+  echo "     The engine keeps 31 (MAX_CONSOLE_LINES 32, code/qcommon/common.c:405)." >&2
+  echo "     Past that it drops the REST OF THE LINE silently, including +demo," >&2
+  echo "     so the engine would launch and never run the timedemo." >&2
+  echo "     Pass at most 19 '+' groups in EXTRA, or set the rest in the machine's" >&2
+  echo "     baseq3/q3config.cfg before the run." >&2
+  exit 4
+fi
+
 reachable() { ssh $SSHO "$M" 'true' 2>/dev/null; }
 # Reboot and VERIFY it actually cycles — qsreboot.sh's Finder fallback can report
 # a false success without the machine ever going down, so we confirm it drops off

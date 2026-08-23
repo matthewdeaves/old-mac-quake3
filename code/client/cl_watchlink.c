@@ -144,7 +144,11 @@ static DNSServiceRef	watch_resolve_ref;
 static qboolean		watch_discovering;
 static uint16_t		watch_disc_port;	/* service port (network byte order) */
 static double		watch_disc_until;	/* seconds deadline to give up a fruitless browse */
-#define WATCHLINK_DISCOVERY_SECS 30.0
+/* The Apple Watch companion app isn't released yet, so every "auto" run is
+   guaranteed to find nothing right now - a real companion resolves near-
+   instantly once one exists, so only the negative case pays this deadline.
+   Cut from 30s to 3s (same fix landed in quakespasm's cl_watchlink.c, 2026-08-23). */
+#define WATCHLINK_DISCOVERY_SECS 3.0
 #ifdef WATCHLINK_HAVE_ADDRINFO
 static DNSServiceRef	watch_addr_ref;
 #endif

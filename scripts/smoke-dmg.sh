@@ -195,6 +195,37 @@ ssh "$HOST" "
   sleep $COOLDOWN
   true"
 
+# REBOOT BACKSTOP. The remote block above sends TERM and waits 12s, and if the
+# engine survives that it simply falls through: the script returns, the bench
+# lock is released with it, and the engine keeps running on an unclaimed machine.
+#
+# Measured 2026-08-23 (#29): a smoke run on mini-sl left this exact state, and it
+# was still there twenty minutes later, found only because another repo refused
+# to take the machine. TERM did not take because that machine renders with the
+# software renderer and never finishes the demo, so `nextdemo quit` never fires.
+#
+# safebench.sh has never produced this state, and the reason is that it REBOOTS
+# when the engine will not die. The backstop is the design, not a nicety, and
+# this script was missing it. Same pattern, deliberately: verify it went down and
+# came back rather than trusting qsreboot.sh's exit code, whose Finder fallback
+# can report a false success.
+#
+# NEVER KILL instead: a hard KILL on a fullscreen ioquake3 wedges the GPU driver
+# and takes the WindowServer with it, which is the thing this whole script is
+# careful about.
+if ssh "$HOST" 'killall -0 ioquake3 2>/dev/null'; then
+  echo "[smoke $HOST] engine SURVIVED TERM and is still running; rebooting so it is" >&2
+  echo "  not left on an unclaimed machine. See #29." >&2
+  ssh "$HOST" '~/bin/qsreboot.sh' 2>/dev/null || true
+  t=0; while [ $t -lt 60 ]; do ssh -o ConnectTimeout=5 -o BatchMode=yes "$HOST" true 2>/dev/null || break; sleep 5; t=$((t+5)); done
+  if [ $t -ge 60 ]; then
+    echo "[smoke $HOST] did NOT go down - reboot FAILED (run 'sudo ~/bin/qsreboot-setup.sh')" >&2
+  else
+    t=0; while [ $t -lt 240 ]; do ssh -o ConnectTimeout=5 -o BatchMode=yes "$HOST" true 2>/dev/null && break; sleep 5; t=$((t+5)); done
+    [ $t -ge 240 ] && echo "[smoke $HOST] did not come back within 240s" >&2 || echo "[smoke $HOST] back up, engine cleared" >&2
+  fi
+fi
+
 # Pull the log and report.
 TMP=$(mktemp)
 scp -q "$HOST:Desktop/quake3/baseq3/qconsole.log" "$TMP" 2>/dev/null || { echo "[smoke $HOST] FAIL: no qconsole.log (engine never wrote one)"; rm -f "$TMP"; exit 1; }

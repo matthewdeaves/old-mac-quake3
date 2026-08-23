@@ -213,8 +213,12 @@ works on every GPU in the fleet.
 - Most of `snd_openal.c`'s diff: `b8ee77ce`, `efe8437c`, `36a4075a`,
   `5795be68`, `3d69ae99`, `203ab7b9`, `b3bd74fc`, `4fb053b8`, `f61fe5f6`/
   `05858d30` - a cluster of explicitly OS X-labeled OpenAL crash/silence/
-  buffer-lifecycle fixes. High value as a group since `USE_OPENAL=1` is on
-  by default in this port's Makefile.
+  buffer-lifecycle fixes. **NOT APPLICABLE as shipped: an earlier pass
+  reasoned from the Makefile's `USE_OPENAL=1` default, but
+  `scripts/build.sh:148` overrides it to `USE_OPENAL=0` for every slice, so
+  `snd_openal.c` is never compiled.** Revisit only if OpenAL is ever
+  enabled; the base sound path fixes (`84daa282`, `a167110f`, `2ef641b9`,
+  `57eae5da`, `a836c2db`) are the live ones.
 
 **code/renderergl1/renderercommon** - from the renderer triage pass, ranked
 by that pass as highest-value:

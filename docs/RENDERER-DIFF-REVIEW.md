@@ -18,12 +18,15 @@ tracked below as increments land.
   `3ec2b02d`, `eeeaf3f1`, `e5f54c58`), flare fixes (`00c1831e`,
   `d526eacd`), rail/lightning overflow check (`cc9072d0`). The
   `SkipBracedSection` signature change also touched dead-code
-  `code/rend2/tr_shader.c` mechanically. Build/smoke status in the #17
-  comment trail.
+  `code/rend2/tr_shader.c` mechanically.
 - Increment 3 (`eca6aa54`): base sound path (`a167110f`, `57eae5da`,
   `a836c2db` apply-clean; `2ef641b9`, `84daa282` hand-ported, our
   resamplers are mono and our transfer uses `out_mask` not `%`). OpenAL
   cluster dropped as dead code, see above.
+- Increments 2+3 verified together: 5-slice fat rebuilt (lipo-asserted),
+  deployed to yosemite, safebench 800x600 demo four: 26.2 fps, crashlogs=0,
+  against the 26.1 pre-increment baseline. G4-class run via the Jenkins
+  bench-quake3-mini-g4 job; result in the #17 comment trail.
 
 ## Method
 

@@ -318,3 +318,36 @@ from "never present", it must not print a word that means one of them.
 This sits with the `strings -n 3` entry and the greps that returned "0 matches"
 against an unreadable directory. Same family: the tool answered a slightly
 different question than the one being asked, and the answer looked like success.
+
+## A timeout is not a crash, and the harness says "crash" (2026-08-23)
+
+`smoke-dmg.sh` reported "no fps line; the production launch did not render a
+demo (crash or hang)" for mini-intel. The machine was healthy. Measured:
+
+    vsync OFF, 640x480   1260 frames  17.3 seconds  72.8 fps
+    vsync ON,  640x480   1260 frames 170.7 seconds   7.4 fps
+
+Both completed. The production config sets `r_swapInterval 1`, vsync on, and on
+a machine with no display attached that costs roughly 10x: frame times of
+130-143 ms, about 7 Hz, which is neither a 60 Hz cap nor a 30 Hz one. So the
+demo took 170 seconds against a 90 second allowance, was TERMed mid-run, wrote
+no fps line, and was reported as a crash.
+
+Three sessions of investigation went into "why does this machine never complete
+a timedemo". It always completed. Nothing ever measured how long it took.
+
+**Lesson.** When a bounded wait expires, the harness knows exactly one thing:
+the work did not finish in the time allowed. It does not know the work failed.
+Report the distinction, and where it is cheap, measure the thing that ran long
+instead of only that it ran long: one run with a generous allowance turns "crash
+or hang" into "170.7 seconds", and that number names the fault.
+
+Two corollaries this cost real time to learn:
+
+Raising the timeout is not the fix and can hide the fault. A 180 second bump was
+tried here before the cause was known; it did not help mini-sl at all, because
+that machine renders in software and never finishes at any allowance.
+
+An engine TERMed mid-demo does not necessarily die. On the machines above it
+survived TERM and kept running after the script returned, outliving the bench
+lock. See the entry on released locks.

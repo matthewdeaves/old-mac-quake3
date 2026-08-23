@@ -415,6 +415,77 @@ reported `rendering primitives: multiple glArrayElement`; with it absent,
 `multiple glColor4ubv + glTexCoord2fv + glVertex3fv`. Nothing else sets that
 cvar to 1, so the layer applied, and it is a clean no-op when the file is gone.
 
+## NEGATIVE - on Panther, r_primitives and compiled vertex arrays are both below the noise floor (2026-08-23, issue #15)
+
+Issue #15 records Panther at 33.35 for `r_primitives 3` against 31.70 for `2`, a
+5.2% gap, and Tiger reversing it. That measurement did not pin
+`r_ext_compiled_vertex_array`, which is CVAR_ARCHIVE and read `0` on the Panther
+partition and `1` on the Tiger one. So the two legs used different vertex
+submission paths for a reason nothing controlled.
+
+Re-measured as a 2x2 with both cvars pinned and read back from the engine on
+every leg. `yosemite`, Panther 10.3.9, demo `four`, 800x600 fullscreen,
+`v0.6.7-test1` (`68d683cc0bb6a98769d453851ea2789d`), one discarded warm-up then
+three round-robin passes.
+
+| leg | runs | median | spread |
+|---|---|---:|---:|
+| `r_primitives 3`, CVA off | 30.1 / 28.8 / 29.1 | 29.10 | 1.30 |
+| `r_primitives 2`, CVA off | 30.5 / 26.3 / 29.1 | 29.10 | 4.20 |
+| `r_primitives 3`, CVA on  | 28.4 / 30.2 / 30.5 | 30.20 | 2.10 |
+| `r_primitives 2`, CVA on  | 27.8 / 27.2 / 28.5 | 27.80 | 1.30 |
+
+All 12 legs span 26.3 to 30.5, a spread of 4.2 fps. **No leg is separable.** The
+within-leg spread is as large as any difference between legs, and the two
+CVA-off legs have identical medians while their means differ by 0.7 fps, which
+is the summary-statistic instability that a spread this size produces.
+
+Every leg was verified from the engine's own output rather than from the cvar we
+set: `...using` or `...ignoring GL_EXT_compiled_vertex_array`, and `rendering
+primitives: single glDrawElements` or `multiple glColor4ubv + glTexCoord2fv +
+glVertex3fv`. All 12 read correctly.
+
+### The instrument was calibrated, so the null means something
+
+A null from an uncalibrated harness means "I cannot see this", not "there is
+nothing there". Two known-positive controls, same config, same three-run shape:
+
+| control | runs | median |
+|---|---|---:|
+| `r_picmip 0` | 23.5 / 24.6 / 23.4 | 23.50 |
+| `r_vertexlight 1` | 39.9 / 39.9 / 35.2 | 39.90 |
+
+Against the 2x2 cluster at 26.3 to 30.5, `picmip 0` is about -20% and
+`vertexlight 1` about +37%, and neither overlaps the cluster at all. `picmip: 0`
+and `picmip: 1` were read back from the engine, so the control did change.
+
+**So the harness resolves a 20% effect cleanly and cannot resolve these two at
+all.** The honest bound: on Panther at this configuration, `r_primitives` and
+`r_ext_compiled_vertex_array` each cost less than roughly 14% of frame rate, and
+three runs cannot say more than that. That does not make them zero, and it does
+not refute the Tiger measurement, which is a different OS and driver.
+
+**What it does flag:** `autoexec-yosemite-darwin8.cfg` ships `r_primitives 2`
+for Tiger on a 2.9% difference, and `autoexec-yosemite.cfg` ships `3` for
+Panther on 5.2%. Both are smaller than what three runs resolve on this machine
+today. Neither value is wrong; the evidence under them is thinner than the
+comments imply, and separating a 5% effect here needs many more runs than three.
+
+### Two things that had to be fixed before any of this could be measured
+
+**The partitions were not running the same binary.** Read on 2026-08-23 before
+anything was touched: Panther `88ea73b3c79c1133a0e0cda73277b3e0`, Tiger
+`2822bc046a311a150a05356fc811cc2e`, and every slice differed in size including
+`ppc750`, 1691152 against 1691072. Both now hold the same
+`v0.6.7-test1` binary, verified by md5 on each partition.
+
+**The engine silently truncates a long command line.** `Com_ParseCommandLine`
+(`code/qcommon/common.c:405,428`) keeps 31 `+` groups and discards the rest with
+no message. The first attempt at this 2x2 pinned 26 cvars, which pushed
+`+set nextdemo quit +set timedemo 1 +demo four` off the end. The engine started,
+rendered the menu, and held the machine for six minutes producing no fps line.
+`safebench.sh` now counts the groups and refuses.
+
 ## Open questions
 
 - **Fleet-wide vsync.** Only mini-intel sets `r_swapInterval`. The trade: kills

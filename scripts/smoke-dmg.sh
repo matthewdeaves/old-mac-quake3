@@ -51,18 +51,30 @@ case "$HOST" in
   quicksilver) TIMEOUT=180; COOLDOWN=2 ;;
   mini-g4)     TIMEOUT=180; COOLDOWN=2 ;;
   imac-g5)     TIMEOUT=90;  COOLDOWN=2 ;;
-  mini-intel)  TIMEOUT=90;  COOLDOWN=1 ;;
+  mini-intel)  TIMEOUT=300; COOLDOWN=1 ;;
   imac-2019)   TIMEOUT=60;  COOLDOWN=1 ;;
   g5-desktop|g5-tiger|g5-panther|quad-leopard|quad-tiger)
                TIMEOUT=120; COOLDOWN=2 ;;
-  mini-intel2) TIMEOUT=90;  COOLDOWN=1 ;;
-  # Back to 90. This was briefly raised to 180 as a workaround for mini-sl
-  # timing out, before the cause was known: that machine has NO DISPLAY
-  # ATTACHED, so its GeForce 9400M gives no accelerated context and the engine
-  # binds the Apple Software Renderer. No timeout fixes that, and carrying a
-  # workaround that does not work only hides the real fault. See #28, and the
-  # headless pre-flight check below which now names it. Issue #28.
-  mini-sl)     TIMEOUT=90;  COOLDOWN=1 ;;
+  mini-intel2) TIMEOUT=300; COOLDOWN=1 ;;
+  # 300, and the history matters because this line has been 90, then 180, then
+  # 90 again.
+  #
+  # It went back to 90 on the reasoning that raising a timeout does not fix a
+  # slow machine and only hides the fault. That was right about the FAULT and
+  # wrong about what the timeout is FOR. mini-sl has no display attached, so its
+  # GeForce 9400M gives no accelerated context and the engine binds the Apple
+  # Software Renderer (#28). That is the fault, and no timeout fixes it.
+  #
+  # But the timeout's job is to tell a HUNG run from a SLOW one, and at 90 it
+  # could not: measured today, mini-sl completes demo four in 170.9 seconds and
+  # renders the world to the end. At 90 that machine reports a crash. It is
+  # healthy and slow.
+  #
+  # This is the fault that put "mini-intel never completes a timedemo" into two
+  # repos and a user-facing document. The allowance must sit above the machine's
+  # real runtime, and a slow run stays visible because the result line carries
+  # the seconds: 1260 frames 170.9 seconds 7.4 fps.
+  mini-sl)     TIMEOUT=300; COOLDOWN=1 ;;
   *) echo "smoke-dmg: unknown machine: $HOST" >&2; exit 2 ;;
 esac
 

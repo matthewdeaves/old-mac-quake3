@@ -27,6 +27,14 @@ tracked below as increments land.
   deployed to yosemite, safebench 800x600 demo four: 26.2 fps, crashlogs=0,
   against the 26.1 pre-increment baseline. G4-class run via the Jenkins
   bench-quake3-mini-g4 job; result in the #17 comment trail.
+- Increment 4 (`4f1e8cb5`): files.c/cvar.c security cluster, all ten
+  commits (six apply-clean, four hand-ported; the fs_game trio taken as
+  its settled combined state, not piecemeal). Verified: fat rebuilt,
+  yosemite 26.1 fps crashlogs=0, mini-g4 75.0 via Jenkins, and the
+  fs_game gate tested in the REFUSING direction on this workstation
+  (arm64 + x86_64 slices): '../evil' is refused at FS_Startup. Known
+  limitation: an init-time ERR_DROP exits via segfault, pre-existing
+  error-path fragility, filed separately.
 
 ## Method
 

@@ -56,16 +56,13 @@ case "$HOST" in
   g5-desktop|g5-tiger|g5-panther|quad-leopard|quad-tiger)
                TIMEOUT=120; COOLDOWN=2 ;;
   mini-intel2) TIMEOUT=90;  COOLDOWN=1 ;;
-  # 180, not the 90 mini-intel gets, and the reason is a fault rather than a
-  # slow machine. mini-sl is a Macmini3,1 with a GeForce 9400M, but the engine
-  # reports GL_RENDERER: Apple Software Renderer there, so it renders demo four
-  # in software and cannot finish inside 90s. Its console shows the demo
-  # progressing and then "Received signal 15", the backstop, not a crash.
-  #
-  # The timeout is raised so a machine that DOES work is not reported as broken,
-  # but the software renderer is the real defect and is tracked separately. Do
-  # not read a pass here as "mini-sl is fine".
-  mini-sl)     TIMEOUT=180; COOLDOWN=1 ;;
+  # Back to 90. This was briefly raised to 180 as a workaround for mini-sl
+  # timing out, before the cause was known: that machine has NO DISPLAY
+  # ATTACHED, so its GeForce 9400M gives no accelerated context and the engine
+  # binds the Apple Software Renderer. No timeout fixes that, and carrying a
+  # workaround that does not work only hides the real fault. See #28, and the
+  # headless pre-flight check below which now names it. Issue #28.
+  mini-sl)     TIMEOUT=90;  COOLDOWN=1 ;;
   *) echo "smoke-dmg: unknown machine: $HOST" >&2; exit 2 ;;
 esac
 
@@ -76,6 +73,42 @@ esac
 # truth, and it leaves the engine still running for the NEXT run to trip over.
 TIMEOUT="${SMOKE_TIMEOUT:-$TIMEOUT}"
 COOLDOWN="${SMOKE_COOLDOWN:-$COOLDOWN}"
+
+# HEADLESS CHECK. A Mac with no display attached cannot be smoke-tested
+# meaningfully, and the way it fails is deeply misleading: this script reported
+# "crash or hang" for two machines that were doing nothing of the kind.
+#
+# Measured 2026-08-23 (#28, #30). With no monitor:
+#   mini-sl    GeForce 9400M, driver loaded, but no accelerated context, so the
+#              engine binds GL_RENDERER: Apple Software Renderer and is far too
+#              slow to finish a timedemo.
+#   mini-intel binds hardware GL but has no real display mode, so a 1920x1080
+#              fullscreen request falls back to 640 x 480 and never completes.
+# Two different presentations, one cause, and neither is a crash.
+#
+# EDID is what a real monitor supplies, so its absence is the signal. mini-g4,
+# which passes, reports 1; both headless machines report 0.
+#
+# WARN rather than refuse. mini-intel does bind hardware GL headless, and a gate
+# that refuses a machine somebody has just plugged a monitor into would be worse
+# than the confusion it prevents. The point is to name the likely cause, not to
+# decide for the operator.
+#
+# `|| true` is load-bearing: grep -c EXITS 1 WHEN THE COUNT IS ZERO, which is
+# precisely the headless case this check exists to catch. Without it, under
+# set -e, the assignment fails and the script dies silently with no output at
+# all. Written and immediately reproduced on mini-sl: the check killed the very
+# machines it was added for, and printed nothing to say so.
+EDID="$(ssh "$HOST" 'ioreg -lw0 2>/dev/null | grep -c IODisplayEDID || true' 2>/dev/null | tr -dc '0-9' || true)"
+if [ "${EDID:-1}" = 0 ]; then
+  HEADLESS=1
+  echo "[smoke $HOST] WARNING: no display attached (IODisplayEDID=0)." >&2
+  echo "  A headless Mac cannot give a real fullscreen mode and may bind the" >&2
+  echo "  software renderer. If this run fails, that is the first thing to" >&2
+  echo "  suspect, not the build. See issues #28 and #30." >&2
+else
+  HEADLESS=0
+fi
 
 # The bench fleet is SHARED. Launching a second fullscreen game on a box already
 # running one wedges both. Bail if anything Quake-ish is live; FORCE=1 overrides.
@@ -151,6 +184,11 @@ if [ -n "$FPS_LINE" ]; then
   echo "[smoke $HOST] PASS — world rendered to completion on the production path"
   exit 0
 else
-  echo "[smoke $HOST] FAIL — no fps line; the production launch did not render a demo (crash or hang)" >&2
+  if [ "${HEADLESS:-0}" = 1 ]; then
+  echo "[smoke $HOST] FAIL — no fps line, and this machine has NO DISPLAY ATTACHED."
+  echo "  That is the likely cause: see #28 and #30. Not necessarily a build fault."
+else
+  echo "[smoke $HOST] FAIL — no fps line; the production launch did not render a demo (crash or hang)"
+fi >&2
   exit 1
 fi

@@ -642,7 +642,7 @@ fileHandle_t	FS_FCreateOpenPipeFile( const char *filename );
 
 fileHandle_t FS_SV_FOpenFileWrite( const char *filename );
 long		FS_SV_FOpenFileRead( const char *filename, fileHandle_t *fp );
-void	FS_SV_Rename( const char *from, const char *to );
+void	FS_SV_Rename( const char *from, const char *to, qboolean safe );
 long		FS_FOpenFileRead( const char *qpath, fileHandle_t *file, qboolean uniqueFILE );
 // if uniqueFILE is true, then a new FILE will be fopened even if the file
 // is found in an already open pak file.  If uniqueFILE is false, you must call
@@ -723,6 +723,7 @@ void FS_PureServerSetLoadedPaks( const char *pakSums, const char *pakNames );
 // sole exception of .cfg files.
 
 qboolean FS_CheckDirTraversal(const char *checkdir);
+qboolean FS_InvalidGameDir(const char *gamedir);
 qboolean FS_idPak(char *pak, char *base, int numPaks);
 qboolean FS_ComparePaks( char *neededpaks, int len, qboolean dlstring );
 
@@ -1077,6 +1078,8 @@ typedef intptr_t (QDECL *vmMainEntry_t)( int command,
 void	* QDECL Sys_LoadGameDll( const char *name, vmMainEntry_t *entryPoint,
 				  intptr_t (QDECL *systemcalls)(intptr_t, ...) );
 void	Sys_UnloadDll( void *dllHandle );
+
+qboolean Sys_DllExtension( const char *name );
 
 void	Sys_UnloadGame( void );
 void	*Sys_GetGameAPI( void *parms );

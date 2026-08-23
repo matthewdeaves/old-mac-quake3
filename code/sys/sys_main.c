@@ -432,7 +432,13 @@ from executable path, then fs_basepath.
 void *Sys_LoadDll(const char *name, qboolean useSystemLib)
 {
 	void *dllhandle;
-	
+
+	if(!Sys_DllExtension(name))
+	{
+		Com_Printf("Refusing to attempt to load library \"%s\": Extension not allowed.\n", name);
+		return NULL;
+	}
+
 	if(useSystemLib)
 		Com_Printf("Trying to load \"%s\"...\n", name);
 	
@@ -486,6 +492,12 @@ void *Sys_LoadGameDll(const char *name,
 	void (*dllEntry)(intptr_t (*syscallptr)(intptr_t, ...));
 
 	assert(name);
+
+	if(!Sys_DllExtension(name))
+	{
+		Com_Printf("Refusing to attempt to load library \"%s\": Extension not allowed.\n", name);
+		return NULL;
+	}
 
 	Com_Printf( "Loading DLL file: %s\n", name);
 	libHandle = Sys_LoadLibrary(name);

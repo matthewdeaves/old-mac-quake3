@@ -334,6 +334,18 @@ cvar_t *Cvar_Get( const char *var_name, const char *var_value, int flags ) {
 	{
 		var_value = Cvar_Validate(var, var_value, qfalse);
 
+		// Make sure the game code cannot mark engine-added variables as gamecode vars
+		if(var->flags & CVAR_VM_CREATED)
+		{
+			if(!(flags & CVAR_VM_CREATED))
+				var->flags &= ~CVAR_VM_CREATED;
+		}
+		else if (!(var->flags & CVAR_USER_CREATED))
+		{
+			if(flags & CVAR_VM_CREATED)
+				flags &= ~CVAR_VM_CREATED;
+		}
+
 		// if the C code is now specifying a variable that the user already
 		// set a value for, take the new value as the reset value
 		if(var->flags & CVAR_USER_CREATED)
@@ -352,18 +364,6 @@ cvar_t *Cvar_Get( const char *var_name, const char *var_value, int flags ) {
 				
 				var->latchedString = CopyString(var_value);
 			}
-		}
-		
-		// Make sure the game code cannot mark engine-added variables as gamecode vars
-		if(var->flags & CVAR_VM_CREATED)
-		{
-			if(!(flags & CVAR_VM_CREATED))
-				var->flags &= ~CVAR_VM_CREATED;
-		}
-		else
-		{
-			if(flags & CVAR_VM_CREATED)
-				flags &= ~CVAR_VM_CREATED;
 		}
 		
 		// Make sure servers cannot mark engine-added variables as SERVER_CREATED
@@ -564,6 +564,12 @@ cvar_t *Cvar_Set2( const char *var_name, const char *value, qboolean force ) {
 			return var;
 		}
 
+		if ((var->flags & CVAR_CHEAT) && !cvar_cheats->integer)
+		{
+			Com_Printf ("%s is cheat protected.\n", var_name);
+			return var;
+		}
+		
 		if (var->flags & CVAR_LATCH)
 		{
 			if (var->latchedString)
@@ -584,13 +590,6 @@ cvar_t *Cvar_Set2( const char *var_name, const char *value, qboolean force ) {
 			var->modificationCount++;
 			return var;
 		}
-
-		if ( (var->flags & CVAR_CHEAT) && !cvar_cheats->integer )
-		{
-			Com_Printf ("%s is cheat protected.\n", var_name);
-			return var;
-		}
-
 	}
 	else
 	{
@@ -1028,6 +1027,9 @@ cvar_t *Cvar_Unset(cvar_t *cv)
 {
 	cvar_t *next = cv->next;
 
+	// note what types of cvars have been modified (userinfo, archive, serverinfo, systeminfo)
+	cvar_modifiedFlags |= cv->flags;
+
 	if(cv->name)
 		Z_Free(cv->name);
 	if(cv->string)
@@ -1221,12 +1223,42 @@ void Cvar_Register(vmCvar_t *vmCvar, const char *varName, const char *defaultVal
 	// flags. Unfortunately some historical game code (including single player
 	// baseq3) sets both flags. We unset CVAR_ROM for such cvars.
 	if ((flags & (CVAR_ARCHIVE | CVAR_ROM)) == (CVAR_ARCHIVE | CVAR_ROM)) {
-		Com_DPrintf( S_COLOR_YELLOW "WARNING: Unsetting CVAR_ROM cvar '%s', "
+		Com_DPrintf( S_COLOR_YELLOW "WARNING: Unsetting CVAR_ROM from cvar '%s', "
 			"since it is also CVAR_ARCHIVE\n", varName );
 		flags &= ~CVAR_ROM;
 	}
 
-	cv = Cvar_Get(varName, defaultValue, flags | CVAR_VM_CREATED);
+	// Don't allow VM to specific a different creator or other internal flags.
+	if ( flags & CVAR_USER_CREATED ) {
+		Com_DPrintf( S_COLOR_YELLOW "WARNING: VM tried to set CVAR_USER_CREATED on cvar '%s'\n", varName );
+		flags &= ~CVAR_USER_CREATED;
+	}
+	if ( flags & CVAR_SERVER_CREATED ) {
+		Com_DPrintf( S_COLOR_YELLOW "WARNING: VM tried to set CVAR_SERVER_CREATED on cvar '%s'\n", varName );
+		flags &= ~CVAR_SERVER_CREATED;
+	}
+	if ( flags & CVAR_PROTECTED ) {
+		Com_DPrintf( S_COLOR_YELLOW "WARNING: VM tried to set CVAR_PROTECTED on cvar '%s'\n", varName );
+		flags &= ~CVAR_PROTECTED;
+	}
+	if ( flags & CVAR_MODIFIED ) {
+		Com_DPrintf( S_COLOR_YELLOW "WARNING: VM tried to set CVAR_MODIFIED on cvar '%s'\n", varName );
+		flags &= ~CVAR_MODIFIED;
+	}
+	if ( flags & CVAR_NONEXISTENT ) {
+		Com_DPrintf( S_COLOR_YELLOW "WARNING: VM tried to set CVAR_NONEXISTENT on cvar '%s'\n", varName );
+		flags &= ~CVAR_NONEXISTENT;
+	}
+
+	cv = Cvar_FindVar(varName);
+
+	// Don't modify cvar if it's protected.
+	if ( cv && ( cv->flags & CVAR_PROTECTED ) ) {
+		Com_DPrintf( S_COLOR_YELLOW "WARNING: VM tried to register protected cvar '%s' with value '%s'%s\n",
+			varName, defaultValue, ( flags & ~cv->flags ) != 0 ? " and new flags" : "" );
+	} else {
+		cv = Cvar_Get(varName, defaultValue, flags | CVAR_VM_CREATED);
+	}
 
 	if (!vmCvar)
 		return;

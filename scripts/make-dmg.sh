@@ -138,7 +138,7 @@ STAMPED=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_SRC/Contents
 echo "[make-dmg] bundle version verified: $STAMPED"
 
 STAGE=$(mktemp -d -t ioq3-dmg.XXXXXX)
-trap "rm -rf '$STAGE'" EXIT
+trap 'rm -rf "$STAGE"' EXIT
 IMG="$STAGE/img"                       # becomes the .dmg root
 mkdir -p "$IMG"
 cp -a "$APP_SRC" "$IMG/ioquake3.app"

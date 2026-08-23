@@ -16,7 +16,8 @@ shift || true
 [ -z "$(git -C "$PROJ_LOCAL" status --porcelain)" ] || {
   echo "bench-and-commit: working tree is dirty — commit the code change first."; exit 2; }
 
-export COMMIT="$(git -C "$PROJ_LOCAL" rev-parse --short HEAD)"
+COMMIT="$(git -C "$PROJ_LOCAL" rev-parse --short HEAD)"
+export COMMIT
 before=$(grep -c ",$COMMIT," "$CSV" 2>/dev/null || echo 0)
 
 "$HERE/parallel-bench.sh" "$@" || { echo "bench-and-commit: bench leg failed."; exit 3; }

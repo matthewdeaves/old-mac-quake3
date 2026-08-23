@@ -69,6 +69,9 @@ W="${RES%x*}"; H="${RES#*x}"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 CSV="$PROJ_LOCAL/benchmarks/results.csv"
 RAWDIR="$PROJ_LOCAL/benchmarks/raw"
+# shellcheck disable=SC2088
+# tilde stays unexpanded on purpose: it must
+# resolve on the REMOTE host's home, not this workstation's. See ci.yml.
 REMOTE_DIR="~/Desktop/quake3"
 COMMIT="${COMMIT:-$(git -C "$PROJ_LOCAL" rev-parse --short HEAD)}"
 mkdir -p "$RAWDIR"

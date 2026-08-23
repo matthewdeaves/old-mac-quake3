@@ -43,6 +43,9 @@ if [ "${RETRO_BENCH_LOCK:-}" != "$HOST" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] && [
 	exec "$_PICK" --run "$HOST" "smoke-dmg" -- "$0" "$@"
 fi
 DEMO="${2:-four}"
+# shellcheck disable=SC2088
+# tilde stays unexpanded on purpose: it must
+# resolve on the REMOTE host's home, not this workstation's. See ci.yml.
 REMOTE_DIR="~/Desktop/quake3"
 
 case "$HOST" in
@@ -228,6 +231,9 @@ ssh "$HOST" "
 if ssh "$HOST" 'killall -0 ioquake3 2>/dev/null'; then
   echo "[smoke $HOST] engine SURVIVED TERM and is still running; rebooting so it is" >&2
   echo "  not left on an unclaimed machine. See #29." >&2
+  # shellcheck disable=SC2088
+  # tilde stays unexpanded on purpose: it must
+  # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
   ssh "$HOST" '~/bin/qsreboot.sh' 2>/dev/null || true
   t=0; while [ $t -lt 60 ]; do ssh -o ConnectTimeout=5 -o BatchMode=yes "$HOST" true 2>/dev/null || break; sleep 5; t=$((t+5)); done
   if [ $t -ge 60 ]; then

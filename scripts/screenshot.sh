@@ -52,6 +52,9 @@ fi
 DEMO="${2:-four}"
 COUNT="${3:-8}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC2088
+# tilde stays unexpanded on purpose: it must
+# resolve on the REMOTE host's home, not this workstation's. See ci.yml.
 REMOTE_DIR="~/Desktop/quake3"
 
 case "$HOST" in
@@ -118,7 +121,7 @@ ssh "$HOST" "
 
 OUT="$REPO_ROOT/docs/screenshots"
 mkdir -p "$OUT"
-TMPD=$(mktemp -d); trap "rm -rf '$TMPD'" EXIT
+TMPD=$(mktemp -d); trap 'rm -rf "$TMPD"' EXIT
 scp -q "$HOST:Desktop/quake3/baseq3/screenshots/*.jpg" "$TMPD/" 2>/dev/null || { echo "[shot $HOST] FAIL: no screenshots produced" >&2; exit 1; }
 
 n=0

@@ -69,6 +69,9 @@ fi
 RES="${2:?need WxH}"; W=${RES%x*}; H=${RES#*x}
 DEMO="${3:-four}"
 EXTRA="${4:-}"
+# shellcheck disable=SC2088
+# tilde stays unexpanded on purpose: it must
+# resolve on the REMOTE host's home, not this workstation's. See ci.yml.
 RDIR='~/Desktop/quake3'
 PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
 SSHO="-o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3"
@@ -118,6 +121,9 @@ reachable() { ssh $SSHO "$M" 'true' 2>/dev/null; }
 # the network and returns rather than trusting the exit code.
 reboot_m()  {
   echo "[$M] REBOOTING via qsreboot.sh (verifying it cycles)"
+  # shellcheck disable=SC2088
+  # tilde stays unexpanded on purpose: it must
+  # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
   ssh $SSHO "$M" '~/bin/qsreboot.sh' 2>/dev/null || true
   local t=0
   while [ $t -lt 60 ]; do ssh $SSHO "$M" true 2>/dev/null || break; sleep 5; t=$((t+5)); done

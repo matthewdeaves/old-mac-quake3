@@ -26,6 +26,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$REPO_ROOT/scripts/host-bin"
 
 HOSTS=("$@")
+# shellcheck disable=SC2206
+# HOSTS_ENV is a deliberate space-separated list
+# meant to split into array elements, same pattern as parallel-bench.sh.
 [ ${#HOSTS[@]} -eq 0 ] && HOSTS=(${HOSTS_ENV:-yosemite sawtooth quicksilver mini-g4 mini-intel imac-2019 imac-g5})
 
 # Claim each machine before touching it, and release it again before moving on.
@@ -94,6 +97,9 @@ for host in "${HOSTS[@]}"; do
 
     if [ "${VERIFY_REBOOT:-0}" = 1 ]; then
         echo "[$host] VERIFY_REBOOT: rebooting and confirming it cycles..."
+        # shellcheck disable=SC2088
+        # tilde stays unexpanded on purpose: it
+        # must resolve on the REMOTE host's home, not this workstation's.
         ssh "$host" '~/bin/qsreboot.sh' || true
         if wait_state "$host" down 60 && wait_state "$host" up 240; then
             echo "[$host] reboot VERIFIED (went down and came back)"

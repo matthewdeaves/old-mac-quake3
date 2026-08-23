@@ -66,6 +66,9 @@ if [ "${RETRO_BENCH_LOCK:-}" != "$MACHINE" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] &
 	exec "$_PICK" --run "$MACHINE" "lsregister-app" -- "$0" "$@"
 fi
 QUIET="${2:-}"
+# shellcheck disable=SC2088
+# tilde stays unexpanded on purpose: it must
+# resolve on the REMOTE host's home, not this workstation's. See ci.yml.
 REMOTE_DIR="~/Desktop/quake3"
 
 say() { [ "$QUIET" = "--quiet" ] || echo "$@"; }

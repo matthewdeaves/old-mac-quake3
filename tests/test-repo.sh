@@ -14,7 +14,7 @@
 # exists for must fail this script before it says anything about the repo.
 #
 set -uo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 FAIL=0
 note() { printf '  %s\n' "$*"; }

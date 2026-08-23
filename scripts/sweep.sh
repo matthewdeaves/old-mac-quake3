@@ -104,7 +104,7 @@ printf '%-22s %8s\n' "----------------------" "--------"
 while IFS= read -r line; do
   case "$line" in ''|'#'*) continue ;; esac
   label=$(printf '%s' "$line" | awk '{print $1}')
-  args=$(printf '%s' "$line" | sed "s/^$label[[:space:]]*//")
+  args=$(printf '%s' "$line" | sed "s/^${label}[[:space:]]*//")
 
   # Rows may set env (Q3W=640) as well as pass cvars. Split them apart so the
   # env reaches the runner as env and the rest as arguments.

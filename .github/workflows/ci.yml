@@ -55,18 +55,14 @@ jobs:
       - name: Repo invariants
         run: tests/test-repo.sh
 
-# NO SHELLCHECK JOB YET, on purpose, and this is not an oversight to be quietly
-# fixed by adding one.
-#
-# shellcheck 0.11.0 at warning level reports 21 findings here across 6 codes, and
-# 11 of them are SC2088, "tilde in quotes will not expand". In these scripts that
-# is DELIBERATE: safebench.sh and its siblings hold paths like
-# RDIR='~/Desktop/quake3' precisely so the tilde reaches the REMOTE shell
-# unexpanded. Expanding it locally is a real bug that cost a bench session on
-# 2026-08-22, when a path expanded to the workstation's home and a test file was
-# silently never created on the target.
-#
-# So switching that job on now would either paint master red, which the user's
-# rule forbids, or invite someone to "fix" 11 sites in the direction of a known
-# bug. The findings want triaging one at a time, each fixed or suppressed at the
-# site with its reason. Filed separately rather than rushed.
+  shellcheck:
+    # Every finding is either fixed or suppressed at its site with the reason
+    # written next to it — no blanket disables. The 11 SC2088 sites (tilde in
+    # quotes) are the deliberate ones: those paths must reach the REMOTE shell
+    # unexpanded so the tilde resolves in the bench machine's home, not this
+    # runner's or the workstation's. Issue #27.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -S warning scripts/*.sh tests/*.sh

@@ -13,7 +13,8 @@ set -uo pipefail
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CSV="$PROJ_LOCAL/benchmarks/results.csv"
-export COMMIT="$(git -C "$PROJ_LOCAL" rev-parse --short HEAD)"
+COMMIT="$(git -C "$PROJ_LOCAL" rev-parse --short HEAD)"
+export COMMIT
 
 # yosemite-tiger is the same G3 as yosemite on its 10.4.11 partition, so it is
 # SKIPPED by default — opt in with --yosemite-tiger (which drops yosemite).
@@ -35,6 +36,9 @@ for a in "$@"; do
     *) echo "parallel-bench: unknown arg '$a'"; exit 2 ;;
   esac
 done
+# shellcheck disable=SC2206
+# DEMO_QUICK is a deliberate space-separated
+# list meant to split into array elements, same as DEMOS/RESES above.
 [ "$QUICK" = 1 ] && { DEMOS=(${DEMO_QUICK:-four}); RESES=(1024x768); }
 
 # yosemite and yosemite-tiger are one Power Mac G3 with two boot partitions and

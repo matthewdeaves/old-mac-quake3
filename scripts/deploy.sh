@@ -51,6 +51,9 @@ SDL2_DYLIB="$PROJ_LOCAL/code/libs/macosx/libSDL2-2.0.0.dylib"   # arm64 slice on
 BUNDLE="$PROJ_LOCAL/scripts/bundle"
 APP="$PROJ_LOCAL/build/ioquake3.app"
 SBB="$BUNDLE/set-bundle-bit"     # fat (ppc+x86_64) Finder bundle-bit setter
+# shellcheck disable=SC2088
+# tilde stays unexpanded on purpose: it must
+# resolve on the REMOTE host's home, not this workstation's. See ci.yml.
 REMOTE_DIR="~/Desktop/quake3"
 
 case "$MACHINE" in

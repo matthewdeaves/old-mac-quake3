@@ -252,7 +252,7 @@ void CL_ParseSnapshot( msg_t *msg ) {
 			// The frame that the server did the delta from
 			// is too old, so we can't reconstruct it properly.
 			Com_Printf ("Delta frame too old.\n");
-		} else if ( cl.parseEntitiesNum - old->parseEntitiesNum > MAX_PARSE_ENTITIES-128 ) {
+		} else if ( cl.parseEntitiesNum - old->parseEntitiesNum > MAX_PARSE_ENTITIES - MAX_SNAPSHOT_ENTITIES ) {
 			Com_Printf ("Delta parseEntitiesNum too old.\n");
 		} else {
 			newSnap.valid = qtrue;	// valid delta parse
@@ -712,7 +712,7 @@ void CL_ParseVoip ( msg_t *msg ) {
 	const int packetsize = MSG_ReadShort(msg);
 	const int flags = MSG_ReadBits(msg, VOIP_FLAGCNT);
 	char encoded[1024];
-	int seqdiff = sequence - clc.voipIncomingSequence[sender];
+	int seqdiff;
 	int written = 0;
 	int i;
 
@@ -755,6 +755,8 @@ void CL_ParseVoip ( msg_t *msg ) {
 	// !!! FIXME: make sure data is narrowband? Does decoder handle this?
 
 	Com_DPrintf("VoIP: packet accepted!\n");
+
+	seqdiff = sequence - clc.voipIncomingSequence[sender];
 
 	// This is a new "generation" ... a new recording started, reset the bits.
 	if (generation != clc.voipIncomingGeneration[sender]) {

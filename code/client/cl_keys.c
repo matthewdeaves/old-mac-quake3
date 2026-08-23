@@ -800,7 +800,7 @@ int Key_StringToKeynum( char *str ) {
 		return -1;
 	}
 	if ( !str[1] ) {
-		return str[0];
+		return tolower( str[0] );
 	}
 
 	// check for hex code
@@ -1212,6 +1212,11 @@ void CL_KeyDownEvent( int key, unsigned time )
 
 	if( keys[K_ALT].down && key == K_ENTER )
 	{
+		// don't repeat fullscreen toggle when keys are held down
+		if ( keys[K_ENTER].repeats > 1 ) {
+			return;
+		}
+
 		Cvar_SetValue( "r_fullscreen",
 			!Cvar_VariableIntegerValue( "r_fullscreen" ) );
 		return;
@@ -1448,9 +1453,10 @@ void CL_LoadConsoleHistory( void )
 		return;
 	}
 
-	if( consoleSaveBufferSize <= MAX_CONSOLE_SAVE_BUFFER &&
+	if( consoleSaveBufferSize < MAX_CONSOLE_SAVE_BUFFER &&
 			FS_Read( consoleSaveBuffer, consoleSaveBufferSize, f ) == consoleSaveBufferSize )
 	{
+		consoleSaveBuffer[consoleSaveBufferSize] = '\0';
 		text_p = consoleSaveBuffer;
 
 		for( i = COMMAND_HISTORY - 1; i >= 0; i-- )

@@ -3,6 +3,13 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-08-23** Seventeen renderer fixes from upstream (#17, `40e10ce3`):
+  one corrupt .jpg in a pk3 killed the whole engine (now non-fatal per
+  texture), light-grid OOB reads, drawSurfs overflow clamped on the wrong
+  variable with portals/mirrors, skybox cull-state order dependency,
+  shift-by-32 UB at exactly 32 dlights, stencil shadows dying past
+  500-vertex batches, font cache leak per RE_RegisterFont call, render
+  command buffer running out of room for the swap command.
 - **2026-08-23** Any ERR_DROP during Com_Init segfaulted instead of exiting
   with "Error during initialization" (#36, `c2fa4e50`): CL_ClearMemory
   dereferenced com_sv_running before that cvar is registered. NULL guard,

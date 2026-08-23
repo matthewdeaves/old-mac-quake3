@@ -36,6 +36,12 @@ tracked below as increments land.
   limitation: an init-time ERR_DROP exited via segfault, pre-existing
   error-path fragility, filed as #36 and fixed the same day (`c2fa4e50`,
   CL_ClearMemory NULL guard).
+- Increment 6 (`40e10ce3`): seventeen ranked renderer fixes, 12 apply-clean
+  and 5 hand-ported (command buffer keeps our SMP shape, libjpeg setjmp
+  recovery, MD3/MDR bounds, grid2 guard, texCoords init; IQM hunks skipped,
+  our IQM predates them). Verified: yosemite 26.1 fps crashlogs=0, mini-g4
+  77.6/78.2/77.7 (within the increment-5 band), screenshots vs baseline
+  identical apart from random gib scatter.
 - Increment 5 (`4c29d38e`): nine client/net fixes (91194bfc+ac621642
   snapshot/parse-entities unification including the server side, a18ae32a,
   ebac005c, 0853c85e, 63e6c82f, 8a50e2aa, e9436abf, 3ad427c6). Upstream

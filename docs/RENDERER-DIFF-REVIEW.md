@@ -20,6 +20,10 @@ tracked below as increments land.
   `SkipBracedSection` signature change also touched dead-code
   `code/rend2/tr_shader.c` mechanically. Build/smoke status in the #17
   comment trail.
+- Increment 3 (`eca6aa54`): base sound path (`a167110f`, `57eae5da`,
+  `a836c2db` apply-clean; `2ef641b9`, `84daa282` hand-ported, our
+  resamplers are mono and our transfer uses `out_mask` not `%`). OpenAL
+  cluster dropped as dead code, see above.
 
 ## Method
 

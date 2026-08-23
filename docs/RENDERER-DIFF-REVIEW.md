@@ -5,8 +5,21 @@ Reviewed 2026-08-23 against upstream `ioquake/ioq3` at `58839361`
 between the two. Closes the scoping half of issue #17.
 
 Written so this is not re-litigated, and so the non-trivial candidate list
-survives past this session. **Triage only — nothing in this document has been
-applied, built, or benched yet.** That is the next pass.
+survives past this session. Originally triage only; application state is
+tracked below as increments land.
+
+## Applied so far
+
+- Increment 1 (`d35fb252`): tr_bsp.c entity-parse early-stop (`c8c7bb1d`),
+  cm_patch.c facets array size (`5e09f20c`), tr_image.c skin alloc both
+  sites (`a5fbc1bf`), tr_image_png.c tRNS check (`fda03ee4`). Built fat,
+  smoke-tested on yosemite, 26.1 fps, no regression.
+- Increment 2 (`9d94ce5b`): shader-parser hardening (`eb73dcb7`,
+  `3ec2b02d`, `eeeaf3f1`, `e5f54c58`), flare fixes (`00c1831e`,
+  `d526eacd`), rail/lightning overflow check (`cc9072d0`). The
+  `SkipBracedSection` signature change also touched dead-code
+  `code/rend2/tr_shader.c` mechanically. Build/smoke status in the #17
+  comment trail.
 
 ## Method
 

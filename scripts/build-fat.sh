@@ -62,8 +62,28 @@ if [ -z "${BUILD_HOST:-}" ]; then
   echo "==> claimed build host: $BUILD_HOST (held for all four slices + lipo)"
 else
   export BUILD_HOST
-  echo "==> using caller-supplied build host: $BUILD_HOST"
+  # A pre-set BUILD_HOST used to mean "trust that whoever set this already
+  # claimed it" with no way to tell an outer wrapper (fine) from a session
+  # pinning a host directly (not fine): the latter ran a real build with the
+  # lock never taken at all. Issue #34. BUILD_HOST_PRECLAIMED is the actual
+  # "an outer caller holds this" signal now; a session setting BUILD_HOST on
+  # its own does not set it, so it falls into the claim branch below.
+  if [ "${BUILD_HOST_PRECLAIMED:-0}" = 1 ]; then
+    echo "==> using pre-claimed build host: $BUILD_HOST"
+  else
+    export BENCH_LOCK_CLAIM="${BENCH_LOCK_CLAIM:-$$.$(date +%s).${RANDOM:-0}}"
+    "$HERE/pick-build-host.sh" --acquire-host "$BUILD_HOST" "quake3 build-fat" >/dev/null || {
+      echo "build-fat.sh: $BUILD_HOST is not available; see scripts/pick-build-host.sh --status $BUILD_HOST" >&2
+      exit 1
+    }
+    trap '"$HERE/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
+    echo "==> claimed caller-pinned build host: $BUILD_HOST (held for all four slices + lipo)"
+  fi
 fi
+# Tell the build.sh calls below the host is already claimed for this whole
+# run, whichever branch above got us here - same purpose as RETRO_BENCH_LOCK
+# elsewhere in this repo, scoped to the build-host picker instead.
+export BUILD_HOST_PRECLAIMED=1
 
 # Clear last run's slices first: if a build.sh invocation fails we must not lipo
 # a stale ioquake3-<target> from an earlier commit into the shipping fat.

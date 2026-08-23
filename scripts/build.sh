@@ -47,6 +47,18 @@ if [ -z "${BUILD_HOST:-}" ]; then
   }
   BUILD_HOST_CLAIMED=1
   echo "[build] claimed build host: $BUILD_HOST"
+elif [ "${BUILD_HOST_PRECLAIMED:-0}" != 1 ]; then
+  # BUILD_HOST is set but not by build-fat.sh (it exports BUILD_HOST_PRECLAIMED
+  # when it already holds the claim for the whole run) - a session pinned this
+  # host directly for a standalone build.sh run. Claim it for real: this used
+  # to run completely unclaimed. Issue #34.
+  export BENCH_LOCK_CLAIM="${BENCH_LOCK_CLAIM:-$$.$(date +%s).${RANDOM:-0}}"
+  "$PROJ_LOCAL/scripts/pick-build-host.sh" --acquire-host "$BUILD_HOST" "quake3 build.sh $TARGET" >/dev/null || {
+    echo "build.sh: $BUILD_HOST is not available; see scripts/pick-build-host.sh --status $BUILD_HOST" >&2
+    exit 1
+  }
+  BUILD_HOST_CLAIMED=1
+  echo "[build] claimed caller-pinned build host: $BUILD_HOST"
 fi
 trap '[ "$BUILD_HOST_CLAIMED" = 1 ] && "$PROJ_LOCAL/scripts/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
 

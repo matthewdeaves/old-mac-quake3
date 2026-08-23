@@ -76,19 +76,23 @@ works on every GPU in the fleet.
 - **tr_image.c skin surfaces alloc size, `code/renderer/tr_image.c:1504`** -
   upstream `a5fbc1bf` fixed a `sizeof(pointer)` vs `sizeof(struct)` bug.
   Checked all three call sites in our tree:
-  - line 1504 (`R_RegisterSkin`, single-shader-name skin path):
-    `ri.Hunk_Alloc( sizeof(skin->surfaces[0]), h_low )` - **this is the bug,
-    still present**: `skin->surfaces[0]` is a pointer, so this under-allocates
-    to `sizeof(pointer)` (4 or 8 bytes) instead of `sizeof(skinSurface_t)`,
-    then the very next line writes a full `skinSurface_t` through it.
-  - line 1538 (multi-surface `.skin` file path) and line 1570 (default skin)
-    already use `sizeof( *skin->surfaces[0] )` / `sizeof( *skin->surfaces )`
-    - **already correct** in our tree, upstream's fix for those two paths
-    doesn't apply here (already right, or fixed independently at some point).
-  So only the single-shader-name path (`R_RegisterSkin` called with a bare
-  shader name instead of a `.skin` file, e.g. some player-model fallback
-  paths) needs the fix. Still a real Hunk-corruption bug on the path it does
-  hit.
+  - line 1504 (`RE_RegisterSkin`, single-shader-name skin path):
+    `ri.Hunk_Alloc( sizeof(skin->surfaces[0]), h_low )` - **bug, present**:
+    `skin->surfaces[0]` is a pointer, so this under-allocates to
+    `sizeof(pointer)` (4 or 8 bytes) instead of `sizeof(skinSurface_t)`, then
+    the very next line writes a full `skinSurface_t` through it.
+  - line 1538 (multi-surface `.skin` file path) already uses
+    `sizeof( *skin->surfaces[0] )` - **already correct**.
+  - line 1570 (`R_InitSkins`, the built-in default skin):
+    `ri.Hunk_Alloc( sizeof( *skin->surfaces ), h_low )` - **bug, present, and
+    NOT already-correct as an earlier pass of this review wrongly concluded**.
+    `skin->surfaces` decays to `skinSurface_t **`, so `*skin->surfaces` is
+    `skinSurface_t *` and `sizeof` of that is a pointer size again - same
+    underlying bug as line 1504, spelled differently. Matches upstream's
+    `a5fbc1bf` fix for `R_InitSkins` exactly (`sizeof( *skin->surfaces )` ->
+    `sizeof( *skin->surfaces[0] )`).
+  So both the single-shader-name path and the built-in default skin need the
+  fix; only the `.skin`-file path was already right.
 - **msg.c `MSG_ReadBits`/`MSG_WriteBits` bounds, `code/qcommon/msg.c:107-`**
   - our tree matches upstream's *pre*-`d2b1d124` state: no bounds check
   before the huffman-coded and raw bit read/write paths touch `msg->data`.

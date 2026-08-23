@@ -182,7 +182,7 @@ void S_TransferPaintBuffer(int endtime)
 		p = (int *) paintbuffer;
 		count = (endtime - s_paintedtime) * dma.channels;
 		out_mask = dma.samples - 1; 
-		out_idx = s_paintedtime * dma.channels & out_mask;
+		out_idx = (unsigned int)s_paintedtime * dma.channels & out_mask;
 		step = 3 - dma.channels;
 
 		if (dma.samplebits == 16)
@@ -675,6 +675,10 @@ void S_PaintChannels( int endtime ) {
 
 			ltime = s_paintedtime;
 			sc = ch->thesfx;
+
+			if (sc->soundData==NULL || sc->soundLength==0) {
+				continue;
+			}
 
 			sampleOffset = ltime - ch->startSample;
 			count = end - ltime;

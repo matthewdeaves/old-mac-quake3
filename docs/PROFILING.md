@@ -248,6 +248,13 @@ staleness fix in the demo-playback path but this is INFERRED, not isolated;
 yosemite (G3) is unchanged at 26.1. Screenshots q3-mini-g4-00..05 captured
 the same day render correctly and are the image baseline.
 
+**2026-08-25, verification of #17 increment 7 (`33e83a11`, float-precision cluster):**
+mini-g4 runs 2 and 3: 77.7 / 77.7 fps (median 77.7) at 1024x768 demo four,
+holding the increment-5 band exactly; yosemite (G3) 26.0 fps (baseline 26.1,
+noise). Screenshots q3-mini-g4-00..05 match the baseline image set. Int64
+casts and double-precision time math in the wave/turbulent paths incur zero
+measurable cost on PowerPC hardware.
+
 **Bench-confirmed on hardware 2026-07-05: 27.5 fps @native 1680x1050, real GPU.**
 `GL_RENDERER` = `ATI Radeon 9200 OpenGL Engine` (hardware; the old "mini-g4
 headless = software GL" caveat is about a *headless* launch, and safebench's

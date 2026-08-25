@@ -48,6 +48,13 @@ tracked below as increments land.
   91194bfc carried a stray "gedit" at cl_parse.c:1, dropped. Verified with
   the #36 fix in one build: yosemite 26.1 fps crashlogs=0, mini-g4 via
   Jenkins, refusal path on the bundled app reaches the error dialog.
+- Increment 7 (`33e83a11`): float-precision time-math cluster (`30fdd88c`,
+  `59b1262b`, `6f0736ce`). shaderTime, floatTime, clampTime, timeOffset
+  widened to double; WAVEVALUE, turbulent, and rotate use int64_t;
+  animated-image index wrap loop. Verified: yosemite 26.0 fps (runs 1&2
+  26.0 vs baseline 26.1), mini-g4 77.7 fps (median of 2&3 77.7 vs baseline
+  77.6-78.2), 6 in-demo screenshots matching baseline. Zero performance or
+  visual regression.
 
 ## Method
 

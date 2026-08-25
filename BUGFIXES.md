@@ -3,6 +3,11 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-08-25** Float-precision loss in shader and wave time math (#17,
+  `33e83a11`, upstream 30fdd88c/59b1262b/6f0736ce): shaderTime, floatTime,
+  clampTime, and timeOffset widened to double; wave-value, turbulent, and
+  rotate calculations use int64_t; animated-image index modulus replaced
+  with wrap loop. Prevents animation and texture jitter after long uptime.
 - **2026-08-23** Seventeen renderer fixes from upstream (#17, `40e10ce3`):
   one corrupt .jpg in a pk3 killed the whole engine (now non-fatal per
   texture), light-grid OOB reads, drawSurfs overflow clamped on the wrong

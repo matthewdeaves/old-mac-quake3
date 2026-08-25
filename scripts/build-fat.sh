@@ -167,7 +167,17 @@ ssh "$BUILD_HOST" "cd /tmp && rm -f $SLICES ioquake3-fat"
 # how this gate broke when the i386 slice was added: the slice was fused
 # correctly and the build still failed, on 'ppc750 ppc7400 x86_64 i386' not
 # matching a hardcoded 'ppc750 ppc7400 x86_64'.
-GOT=$(lipo -info "$OUT/ioquake3-fat" | sed 's/.*: //' | tr -s ' ' | sed 's/ *$//')
+if command -v lipo >/dev/null 2>&1; then
+  GOT=$(lipo -info "$OUT/ioquake3-fat" | sed 's/.*: //' | tr -s ' ' | sed 's/ *$//')
+else
+  GOT=$(python3 -c "
+import struct
+data = open('$OUT/ioquake3-fat', 'rb').read(4096)
+magic, nfat = struct.unpack('>II', data[:8])
+m = {(18,9):'ppc750',(18,10):'ppc7400',(18,100):'ppc970',(18,0):'ppc',(7,3):'i386',(0x01000007,3):'x86_64',(0x0100000c,0):'arm64',(0x0100000c,2):'arm64'}
+print(' '.join(m.get((t, s&0xffffff), f'cputype({t})') for t, s in [struct.unpack('>II', data[8+i*20:16+i*20]) for i in range(nfat)]))
+" 2>/dev/null || echo "")
+fi
 GOT_SET=$(printf '%s\n' $GOT | LC_ALL=C sort | tr '\n' ' ')
 WANT_SET=$(printf '%s\n' $WANT | LC_ALL=C sort | tr '\n' ' ')
 [ "$GOT_SET" = "$WANT_SET" ] || {

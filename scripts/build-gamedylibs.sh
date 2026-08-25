@@ -112,7 +112,22 @@ build_slice() {
     fi
     # Assert rather than assume. -faltivec defeats -mcpu='s stamping, and a
     # generic `ppc` member here would be graded onto every PowerPC host.
-    got=$(lipo -info "$OUT/${m}-${tag}.dylib" | sed 's/.*: //' | tr -d ' ')
+    if command -v lipo >/dev/null 2>&1; then
+      got=$(lipo -info "$OUT/${m}-${tag}.dylib" | sed 's/.*: //' | tr -d ' ')
+    else
+      got=$(python3 -c "
+import struct
+data = open('$OUT/${m}-${tag}.dylib', 'rb').read(12)
+if len(data) >= 12:
+    magic = struct.unpack('>I', data[:4])[0]
+    if magic == 0xfeedface:
+        t, s = struct.unpack('>II', data[4:12])
+        print({(18, 9): 'ppc750', (18, 10): 'ppc7400', (18, 100): 'ppc970', (18, 0): 'ppc'}.get((t, s & 0xffffff), f'cputype({t}) cpusubtype({s})'))
+    elif magic == 0xcffaedfe:
+        t, s = struct.unpack('<II', data[4:12])
+        print({(0x01000007, 3): 'x86_64', (0x0100000c, 0): 'arm64'}.get((t, s & 0xffffff), f'cputype({t}) cpusubtype({s})'))
+" 2>/dev/null || echo "")
+    fi
     [ "$got" = "$want" ] || { echo "build-gamedylibs: ${m}-${tag}.dylib is '$got', want '$want'"; exit 1; }
     echo "    cpusubtype OK: ${m}-${tag}.dylib = $got"
   done
@@ -146,9 +161,41 @@ rm -f "$OUT"/*-g3.dylib "$OUT"/*-g4.dylib "$OUT"/*-x86_64.dylib
 # If lipo silently collapsed them (both stamped the same) a G3 would load the
 # AltiVec module and trap on the first vector instruction.
 for m in $MODS; do
-  got=$(lipo -info "$OUT/${m}ppc.dylib" | sed 's/.*: //' | tr -s ' ' | sed 's/ *$//')
+  if command -v lipo >/dev/null 2>&1; then
+    got=$(lipo -info "$OUT/${m}ppc.dylib" | sed 's/.*: //' | tr -s ' ' | sed 's/ *$//')
+  else
+    got=$(python3 -c "
+import struct
+data = open('$OUT/${m}ppc.dylib', 'rb').read(4096)
+magic, nfat = struct.unpack('>II', data[:8])
+m = {(18,9):'ppc750',(18,10):'ppc7400'}
+print(' '.join(m.get((t, s&0xffffff), f'cputype({t})') for t, s in [struct.unpack('>II', data[8+i*20:16+i*20]) for i in range(nfat)]))
+" 2>/dev/null || echo "")
+  fi
   [ "$got" = "ppc750 ppc7400" ] || { echo "build-gamedylibs: ${m}ppc.dylib is '$got', want 'ppc750 ppc7400'"; exit 1; }
 done
 
 echo "==> build/gamedylibs/ (six shipping dylibs):"
-for f in "$OUT"/*.dylib; do printf '    %-22s ' "$(basename "$f")"; lipo -info "$f" | sed 's/.*: //'; done
+for f in "$OUT"/*.dylib; do
+  printf '    %-22s ' "$(basename "$f")"
+  if command -v lipo >/dev/null 2>&1; then
+    lipo -info "$f" | sed 's/.*: //'
+  else
+    python3 -c "
+import struct
+data = open('$f', 'rb').read(4096)
+if len(data) >= 12:
+    magic = struct.unpack('>I', data[:4])[0]
+    m = {(18,9):'ppc750',(18,10):'ppc7400',(18,100):'ppc970',(18,0):'ppc',(7,3):'i386',(0x01000007,3):'x86_64',(0x0100000c,0):'arm64'}
+    if magic == 0xcafebabe:
+        nfat = struct.unpack('>I', data[4:8])[0]
+        print(' '.join(m.get((t, s&0xffffff), f'cputype({t})') for t, s in [struct.unpack('>II', data[8+i*20:16+i*20]) for i in range(nfat)]))
+    elif magic == 0xfeedface:
+        t, s = struct.unpack('>II', data[4:12])
+        print(m.get((t, s & 0xffffff), f'cputype({t})'))
+    elif magic == 0xcffaedfe:
+        t, s = struct.unpack('<II', data[4:12])
+        print(m.get((t, s & 0xffffff), f'cputype({t})'))
+" 2>/dev/null || echo ""
+  fi
+done

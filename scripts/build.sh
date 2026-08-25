@@ -177,9 +177,27 @@ echo "==> [$TARGET] verify (expect CPU subtype: $SUBTYPE)"
 # to defeat -mcpu='s stamping outright, and a generic `ppc` member is fatal (it
 # matches every PowerPC host, so a G3 can be handed the AltiVec slice). Trust
 # lipo here — `file` misreports subtype 9 as "ppc_650" on a modern host.
-got=$(lipo -info "$LOCAL_BIN" | sed 's/.*: //' | tr -d ' ')
+if command -v lipo >/dev/null 2>&1; then
+  got=$(lipo -info "$LOCAL_BIN" | sed 's/.*: //' | tr -d ' ')
+else
+  got=$(python3 -c "
+import struct, sys
+data = open('$LOCAL_BIN', 'rb').read(12)
+if len(data) >= 12:
+    magic = struct.unpack('>I', data[:4])[0]
+    if magic == 0xfeedface:
+        t, s = struct.unpack('>II', data[4:12])
+        print({(18, 9): 'ppc750', (18, 10): 'ppc7400', (18, 100): 'ppc970', (18, 0): 'ppc'}.get((t, s & 0xffffff), f'cputype({t}) cpusubtype({s})'))
+    elif magic == 0xcefaedfe:
+        t, s = struct.unpack('<II', data[4:12])
+        print({(7, 3): 'i386'}.get((t, s & 0xffffff), f'cputype({t}) cpusubtype({s})'))
+    elif magic == 0xcffaedfe:
+        t, s = struct.unpack('<II', data[4:12])
+        print({(0x01000007, 3): 'x86_64', (0x0100000c, 0): 'arm64'}.get((t, s & 0xffffff), f'cputype({t}) cpusubtype({s})'))
+" 2>/dev/null || echo "")
+fi
 echo "    cpusubtype: $got (want $SUBTYPE)"
-[ "$got" = "$SUBTYPE" ] || { echo "build.sh: cpusubtype is '$got', want '$SUBTYPE' — re-stamp failed"; exit 1; }
+[ "$got" = "$SUBTYPE" ] || { echo "build.sh: cpusubtype is '$got', want '$SUBTYPE' - re-stamp failed"; exit 1; }
 file "$LOCAL_BIN" | sed 's/^/    /'
 
 # SDL linkage: the binary references @executable_path/libSDL-1.2.0.dylib, so the

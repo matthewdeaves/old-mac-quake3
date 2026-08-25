@@ -23,6 +23,28 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // q_shared.c -- stateless support routines that are included in each code dll
 #include "q_shared.h"
 
+// ^[0-9a-zA-Z]
+qboolean Q_IsColorString(const char *p) {
+	if (!p)
+		return qfalse;
+
+	if (p[0] != Q_COLOR_ESCAPE)
+		return qfalse;
+
+	if (p[1] == 0)
+		return qfalse;
+
+	// isalnum expects a signed integer in the range -1 (EOF) to 255, or it might assert on undefined behaviour
+	// a dereferenced char pointer has the range -128 to 127, so we just need to rangecheck the negative part
+	if (p[1] < 0)
+		return qfalse;
+
+	if (isalnum(p[1]) == 0)
+		return qfalse;
+
+	return qtrue;
+}
+
 float Com_Clamp( float min, float max, float value ) {
 	if ( value < min ) {
 		return min;
@@ -579,6 +601,10 @@ void SkipRestOfLine ( char **data ) {
 	int		c;
 
 	p = *data;
+
+	if ( !*p )
+		return;
+
 	while ( (c = *p++) != 0 ) {
 		if ( c == '\n' ) {
 			com_lines++;
@@ -1173,7 +1199,7 @@ void Info_RemoveKey( char *s, const char *key ) {
 		}
 		*o = 0;
 
-		if (!strcmp (key, pkey) )
+		if (!Q_stricmp (key, pkey) )
 		{
 			memmove(start, s, strlen(s) + 1); // remove this part
 			
@@ -1229,9 +1255,9 @@ void Info_RemoveKey_Big( char *s, const char *key ) {
 		}
 		*o = 0;
 
-		if (!strcmp (key, pkey) )
+		if (!Q_stricmp (key, pkey) )
 		{
-			strcpy (start, s);	// remove this part
+			memmove(start, s, strlen(s) + 1); // remove this part
 			return;
 		}
 
@@ -1253,12 +1279,22 @@ can mess up the server's parsing
 ==================
 */
 qboolean Info_Validate( const char *s ) {
-	if ( strchr( s, '\"' ) ) {
-		return qfalse;
+	const char* ch = s;
+
+	while ( *ch != '\0' )
+	{
+		if( !Q_isprint( *ch ) )
+			return qfalse;
+
+		if( *ch == '\"' )
+			return qfalse;
+
+		if( *ch == ';' )
+			return qfalse;
+
+		++ch;
 	}
-	if ( strchr( s, ';' ) ) {
-		return qfalse;
-	}
+
 	return qtrue;
 }
 

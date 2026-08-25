@@ -255,6 +255,12 @@ noise). Screenshots q3-mini-g4-00..05 match the baseline image set. Int64
 casts and double-precision time math in the wave/turbulent paths incur zero
 measurable cost on PowerPC hardware.
 
+**2026-08-25, verification of #17 increment 8 (`cc0b3e68`, msg/huffman/patch/info cluster):**
+mini-g4 runs 2 and 3: 78.0 / 78.6 fps (median 78.3) at 1024x768 demo four;
+yosemite (G3) runs 1 and 2: 25.8 / 26.2 fps (median 26.0, baseline 26.1).
+Screenshots q3-mini-g4-00..05 match baseline. Net message bounds checks,
+Huffman bounds, and patch collision fixes run clean with zero performance cost.
+
 **Bench-confirmed on hardware 2026-07-05: 27.5 fps @native 1680x1050, real GPU.**
 `GL_RENDERER` = `ATI Radeon 9200 OpenGL Engine` (hardware; the old "mini-g4
 headless = software GL" caveat is about a *headless* launch, and safebench's

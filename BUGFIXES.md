@@ -3,6 +3,14 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-08-25** Net message, patch collision, and infostring security and bounds fixes (#17,
+  `cc0b3e68`): MSG_ReadBits/MSG_WriteBits buffer overflow checks and exact
+  limits (upstream d2b1d124/1e309787/3a702ded); Huffman compressor/decompressor
+  maxoffset bounds; q3msgboom crash in MSG_ReadString (9f294ce5); MSG_ReadDeltaKey
+  mask indexing fix (b4ad5a84); CM_AddFacetBevels bounds and CM_EdgePlaneNum
+  null plane guard (ee2541ef/077ab4cb); Q_IsColorString signed-char UB guard
+  (a6df505d); Info_RemoveKey memmove fix for overlapping buffers (c52e35bc);
+  case-insensitive Info_Key handling (9c29b25a); stricter Info_Validate (a6f949c8).
 - **2026-08-25** Float-precision loss in shader and wave time math (#17,
   `33e83a11`, upstream 30fdd88c/59b1262b/6f0736ce): shaderTime, floatTime,
   clampTime, and timeOffset widened to double; wave-value, turbulent, and

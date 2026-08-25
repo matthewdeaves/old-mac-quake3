@@ -55,6 +55,15 @@ tracked below as increments land.
   26.0 vs baseline 26.1), mini-g4 77.7 fps (median of 2&3 77.7 vs baseline
   77.6-78.2), 6 in-demo screenshots matching baseline. Zero performance or
   visual regression.
+- Increment 8 (`cc0b3e68`): msg/huffman/patch/info cluster (`d2b1d124`,
+  `1e309787`, `3a702ded`, `9f294ce5`, `b4ad5a84`, `7e2aa2c6`, `ee2541ef`,
+  `077ab4cb`, `a6df505d`, `5c1091b4`, `c52e35bc`, `a6f949c8`, `9c29b25a`,
+  `b3223dcf`). MSG_ReadBits/MSG_WriteBits buffer overflow checks, maxoffset
+  bounds in Huffman receiver/transmitter, q3msgboom fix in string reading,
+  MSG_ReadDeltaKey mask fix, CM_AddFacetBevels / CM_EdgePlaneNum guards,
+  Q_IsColorString signedness guard, Info_ key handling, Q_rand unsigned
+  wrapping math. Verified: yosemite 26.0-26.2 fps (runs 1&2 25.8/26.2),
+  mini-g4 78.3 fps (median of 2&3 78.0/78.6), screenshots match baseline.
 
 ## Method
 

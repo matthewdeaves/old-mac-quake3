@@ -7,6 +7,15 @@
 # instead of sitting fullscreen forever — proof the world actually rendered (an
 # fps line) on the real production path the corrupt-DMG class of bug slips past.
 #
+# LAUNCHED VIA LaunchServices (`open -n --args`) on 10.6+, the same path a
+# Finder double-click takes — not a direct exec of the bundle's Mach-O, which
+# every OTHER launcher script here still uses and which cannot see a quarantine
+# flag, App Translocation, a bad signature, or a stale LS record (issue #37).
+# Below 10.6 `open` has no `--args` at all (MEASURED: Panther/Tiger/Leopard's
+# `open` usage lists no such flag), and Gatekeeper/quarantine doesn't exist yet
+# either, so those OSes fall back to the direct-exec path — not a compromise,
+# there is nothing for LaunchServices to catch there that direct exec misses.
+#
 # usage: scripts/smoke-dmg.sh <machine> [demo]
 #   machine: yosemite | sawtooth | quicksilver | mini-g4 | imac-g5 | mini-intel | imac-2019
 #   demo:    four (default — the classic Q3 timedemo)
@@ -197,12 +206,50 @@ if [ -n "$BUSY" ] && [ "${FORCE:-0}" != "1" ]; then
   exit 2
 fi
 
-echo "[smoke $HOST] launching DMG-installed ioquake3.app with PRODUCTION config (as a human would), demo=$DEMO"
-# Production launch — no vid/res override, so baseq3/autoexec.cfg drives the
-# renderer. We force fs_homepath to the install dir so qconsole.log + q3config
-# match the on-disk layout the player uses (and so the log is where we read it).
-# +set timedemo is an early command; +demo runs after CL_Init, so the demo plays
-# in the machine's production fullscreen mode.
+# `open --args` (pass command-line args through LaunchServices) does not exist
+# before Snow Leopard: MEASURED across the fleet just now, `open` with no
+# arguments prints its own usage line, and only 10.6+ lists `[--args
+# arguments]` in it — Panther/Tiger/Leopard's `open` has no way to hand the
+# engine +set overrides at all (Leopard has -n; Tiger/Panther do not even have
+# that). Below 10.6, `open -n --args ...` doesn't fail loudly — Tiger's parser
+# reads "-n" as a FILENAME and tries to open "quake3/-n", which is worse than
+# a clean failure. So this is a real per-OS branch, not a nicety.
+#
+# Below 10.6 there is also no Gatekeeper/quarantine/App Translocation to catch
+# in the first place (that machinery starts at 10.7.3/10.12) — direct exec was
+# never masking a real double-click gap on those OSes, so falling back to it
+# there is not a compromise, it is simply correct for what exists on that OS.
+OPEN_ARGS_OK=0
+case "$(ssh -o ConnectTimeout=10 "$HOST" 'sw_vers -productVersion' 2>/dev/null)" in
+  10.[0-5].*|10.[0-5]) OPEN_ARGS_OK=0 ;;
+  10.*|11.*|12.*|13.*|14.*|15.*|16.*|26.*) OPEN_ARGS_OK=1 ;;
+  *) OPEN_ARGS_OK=0 ;;   # unknown/empty answer: assume the conservative (older) path
+esac
+
+if [ "$OPEN_ARGS_OK" = 1 ]; then
+  echo "[smoke $HOST] launching DMG-installed ioquake3.app via LaunchServices (open -n --args, the Finder double-click path), demo=$DEMO"
+else
+  echo "[smoke $HOST] launching DMG-installed ioquake3.app with PRODUCTION config (direct exec — this OS predates Gatekeeper/open --args), demo=$DEMO"
+fi
+# Finder-equivalent launch, not direct exec, ON 10.6+. Issue #37: every OTHER
+# script here (bench.sh, safebench.sh, screenshot.sh, and this script until
+# now) execs the bundle's Mach-O directly over ssh, which never goes through
+# LaunchServices at all — so a build that CANNOT be double-clicked (quarantine,
+# App Translocation, a bad code signature, a stale LS record) could still
+# smoke-test PASS. That gap is exactly how a real user's "major problems
+# reliably manually opening" report went uncaught: CLI/ssh exec passing while
+# double-click fails is a bug, not a pass. `open -n` is what Finder itself
+# does on a double-click.
+#
+# fs_basepath is DELIBERATELY NOT overridden on the open path (the direct-exec
+# path still forces it to $PWD, same as always — there is no reason to change
+# a mechanism that was never broken). Forcing it on the open path would mask
+# exactly the class of bug this change exists to catch — the engine must find
+# its own install directory from Sys_BinaryPath()/argv[0], the same as a real
+# double-click, not be told where it lives. fs_homepath IS still set
+# explicitly on both paths: that only controls where qconsole.log/q3config.cfg
+# land, unrelated to basepath detection, and this script needs to know where
+# to read the log back from.
 #
 # CRITICAL — make the engine QUIT ITSELF; never KILL a fullscreen app. We add
 # +set nextdemo quit so CL_DemoCompleted runs 'quit' after the timedemo and the
@@ -212,13 +259,21 @@ echo "[smoke $HOST] launching DMG-installed ioquake3.app with PRODUCTION config 
 # only backstop here is a gentle TERM if it somehow never self-quits; NEVER KILL.
 # A stale pid file pops an "Abnormal Exit" modal that hangs headless — rm it first.
 PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
+if [ "$OPEN_ARGS_OK" = 1 ]; then
+LAUNCH_CMD='  open -n ./ioquake3.app --args \
+    +set fs_homepath "$PWD" \
+    +set logfile 2 +set nextdemo quit +set timedemo 1 +demo '"$DEMO"' \
+    || { echo '"'"'OPEN_FAILED'"'"'; exit 9; }'
+else
+LAUNCH_CMD='  ./ioquake3.app/Contents/MacOS/ioquake3 \
+    +set fs_basepath "$PWD" +set fs_homepath "$PWD" \
+    +set logfile 2 +set nextdemo quit +set timedemo 1 +demo '"$DEMO"' > /dev/null 2>&1 &'
+fi
 ssh "$HOST" "
   killall -TERM ioquake3 2>/dev/null && sleep 2
   cd $REMOTE_DIR || { echo 'NO_INSTALL'; exit 9; }
   rm -f baseq3/qconsole.log \"$PIDF\"
-  ./ioquake3.app/Contents/MacOS/ioquake3 \\
-    +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
-    +set logfile 2 +set nextdemo quit +set timedemo 1 +demo $DEMO > /dev/null 2>&1 &
+$LAUNCH_CMD
   # wait for the engine to self-quit (process gone) or error out; self-bounded
   j=0
   while [ \$j -lt $TIMEOUT ]; do
@@ -281,22 +336,30 @@ rm -f "$TMP"
 echo "[smoke $HOST] renderer : ${MODE_LINE:-<none>}"
 echo "[smoke $HOST] result   : ${FPS_LINE:-<NO FPS LINE>}"
 
-# This script just exec'd the bundle's binary directly, which on Lion leaves the
-# LaunchServices record with a blank executable path and breaks double-click.
-# MEASURED here: one smoke run flipped a good record to blank. Repair on the way
-# out, on both the pass and fail paths — a smoke test must not leave the machine
-# less launchable than it found it. See scripts/lsregister-app.sh.
+# Repair on the way out regardless of pass/fail — a smoke test must not leave
+# the machine less launchable than it found it. Belt and braces: this script
+# now launches via `open` (LaunchServices) rather than a direct exec, which is
+# what used to corrupt the LS record here (MEASURED, one run on Lion flipped a
+# good record to blank — that was direct-exec-specific and should no longer
+# happen from this script, but lsregister-app.sh is cheap and idempotent, and
+# other scripts here still direct-exec, so a stale record from one of THOSE
+# runs is still worth clearing on the way out). See scripts/lsregister-app.sh.
 "$(dirname "$0")/lsregister-app.sh" "$HOST" || true
 
 if [ -n "$FPS_LINE" ]; then
-  echo "[smoke $HOST] PASS — world rendered to completion on the production path"
+  echo "[smoke $HOST] PASS — world rendered to completion on the production path, via Finder-equivalent launch"
   exit 0
 else
   if [ "${HEADLESS:-0}" = 1 ]; then
   echo "[smoke $HOST] FAIL — no fps line, and this machine has NO DISPLAY ATTACHED."
   echo "  That is the likely cause: see #28 and #30. Not necessarily a build fault."
 else
-  echo "[smoke $HOST] FAIL — no fps line; the production launch did not render a demo (crash or hang)"
-fi >&2
+  echo "[smoke $HOST] FAIL — no fps line; the LaunchServices launch did not render a demo." >&2
+  echo "  Could be a crash/hang (see qconsole.log above), OR the app never actually" >&2
+  echo "  started at all: Gatekeeper/AMFI can kill a quarantined, ad-hoc-signed launch" >&2
+  echo "  outright on 10.12+ with NOTHING written to qconsole.log (issue #37, measured" >&2
+  echo "  on imac-2019 — check 'log show --predicate eventMessage contains \"ioquake3\"'" >&2
+  echo "  on the target for AMFI/ASP denial lines if this machine runs 10.12 or later." >&2
+fi
   exit 1
 fi

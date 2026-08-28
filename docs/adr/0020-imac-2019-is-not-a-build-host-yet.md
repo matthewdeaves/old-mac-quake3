@@ -56,6 +56,34 @@ compiled clean with `imac-2019`'s own clang. Correct `x86_64` subtype, correct
 and the `otool -L`/`otool -l` evidence: `MISTAKES.md`, "A correct
 `-mmacosx-version-min` stamp does not mean the binary runs there."
 
+## Follow-up: the missing-`-isysroot` theory, tested and ruled out
+
+A peer session proposed a specific mechanism for the Intel crash above: the
+`lion` case's `SDK=` is empty, so nothing ever passes `-isysroot` - on
+`mini-intel` that naturally falls through to Lion's own real system libs (it
+*is* the OS), but on `imac-2019` the same empty `-isysroot` silently defaults
+to Sequoia's own SDK, baking in modern library version records that crash
+Lion's dyld. They staged a real, period-correct `MacOSX10.7.sdk` (from an
+actual Xcode-for-Lion installer, dated 2012) at `~/SDKs/MacOSX10.7.sdk` on
+`imac-2019` and reported their own compile/link/run test passing with it.
+
+Tested directly rather than adopted: rebuilt the `lion` slice on `imac-2019`
+with `-isysroot /Users/mini/SDKs/MacOSX10.7.sdk` added. Confirmed the fix
+actually took - `otool -l` on the new binary shows `sdk 10.6` (was `sdk 15.5`
+before). Ran the result on **two** real machines: `mini-sl` (Snow Leopard
+10.6.8) and **`mini-intel2` (Lion 10.7.5, the exact OS the staged SDK
+matches)**. Both: `Segmentation fault: 11`, immediately, same as before.
+`DYLD_PRINT_LIBRARIES=1 DYLD_PRINT_APIS=1` produced no output before the
+crash, and no crash report was ever written - the failure is early enough
+that it precedes dyld's own tracing hooks.
+
+This rules the specific mechanism out, not just leaves it unconfirmed: the
+SDK stamp genuinely changed and the crash did not. Something else is wrong
+underneath both the SDK-generation issue and whatever this is. Not
+root-caused further - two independently-real crashes on two different real
+machines is enough evidence to keep this blocked without chasing a third
+hypothesis same-day.
+
 ## Decision
 
 **`imac-2019` is not wired into `scripts/build.sh` or `scripts/build-fat.sh`
@@ -83,9 +111,10 @@ DMG.
 
 **Lost**: nothing shipped depended on this working.
 
-**Not done here**: finding or building a Lion/Tiger-era SDK on `imac-2019`
-that this toolchain could compile against instead of Sequoia's, which is the
-concrete next step if this gets revisited. Also not done: re-testing the
-Intel path against whatever SDK `mini-intel`/`mini-intel2` already use, to
-confirm the SDK generation (not the OS the compiler itself runs on) is really
-the variable that matters - plausible from the evidence gathered, not proven.
+**Not done here**: the obvious next candidate SDK (a period-correct
+`MacOSX10.7.sdk`) was tried and it was *not* the fix - see the follow-up
+above. What is still untried: root-causing the actual early-crash mechanism
+(a `DYLD_PRINT_LIBRARIES`/crash-report trace that produces nothing suggests
+something before or during dyld's own startup, not a straightforward missing
+symbol), and comparing against exactly what `mini-intel`/`mini-intel2` do
+differently at the toolchain level, not just the SDK level.

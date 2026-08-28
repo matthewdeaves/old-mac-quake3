@@ -46,7 +46,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define idppc 1
 #if defined(__VEC__)
 #define idppc_altivec 1
-#ifdef MACOS_X  // Apple's GCC does this differently than the FSF.
+#if defined(MACOS_X) && __GNUC__ < 5  // scratch/imac-2019-altivec-fix: same
+// MACOS_X-isn't-enough issue as snd_mix.c's altivec.h guard above -
+// __GNUC__ < 5 actually distinguishes Apple's gcc-4.0 dialect from a
+// modern GCC that also targets Mac. docs/adr/0020.
 #define VECCONST_UINT8(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p) \
 	(vector unsigned char) (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p)
 #else

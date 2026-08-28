@@ -23,7 +23,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "client.h"
 #include "snd_local.h"
-#if idppc_altivec && !defined(MACOS_X)
+#if idppc_altivec && (!defined(MACOS_X) || __GNUC__ >= 5)
+// scratch/imac-2019-altivec-fix: MACOS_X alone can't tell Apple's gcc-4.0
+// (exposes vec_* as bare built-ins, no header) from a modern GCC targeting
+// the same platform (GCC14 defines __APPLE__/__APPLE_CC__/__APPLE_ALTIVEC__
+// too, and needs the real header). __GNUC__ is the one thing that toolchain
+// can't also claim to be. docs/adr/0020.
 #include <altivec.h>
 #endif
 

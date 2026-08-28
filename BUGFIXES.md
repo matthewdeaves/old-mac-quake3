@@ -3,6 +3,14 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-08-28** Filesystem crash cluster, six upstream fixes (#17,
+  `750a15c8`): `FS_FOpenFileReadDir` left a stale non-zero handle on
+  not-found; `FS_Seek` double-seeked a streamed file and discarded the
+  correct result; `FS_CreatePath` incremented a NULL pointer on any path
+  with no separator; `FS_CheckPak0` dereferenced `path->pack` one line
+  before its own NULL guard; `FS_AddGameDirectory`'s `qsort` had no guard
+  against a NULL file list; `RB_MDRSurfaceAnim`'s overflow check
+  undercounted the index buffer by 3x.
 - **2026-08-28** ppc750 build broken by `CFErrorRef` (#37, `b9f002a1`):
   `b7a99846`'s App Translocation fix used a Leopard-only CoreFoundation type
   in a file that builds once from shared source across every slice. Caught

@@ -55,6 +55,11 @@ tracked below as increments land.
   26.0 vs baseline 26.1), mini-g4 77.7 fps (median of 2&3 77.7 vs baseline
   77.6-78.2), 6 in-demo screenshots matching baseline. Zero performance or
   visual regression.
+- Increment 9 (`750a15c8`): filesystem crash cluster, six commits
+  (`67d9ecd0`, `90c98c90`, `c7500bb2`, `4ea0eebf`, `26780805`, `c755d75a`).
+  Verified: 5-slice fat rebuilt, lipo-asserted, yosemite-tiger (G3, Tiger)
+  30.5 fps crashlogs=0 (band 29.85-30.6), mini-g4 79.7 fps crashlogs=0
+  (band 77.6-80.0) - no regression, as expected from six error-path fixes.
 - Increment 8 (`cc0b3e68`): msg/huffman/patch/info cluster (`d2b1d124`,
   `1e309787`, `3a702ded`, `9f294ce5`, `b4ad5a84`, `7e2aa2c6`, `ee2541ef`,
   `077ab4cb`, `a6df505d`, `5c1091b4`, `c52e35bc`, `a6f949c8`, `9c29b25a`,
@@ -324,7 +329,44 @@ files.
   this project's "effects beat fps above the floor" goal - separate from
   this ticket's correctness scope, flag as its own item if pursued.
 
-## What this pass did NOT do
+## Status (2026-08-28): reconciled against increments 1-9, most of this is done
+
+The two sections below are the original triage from 2026-08-23, before any
+increment existed. They read as if nothing had been applied yet, which is
+now false - nine increments have landed since (see "Applied so far" above
+and `BUGFIXES.md`). Kept for the historical record rather than rewritten,
+but do not trust their "not yet"/"suggested order" framing; read this
+status note first.
+
+An agent-assisted reconciliation (2026-08-28) cross-checked every named
+candidate in the "Candidates, by confidence" section above against
+`BUGFIXES.md` and a fresh read of current source. Result: of ~55 named
+upstream hashes, all but eight had already landed across increments 1-8.
+Increment 9 (`750a15c8`) took six of the remaining eight (see `BUGFIXES.md`).
+
+**Genuinely still open, after increment 9:**
+1. `2d45e570` - `FS_Seek` `ERR_FATAL`s on negative offset / `FS_SEEK_END`
+   for pk3-contained files rather than supporting it. Loud and safe (not a
+   silent-corruption bug), but a real fix means re-implementing backward
+   seeks over a zip stream - its own session-sized unit, not taken blind.
+2. `313064ba` - `+seta`/`+sets`/`+setu`/multi-token `+set` on the command
+   line are still mishandled (`Com_StartupVariable`/`Com_AddStartupCommands`,
+   `code/qcommon/common.c`). Needs checking against every shipped script's
+   own `+set` usage first, per this doc's original flag - not done blind,
+   this port's tooling leans heavily on `+set overrides` and a behavior
+   change here is exactly the kind of thing that silently breaks a bench
+   script rather than the game.
+
+**Not applicable, confirmed still correct to skip:** the entire
+`snd_openal.c` cluster (`USE_OPENAL=0` on every slice, dead code),
+`RB_DrawSun()` (`0c3ec34d`, a feature-enable, not a correctness bug -
+worth its own try per "effects beat fps above the floor" if pursued, not
+this ticket's scope), the `DEF_COMZONEMEGS`/`MIN_COMHUNKMEGS` raise
+(rejected for the G3 RAM budget, still rejected), `tr_model_iqm.c` (still
+not deeply reviewed - no increment has touched it, stock baseq3 ships no
+IQM content, still low priority).
+
+## What this pass did NOT do (2026-08-23, historical)
 
 - **Nothing was applied, built, or benched.** Every item above is a
   candidate, not a commit.
@@ -336,7 +378,7 @@ files.
   top of this port's own 154 commits of local changes (per-arch config
   system, native dylib loading, watchlink, etc).
 
-## Next steps
+## Next steps (2026-08-23, historical - superseded by the status note above)
 
 Per the ticket's own scope warning, this is deliberately a triage, not an
 implementation pass. Suggested order for whoever picks this up next:

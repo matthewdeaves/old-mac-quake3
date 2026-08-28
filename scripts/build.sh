@@ -74,30 +74,66 @@ flock -w 600 9 || { echo "build.sh: timed out waiting for $LOCK"; exit 1; }
 
 case "$TARGET" in
   g3)
-    ARCH=ppc;    CC=/usr/bin/gcc-4.0
-    SDK=/Developer/SDKs/MacOSX10.3.9.sdk; VMIN=10.3; SUBTYPE=ppc750
-    # -arch ppc750 stamps cpusubtype 9 AND leaves __ALTIVEC__ undefined, so no
-    # AltiVec instructions reach the 449 MHz G3 (which has no vector unit).
-    CPUFLAGS="-isysroot $SDK -arch ppc750 -mcpu=750 -mmacosx-version-min=$VMIN -O3" ;;
+    ARCH=ppc;    SDK=/Developer/SDKs/MacOSX10.3.9.sdk; VMIN=10.3; SUBTYPE=ppc750
+    if [ "$BUILD_HOST" = "imac-2019" ]; then
+      # scratch/imac-2019-altivec-fix: /Developer/SDKs never exists here
+      # (sealed system volume, not a permissions gap) - real SDKs live at
+      # ~/SDKs/*.sdk. GCC14 doesn't accept Apple's multi-subtype -arch
+      # syntax at all ("this compiler does not support 'ppc7400'", checked
+      # directly) so g3 (no AltiVec, no include-fixed issue per build-host)
+      # needs no other change. docs/adr/0020.
+      CC=/Users/mini/gcc14-ppc/bin/powerpc-apple-darwin8-gcc
+      SDK=/Users/mini/SDKs/MacOSX10.3.9.sdk
+      CPUFLAGS="-isysroot $SDK -arch ppc -mcpu=750 -mmacosx-version-min=$VMIN -O3"
+    else
+      CC=/usr/bin/gcc-4.0
+      # -arch ppc750 stamps cpusubtype 9 AND leaves __ALTIVEC__ undefined, so no
+      # AltiVec instructions reach the 449 MHz G3 (which has no vector unit).
+      CPUFLAGS="-isysroot $SDK -arch ppc750 -mcpu=750 -mmacosx-version-min=$VMIN -O3"
+    fi ;;
   g4)
-    ARCH=ppc;    CC=/usr/bin/gcc-4.0
-    SDK=/Developer/SDKs/MacOSX10.3.9.sdk; VMIN=10.3; SUBTYPE=ppc7400
-    # -arch ppc7400 stamps cpusubtype 10 AND defines __ALTIVEC__; -faltivec
-    # enables the AltiVec ABI/codegen, -mtune=7450 schedules for the G4 line.
-    #
-    # 10.3.9 SDK at min 10.3, NOT 10.4u/min-10.4: dyld grades slices by CPU
-    # subtype alone, so a G4 on Panther is handed this slice with no fallback
-    # to the min-10.3 ppc750 one. A 10.4-built slice is simply dead there.
-    # AltiVec codegen is independent of the SDK, so this costs nothing on
-    # Tiger. -isystem is required because <altivec.h> is a *compiler* header
-    # and -isysroot hides it.
-    CPUFLAGS="-isysroot $SDK -arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=$VMIN -O3 -isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/include" ;;
+    ARCH=ppc;    SDK=/Developer/SDKs/MacOSX10.3.9.sdk; VMIN=10.3; SUBTYPE=ppc7400
+    if [ "$BUILD_HOST" = "imac-2019" ]; then
+      # scratch/imac-2019-altivec-fix: same SDK-path and -arch-syntax notes
+      # as g3 above, PLUS GCC14's include-fixed search order pulls a
+      # Panther-bootstrap sys/types.h ahead of -isysroot's for ANY g4/g5
+      # compile (machine/ansi.h: No such file or directory) - workaround is
+      # -nostdinc plus an explicit -isystem list, verified against this
+      # project's real -mmacosx-version-min=10.3 (not just build-host's
+      # tested 10.4 case). docs/adr/0020, old-mac-build-host docs/imac-2019.md.
+      CC=/Users/mini/gcc14-ppc/bin/powerpc-apple-darwin8-gcc
+      SDK=/Users/mini/SDKs/MacOSX10.3.9.sdk
+      GCCBASE=/Users/mini/gcc14-ppc/lib/gcc/powerpc-apple-darwin8/14.2.0
+      CPUFLAGS="-nostdinc -isystem $GCCBASE/include -isystem $GCCBASE/../../../../powerpc-apple-darwin8/include -isystem $SDK/usr/include -iframework $SDK/System/Library/Frameworks -isysroot $SDK -arch ppc -mcpu=7400 -maltivec -mabi=altivec -mmacosx-version-min=$VMIN -O3"
+    else
+      CC=/usr/bin/gcc-4.0
+      # -arch ppc7400 stamps cpusubtype 10 AND defines __ALTIVEC__; -faltivec
+      # enables the AltiVec ABI/codegen, -mtune=7450 schedules for the G4 line.
+      #
+      # 10.3.9 SDK at min 10.3, NOT 10.4u/min-10.4: dyld grades slices by CPU
+      # subtype alone, so a G4 on Panther is handed this slice with no fallback
+      # to the min-10.3 ppc750 one. A 10.4-built slice is simply dead there.
+      # AltiVec codegen is independent of the SDK, so this costs nothing on
+      # Tiger. -isystem is required because <altivec.h> is a *compiler* header
+      # and -isysroot hides it.
+      CPUFLAGS="-isysroot $SDK -arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=$VMIN -O3 -isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/include"
+    fi ;;
   lion)
     ARCH=x86_64; CC=/usr/bin/clang
     SDK=;        VMIN=10.6; SUBTYPE=x86_64
     # min 10.6, not 10.7: a 64-bit Intel Mac on Snow Leopard grades to this
     # slice too. The shipped libSDL-1.2.0.dylib is already built at 10.6.
-    CPUFLAGS="-arch x86_64 -mmacosx-version-min=$VMIN -O3 -Qunused-arguments" ;;
+    CPUFLAGS="-arch x86_64 -mmacosx-version-min=$VMIN -O3 -Qunused-arguments"
+    if [ "$BUILD_HOST" = "imac-2019" ]; then
+      # scratch/imac-2019-altivec-fix: MEASURED SEGFAULT without this.
+      # imac-2019's own (Xcode 16) clang/ld64 emits LC_MAIN regardless of
+      # -mmacosx-version-min, which pre-10.8 dyld cannot parse - real
+      # hardware test (mini-intel2, Lion 10.7.5) confirmed exit 139,
+      # immediately, zero output. -Wl,-ld_classic makes the linker emit
+      # LC_UNIXTHREAD instead (build-host's finding, cross-checked). Not
+      # needed on mini-intel/mini-intel2's own (much older) clang. docs/adr/0020.
+      CPUFLAGS="$CPUFLAGS -Wl,-ld_classic"
+    fi ;;
   i386)
     # 32-bit-only Intel: the 2006 Core Solo / Core Duo machines (Mac mini 1,1,
     # iMac 4,1, MacBook 1,1, MacBook Pro 1,1). The only Intel Macs with no
@@ -117,7 +153,12 @@ case "$TARGET" in
     # NOT TESTED ON HARDWARE: no 32-bit-only Intel Mac exists in the fleet.
     ARCH=x86;    CC=/usr/bin/clang
     SDK=;        VMIN=10.4; SUBTYPE=i386
-    CPUFLAGS="-arch i386 -mmacosx-version-min=$VMIN -O3 -Qunused-arguments" ;;
+    CPUFLAGS="-arch i386 -mmacosx-version-min=$VMIN -O3 -Qunused-arguments"
+    # scratch/imac-2019-altivec-fix: same LC_MAIN risk as lion above - ld64
+    # is the same binary regardless of -arch, so defensively apply the same
+    # fix here. NOT independently hardware-tested for i386 specifically.
+    [ "$BUILD_HOST" = "imac-2019" ] && CPUFLAGS="$CPUFLAGS -Wl,-ld_classic"
+    true ;;
   arm64)
     echo "build.sh: arm64 cannot be built on a Lion mini (its Xcode 4.6" >&2
     echo "build.sh: toolchain predates arm64), and the SDL 1.2 this engine" >&2

@@ -529,6 +529,11 @@ qboolean FS_CreatePath (char *OSPath) {
 
 	// Skip creation of the root directory as it will always be there
 	ofs = strchr( path, PATH_SEP );
+	// A path with no separator at all (e.g. a bare relative filename) made
+	// this increment NULL, then the loop below dereferenced address 1 - a
+	// real crash, not theoretical. Upstream c7500bb2.
+	if ( ofs == NULL )
+		return qtrue;
 	ofs++;
 
 	for (; ofs != NULL && *ofs ; ofs++) {
@@ -1321,6 +1326,12 @@ long FS_FOpenFileReadDir(const char *filename, searchpath_t *search, fileHandle_
 		return FS_fplength(filep);
 	}
 
+	// neither a pack nor a directory search element matched (or the pack's
+	// hash bucket didn't contain this file): *file was already allocated a
+	// real handle above (FS_HandleForFile()), but nothing was opened into
+	// it. Clear it back to 0 so the caller can't mistake this for a valid,
+	// unclosed handle - upstream 67d9ecd0.
+	*file = 0;
 	return -1;
 }
 
@@ -1630,9 +1641,15 @@ int FS_Seek( fileHandle_t f, long offset, int origin ) {
 	}
 
 	if (fsh[f].streamed) {
+		int ret;
 		fsh[f].streamed = qfalse;
-		FS_Seek( f, offset, origin );
+		ret = FS_Seek( f, offset, origin );
 		fsh[f].streamed = qtrue;
+		// Without this return, a streamed file fell through and seeked a
+		// SECOND time below (zip or fopen path), discarding the result of
+		// the correct seek above and returning whatever the redundant one
+		// produced instead. Upstream 90c98c90.
+		return ret;
 	}
 
 	if (fsh[f].zipFile == qtrue) {
@@ -2861,7 +2878,10 @@ void FS_AddGameDirectory( const char *path, const char *dir ) {
 
 	pakfiles = Sys_ListFiles(curpath, ".pk3", NULL, &numfiles, qfalse);
 
-	qsort( pakfiles, numfiles, sizeof(char*), paksort );
+	// Sys_ListFiles can return NULL with no pk3s found; qsort(NULL, 0, ...)
+	// is undefined behaviour even at nmemb 0. Upstream 26780805.
+	if ( pakfiles != NULL && numfiles > 0 )
+		qsort( pakfiles, numfiles, sizeof(char*), paksort );
 
 	for ( i = 0 ; i < numfiles ; i++ ) {
 		pakfile = FS_BuildOSPath( path, dir, pakfiles[i] );
@@ -3314,11 +3334,15 @@ static void FS_CheckPak0( void )
 
 	for( path = fs_searchpaths; path; path = path->next )
 	{
-		const char* pakBasename = path->pack->pakBasename;
+		const char* pakBasename;
 
+		// A directory search-path entry has path->pack == NULL; the
+		// dereference below used to run before this check, on every entry.
+		// Upstream 4ea0eebf.
 		if(!path->pack)
 			continue;
 
+		pakBasename = path->pack->pakBasename;
 		curpack = path->pack;
 
 		if(!Q_stricmpn( curpack->pakGamename, "demoq3", MAX_OSPATH )

@@ -482,7 +482,12 @@ void RB_MDRSurfaceAnim( md4Surface_t *surface )
 	oldFrame = (mdrFrame_t *)((byte *)header + header->ofsFrames +
 		backEnd.currentEntity->e.oldframe * frameSize );
 
-	RB_CheckOverflow( surface->numVerts, surface->numTriangles );
+	// This checked the triangle count, not the index count the tess buffer
+	// actually receives three lines down (numTriangles * 3) - undercounted
+	// by 3x, so the overflow guard let the buffer fill further than it
+	// checked. Upstream c755d75a. Low real-world exposure: stock baseq3
+	// ships no .mdr content, so this path only runs with a mod that adds one.
+	RB_CheckOverflow( surface->numVerts, surface->numTriangles * 3 );
 
 	triangles	= (int *) ((byte *)surface + surface->ofsTriangles);
 	indexes		= surface->numTriangles * 3;

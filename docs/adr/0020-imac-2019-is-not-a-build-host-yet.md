@@ -80,9 +80,30 @@ that it precedes dyld's own tracing hooks.
 This rules the specific mechanism out, not just leaves it unconfirmed: the
 SDK stamp genuinely changed and the crash did not. Something else is wrong
 underneath both the SDK-generation issue and whatever this is. Not
-root-caused further - two independently-real crashes on two different real
-machines is enough evidence to keep this blocked without chasing a third
-hypothesis same-day.
+root-caused further by this session - two independently-real crashes on two
+different real machines is enough evidence to keep this blocked without
+chasing a third hypothesis same-day.
+
+## Follow-up 2: likely actual root cause, from old-mac-build-host (not independently re-verified here)
+
+`old-mac-build-host` picked up the "dies before dyld tracing engages" clue
+and reports `otool -l` on an `imac-2019`-built binary shows `LC_MAIN` as the
+entry-point load command, even with `-mmacosx-version-min=10.6` explicitly
+set. `LC_MAIN` was introduced in Mountain Lion (10.8); Snow Leopard and
+Lion's kernel/dyld only understand the older `LC_UNIXTHREAD`. If accurate,
+this is structural - no SDK, `-isysroot`, or version-min flag changes what
+entry-point load command the *linker* emits, which would explain why the
+`-isysroot` fix above changed the SDK stamp but not the crash. Whether
+modern `ld64` can still be told to emit `LC_UNIXTHREAD` for an old target is
+open; `old-mac-build-host` was not finding an obvious flag for it as of this
+writing. Recorded here as reported, not independently re-run against a fresh
+binary by this session (the test binaries from the two follow-ups above were
+already deleted as part of cleanup) - flagged as peer-reported pending this
+session's own recheck, per this repo's own claim-hygiene norms. If true in
+general, it is a harder blocker than an `imac-2019`-specific quirk: it would
+mean current-generation `ld64` cannot produce Snow-Leopard/Lion-runnable
+binaries at all, for any host, which is a fact worth having plainly rather
+than continuing to treat as an open toolchain-config question.
 
 ## Decision
 

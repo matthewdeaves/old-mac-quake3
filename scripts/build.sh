@@ -84,7 +84,14 @@ case "$TARGET" in
       # needs no other change. docs/adr/0020.
       CC=/Users/mini/gcc14-ppc/bin/powerpc-apple-darwin8-gcc
       SDK=/Users/mini/SDKs/MacOSX10.3.9.sdk
-      CPUFLAGS="-isysroot $SDK -arch ppc -mcpu=750 -mmacosx-version-min=$VMIN -O3"
+      GCCBASE=/Users/mini/gcc14-ppc/lib/gcc/powerpc-apple-darwin8/14.2.0
+      # scratch/imac-2019-altivec-fix: MEASURED, contradicts the earlier
+      # "g3 doesn't need this" note - that was checked against a minimal
+      # header test, not a real build. A real g3 build hits it too, just
+      # differently (stddef.h/ptrdiff_t undeclared reaching code/zlib/,
+      # not machine/ansi.h) - same include-fixed-shadows-isysroot cause.
+      # docs/adr/0020.
+      CPUFLAGS="-nostdinc -isystem $GCCBASE/include -isystem $GCCBASE/../../../../powerpc-apple-darwin8/include -isystem $SDK/usr/include -iframework $SDK/System/Library/Frameworks -isysroot $SDK -arch ppc -mcpu=750 -mmacosx-version-min=$VMIN -O3"
     else
       CC=/usr/bin/gcc-4.0
       # -arch ppc750 stamps cpusubtype 9 AND leaves __ALTIVEC__ undefined, so no

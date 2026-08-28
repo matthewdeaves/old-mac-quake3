@@ -27,6 +27,12 @@
 #endif /* MAKECRCH */
 
 #include "zutil.h"      /* for STDC and FAR definitions */
+#include <stddef.h>     /* scratch/imac-2019-altivec-fix: ptrdiff_t used
+                           below without an explicit include; happened to
+                           reach this file transitively under Apple's
+                           gcc-4.0 header chain, not under GCC14's. Safe on
+                           either toolchain - stddef.h is a plain standard
+                           header. docs/adr/0020. */
 
 #define local static
 

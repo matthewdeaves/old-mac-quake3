@@ -152,9 +152,18 @@ char *Sys_ResolveTranslocatedPath( char *path )
 {
 	static char resolved[MAX_OSPATH];
 	void *sec;
-	CFURLRef (*createOriginal)( CFURLRef, CFErrorRef * );
+	// CFErrorRef itself (CFError.h) does not exist on the 10.3.9 SDK - it was
+	// added in Leopard - and this file builds on every slice from ppc750
+	// through arm64 off one shared source tree. The exact pointee type does
+	// not matter here: this pointer is only ever written by the dlsym'd
+	// function and, if non-NULL, released as an opaque CFTypeRef below, never
+	// dereferenced as a CFError. `void *` is ABI-identical to any other object
+	// pointer and compiles unchanged on every SDK in the fleet. Broke the
+	// ppc750 build (issue #17 cleanup pass caught it): "syntax error before
+	// 'CFErrorRef'" from make[2] on the Panther SDK.
+	CFURLRef (*createOriginal)( CFURLRef, void ** );
 	CFURLRef translocated, original;
-	CFErrorRef err = NULL;
+	void *err = NULL;
 
 	if( !strstr( path, "/AppTranslocation/" ) )
 		return path;

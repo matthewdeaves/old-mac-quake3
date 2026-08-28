@@ -210,6 +210,69 @@ regression pass, is exactly the kind of change that stays diagnosis, not a
 same-session fix. Left for whoever picks this up next, with the actual
 mechanism now fully understood rather than guessed at.
 
+## Follow-up 6: the definitive answer - a real, full build.sh attempt, all targets
+
+User asked directly: can `imac-2019` build every slice this repo ships,
+right now. Answered for real rather than by extrapolation from header
+tests: applied the Follow-up 5 `__GNUC__` fix, made `build.sh` host-aware
+for `BUILD_HOST=imac-2019` (GCC14 toolchain path, `~/SDKs` instead of the
+non-existent `/Developer/SDKs` - confirmed absent, sealed system volume,
+not a permissions gap - and `-Wl,-ld_classic` for `lion`/`i386` per
+Follow-up 2's fix), all on `scratch/imac-2019-altivec-fix` (pushed, never
+touched `master`), and ran `build.sh` for real against current source.
+
+**arm64**: yes - native, already proven in production use (today's actual
+release was built there).
+
+**lion (x86_64)**: compiles clean, `otool -l` confirms `LC_UNIXTHREAD` (not
+`LC_MAIN`) with `-Wl,-ld_classic` in place - the fix that was only
+minimally tested before now produces the right result on a real build of
+this project's own source, not a `hi.c`. Not hardware-verified this pass -
+every Lion-class box (`mini-intel`, `mini-intel2`, `mini-sl`) was busy with
+other sessions' real work throughout.
+
+**g3 (ppc750)**: no, new blocker. Build-host's "g3 doesn't need the
+`-nostdinc` workaround" note was checked against a minimal header test, not
+a real build - a real one reaches `code/zlib/crc32.c`, which needs it too
+(same `machine/ansi.h`-class failure). Applying the workaround to g3
+surfaced a **second**, deeper, genuinely unresolved bug: `crc32.c` uses
+`ptrdiff_t` without including `<stddef.h>` itself (a real, safe,
+independent fix - added the include, third-party code relying on a
+transitive include that only happened to work under Apple's gcc-4.0's
+header chain). That fix did not resolve the failure. Traced with `-E`:
+GCC14's own `stddef.h` genuinely is found and processed (confirmed by file
+path in the preprocessed output) but an *earlier* partial inclusion already
+sets the header's top-level multiple-inclusion guard without the
+`ptrdiff_t` typedef ever having been reached, so the later, explicit
+`#include <stddef.h>` short-circuits straight past it. This is a real bug
+in this GCC14 build's own `stddef.h`, not anything about our source or
+flags - not something to chase further this session.
+
+**g4 (ppc7400)**: no, same root cause as g3 - confirmed to hit the
+identical `crc32.c`/`stddef.h` failure before ever reaching the AltiVec
+code the Follow-up 4/5 fixes address. Not a PPC-arch-specific issue; a
+GCC14 header-implementation defect that blocks any real g3 or g4 build
+through this toolchain as currently packaged.
+
+**i386**: no, a third and unrelated real blocker. Fails in Apple's own
+modern AppKit headers (`NSItemProvider.h`/
+`NSPreviewRepresentingActivityItem.h`): `cannot define category for
+undefined class 'NSItemProvider'`, a forward-declaration ordering issue
+that appears specific to building against a modern SDK generation with
+`-mmacosx-version-min=10.4`. Not a GCC14/PPC issue at all - `i386` builds
+with the same system clang as `lion`, so this is a separate, genuine
+"does this SDK generation still support this old a deployment target"
+question, independent of everything else in this ADR.
+
+**Definitive answer: no, not today.** One of five slices (`arm64`) already
+works natively. One more (`lion`) compiles clean with the right load
+command and is the closest to usable, pending a real hardware pass. The
+other three (`g3`, `g4`, `i386`) each fail on a distinct, real, verified
+blocker - two are toolchain/SDK defects with no known fix yet, not
+something a flag change resolves. Cleaned up all build artifacts on
+`imac-2019` and released the lock; nothing here touched `master` or the
+already-published release.
+
 ## Decision
 
 **`imac-2019` is not wired into `scripts/build.sh` or `scripts/build-fat.sh`

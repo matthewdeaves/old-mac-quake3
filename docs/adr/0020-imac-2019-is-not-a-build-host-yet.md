@@ -160,6 +160,56 @@ this session's failure was on the g4/10.3 path) and this AltiVec gap are
 what's left. Still not wired into `build.sh` - still a real, unfinished
 toolchain, now closer than the earlier follow-ups found it.
 
+## Follow-up 5: the AltiVec gap has a real root cause, and a real second layer under it
+
+old-mac-build-host root-caused Follow-up 4's `vec_splat_u32`-class errors:
+`code/client/snd_mix.c:26`, `#if idppc_altivec && !defined(MACOS_X)`, skips
+`#include <altivec.h>` entirely on Mac builds (`Makefile:430` defines
+`-DMACOS_X` for every darwin target) - written for Apple's gcc-4.0, which
+exposes those names as compiler built-ins with no header needed. GCC14
+(genuinely FSF, not Apple's fork, despite targeting
+`powerpc-apple-darwin8`) needs the header actually included to declare
+them. Verified directly against our own source, not taken on trust: the
+guard and the `-DMACOS_X` definition are exactly as described.
+
+The suggested one-line fix (gate on `__APPLE_ALTIVEC__` instead of the
+`MACOS_X` exclusion) does not actually work - checked empirically before
+touching anything: `powerpc-apple-darwin8-gcc -maltivec -dM -E -` on this
+GCC14 build shows it **also** predefines `__APPLE_ALTIVEC__` (and
+`__APPLE_CC__`, and `__APPLE__`) - this toolchain was deliberately built to
+present itself as Apple-compatible, so none of the "is this really Apple's
+compiler" macros the codebase might reach for actually distinguish it.
+Gating on `__APPLE_ALTIVEC__` would skip the same include on GCC14 for the
+same reason `MACOS_X` does.
+
+Tested the more robust version instead - dropping the `MACOS_X` exclusion
+entirely (`#if idppc_altivec`, always include on any Mac target) - on a
+scratch copy, never the tracked file. **This does fix the reported errors**
+(`vec_splat_u32`/`vec_lvsl`/`vec_perm`/etc all resolve), but immediately
+surfaces a second, structurally identical bug one layer down:
+`q_platform.h:49`, `#ifdef MACOS_X`, picks between Apple's old
+parenthesised vector-literal syntax (`(vector unsigned char) (a,b,c,...)`)
+and the standard braced compound-literal syntax
+(`(vector unsigned char) {a,b,c,...}`) for `VECCONST_UINT8`. Same shape,
+same file even (`q_platform.h:49` right next to the `altivec.h` guard just
+above it): `MACOS_X` picks "Apple's dialect" when it should be picking
+"which GCC generation this actually is."
+
+**A macro that would actually work, checked empirically**: `__GNUC__`.
+GCC14 reports `__GNUC__ == 14`; Apple's gcc-4.0 (this project's real build
+toolchain) reports `__GNUC__ == 4`. Unlike every Apple-branded macro tried
+so far, this cross-compiler can't plausibly be built to lie about its own
+major version the way it was deliberately built to claim Apple-compatible
+defines - `__GNUC__` is the compiler's own genuine identity, not a
+compatibility shim. A guard along the lines of `#if defined(MACOS_X) &&
+__GNUC__ < 5` (picking Apple's dialect only on the toolchain generation
+that actually needs it) would likely settle both spots correctly, but this
+was not implemented or tested against real hardware - two source-level
+changes to shipping audio-mixing code, post-release, without a real-machine
+regression pass, is exactly the kind of change that stays diagnosis, not a
+same-session fix. Left for whoever picks this up next, with the actual
+mechanism now fully understood rather than guessed at.
+
 ## Decision
 
 **`imac-2019` is not wired into `scripts/build.sh` or `scripts/build-fat.sh`

@@ -168,10 +168,17 @@ the bytecode for a small speed-up (falls back to the bytecode automatically).
 
 INSTALL
 -------
-1. Drag ioquake3.app to a folder that already contains your Quake III "baseq3"
-   directory (your own pak0.pk3 … pak8.pk3 - this image ships NO game data).
+1. Drag ioquake3.app OUT of this window, to a folder that already contains
+   your Quake III "baseq3" directory (your own pak0.pk3 … pak8.pk3 - this
+   image ships NO game data).
    e.g.  ~/Desktop/quake3/ioquake3.app   alongside   ~/Desktop/quake3/baseq3/
-2. Double-click ioquake3.app.
+2. Double-click ioquake3.app from THAT folder - not from this disk image.
+
+Do the drag first. Double-clicking the app while it is still sitting on this
+mounted disk image can fail to open at all on current macOS (Gatekeeper
+blocks it before the app ever runs) - a real Finder drag to a folder on your
+Mac's own disk clears that check. If double-clicking does nothing the first
+time, drag the app out first and try again from its new location.
 
 The app finds baseq3 in the folder that CONTAINS the .app (it strips its own
 bundle path), so keep the .app next to baseq3/.

@@ -11,7 +11,7 @@
 #
 set -euo pipefail
 
-MACHINE="${1:?usage: distribute-data.sh <yosemite|sawtooth|quicksilver|mini-g4|imac-2019|imac-g5|workstation>}"
+MACHINE="${1:?usage: distribute-data.sh <yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-2019|imac-g5|g5-panther|g5-tiger|g5-desktop|quad-tiger|quad-leopard|workstation>}"
 
 # Claim this machine for the whole run. See scripts/pick-bench-host.sh.
 #
@@ -53,6 +53,13 @@ ONLY_PK3=(--include='*.pk3' --include='*.PK3' --exclude='*')
 
 case "$MACHINE" in
   yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5|workstation) ;;
+  # Multi-boot G5 aliases (ticketing-workflow.md): three OS partitions on the
+  # G5 Dual 2.7 (g5-panther/g5-tiger/g5-desktop), two on the G5 Quad
+  # (quad-tiger/quad-leopard). Missing from this list until a fresh boot
+  # round made g5-panther reachable and this script refused it outright -
+  # not a deliberate exclusion, just never added when these aliases came
+  # online. Same rsync path as every other alias; nothing else changes.
+  g5-panther|g5-tiger|g5-desktop|quad-tiger|quad-leopard) ;;
   *) echo "distribute-data.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
 [ "$MACHINE" = "$SRC_HOST" ] && { echo "$MACHINE is the data source — nothing to do."; exit 0; }

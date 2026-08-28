@@ -216,9 +216,16 @@ fi
 # a clean failure. So this is a real per-OS branch, not a nicety.
 #
 # Below 10.6 there is also no Gatekeeper/quarantine/App Translocation to catch
-# in the first place (that machinery starts at 10.7.3/10.12) — direct exec was
-# never masking a real double-click gap on those OSes, so falling back to it
-# there is not a compromise, it is simply correct for what exists on that OS.
+# in the first place (that machinery starts at 10.7.3/10.12), BUT direct exec
+# still skips LaunchServices bundle resolution entirely on every OS — a bad
+# Info.plist, a missing CFBundleExecutable, a stale LS record, or the bundle
+# bit not being set (ADR 0014) would all break a real double-click while a
+# direct exec of the Mach-O keeps working, on 10.3 exactly as on 10.15. That
+# gap is closed below with a bare `open` pre-check on pre-10.6 hosts (issue
+# #37, flagged by a peer review of the launch matrix): it proves LaunchServices
+# can actually resolve and start the bundle, which direct exec can never prove
+# regardless of OS era. `open --args` on 10.6+ already proves the same thing
+# AND drives the timedemo in one launch, so it needs no separate pre-check.
 OPEN_ARGS_OK=0
 case "$(ssh -o ConnectTimeout=10 "$HOST" 'sw_vers -productVersion' 2>/dev/null)" in
   10.[0-5].*|10.[0-5]) OPEN_ARGS_OK=0 ;;
@@ -259,6 +266,70 @@ fi
 # only backstop here is a gentle TERM if it somehow never self-quits; NEVER KILL.
 # A stale pid file pops an "Abnormal Exit" modal that hangs headless — rm it first.
 PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
+
+# PRE-CHECK, pre-10.6 hosts only: a bare `open` with NO ARGS AT ALL — the
+# actual mechanism a Finder double-click uses, more literally than `open
+# --args` even is (a real double-click never passes arguments either). This
+# is the only way on these OSes to prove LaunchServices can resolve and start
+# the bundle at all (Info.plist, CFBundleExecutable, the bundle bit, a stale
+# LS record) — the thing direct exec can never test, on any OS, Gatekeeper or
+# not. It launches into the production main menu (no demo — `open` has no way
+# to pass one here), so it is quit with a plain TERM once confirmed running,
+# same backstop pattern as everywhere else in this script, and the actual
+# timedemo/fps measurement still comes from the direct-exec pass below.
+PRECHECK_STATUS=""
+if [ "$OPEN_ARGS_OK" = 0 ]; then
+  echo "[smoke $HOST] pre-check: bare 'open' (no args — true double-click) proves LaunchServices can start this bundle"
+  # NO `-n`: MEASURED on quicksilver (Tiger) — `-n` does not exist on Tiger's
+  # `open` either, same trap as `--args` (the comment above this block already
+  # documented `-n` for Leopard+, not for Tiger/Panther). Unrecognized, it is
+  # read as a FILENAME ("No such file: .../-n") and the launch never happens,
+  # exit 1, silently — exactly the failure mode already known from `--args`.
+  # Plain `open ./ioquake3.app` launches correctly on both 10.3 and 10.4
+  # (verified on quicksilver). `|| true` on the whole substitution: this must
+  # not trip `set -e` and abort the script before the result is even read —
+  # a real OPEN_FAILED/timeout needs to be reported and gated on below, not
+  # crash the script into a bare non-zero exit with no explanation.
+  PRECHECK_STATUS="$(ssh "$HOST" "
+    cd $REMOTE_DIR || { echo NO_INSTALL; exit 9; }
+    rm -f \"$PIDF\"
+    open ./ioquake3.app || { echo OPEN_FAILED; exit 9; }
+    k=0
+    while [ \$k -lt 20 ]; do
+      killall -0 ioquake3 2>/dev/null && break
+      sleep 1; k=\$((k+1))
+    done
+    if killall -0 ioquake3 2>/dev/null; then
+      echo OPEN_LAUNCH_OK
+      killall -TERM ioquake3 2>/dev/null
+      g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
+    else
+      echo OPEN_LAUNCH_TIMEOUT
+    fi
+    rm -f \"$PIDF\"" 2>/dev/null)" || true
+  echo "[smoke $HOST] pre-check result: ${PRECHECK_STATUS:-<no output>}"
+  # Same reboot backstop as the bottom of this script: if TERM didn't take,
+  # the engine must not be left running for the direct-exec pass below to
+  # collide with (two fullscreen instances wedges both, ADR 0009).
+  if ssh "$HOST" 'killall -0 ioquake3 2>/dev/null'; then
+    echo "[smoke $HOST] pre-check engine SURVIVED TERM and is still running; rebooting so it is" >&2
+    echo "  not left on an unclaimed machine, and so the timedemo pass below has a clean start. See #29." >&2
+    # shellcheck disable=SC2088
+    ssh "$HOST" '~/bin/qsreboot.sh' 2>/dev/null || true
+    t=0; while [ $t -lt 60 ]; do ssh -o ConnectTimeout=5 -o BatchMode=yes "$HOST" true 2>/dev/null || break; sleep 5; t=$((t+5)); done
+    if [ $t -ge 60 ]; then
+      echo "[smoke $HOST] FAIL — pre-check engine did not die and reboot did not take (run 'sudo ~/bin/qsreboot-setup.sh')" >&2
+      exit 1
+    fi
+    t=0; while [ $t -lt 240 ]; do ssh -o ConnectTimeout=5 -o BatchMode=yes "$HOST" true 2>/dev/null && break; sleep 5; t=$((t+5)); done
+    if [ $t -ge 240 ]; then
+      echo "[smoke $HOST] FAIL — pre-check reboot did not come back within 240s" >&2
+      exit 1
+    fi
+    echo "[smoke $HOST] back up after pre-check reboot, engine cleared"
+  fi
+fi
+
 if [ "$OPEN_ARGS_OK" = 1 ]; then
 LAUNCH_CMD='  open -n ./ioquake3.app --args \
     +set fs_homepath "$PWD" \
@@ -345,6 +416,16 @@ echo "[smoke $HOST] result   : ${FPS_LINE:-<NO FPS LINE>}"
 # other scripts here still direct-exec, so a stale record from one of THOSE
 # runs is still worth clearing on the way out). See scripts/lsregister-app.sh.
 "$(dirname "$0")/lsregister-app.sh" "$HOST" || true
+
+# On pre-10.6 hosts, a PASS also needs the bare-open pre-check to have proven
+# LaunchServices can actually start this bundle — an fps line from the
+# direct-exec pass alone would not have caught a launch that only works via
+# direct exec, which is exactly the class of bug issue #37 exists to catch.
+if [ "$OPEN_ARGS_OK" = 0 ] && [ "$PRECHECK_STATUS" != "OPEN_LAUNCH_OK" ]; then
+  echo "[smoke $HOST] FAIL — bare 'open' pre-check did not confirm a LaunchServices launch (${PRECHECK_STATUS:-<none>}), even though the direct-exec timedemo pass may have rendered fine." >&2
+  echo "  That is a real double-click failure this script would otherwise have missed. See #37." >&2
+  exit 1
+fi
 
 if [ -n "$FPS_LINE" ]; then
   echo "[smoke $HOST] PASS — world rendered to completion on the production path, via Finder-equivalent launch"

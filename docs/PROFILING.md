@@ -565,6 +565,107 @@ open items on #8: `com_hunkmegs`/`com_zonemegs` headroom audit,
 this same converged config (`yosemite-tiger` unreachable this session - see
 #15).
 
+## NEGATIVE - r_simpleMipMaps is already the cheap default, nothing to gain (2026-08-28, issue #8)
+
+Checked rather than benched, because the code answers it directly.
+`r_simpleMipMaps` (`code/renderer/tr_init.c:1045`) defaults to `"1"` and no
+shipped config overrides it, on the G3 or anywhere else. `R_MipMap`
+(`code/renderer/tr_image.c:394-400`) already takes the cheap box-filter path
+whenever it is set, which is always, here. The expensive gamma-correct
+`R_MipMap2` path is what `0` would select - we are not paying for it and
+never have been. This is also load-time cost (texture upload), not per-frame
+fill, so it could not have moved the steady-state fps number this ticket
+cares about even if there were a change to make.
+
+The ticket's other name for the same idea, `GL_SGIS_generate_mipmap`
+(hardware-generated mipmaps), is a different, unrelated mechanism - a GL
+extension, not an engine cvar - and does not appear in yosemite's
+`GL_EXTENSIONS` line at all (checked live, full string). Rage 128 / GL 1.1
+does not have it. Nothing here to implement.
+
+## NEGATIVE - com_hunkMegs/com_zoneMegs headroom is not a G3 risk (2026-08-28, issue #8)
+
+Engine defaults (`code/qcommon/common.c:50-51`, `DEF_COMHUNKMEGS 128`,
+`DEF_COMZONEMEGS 24`) are unoverridden by both `autoexec-yosemite.cfg` and
+`autoexec-ppc750.cfg` - shipped total ~152 MB. Measured on yosemite:
+448 MB physical RAM (`system_profiler SPHardwareDataType`, `hw.memsize`),
+leaving ~296 MB of headroom even before the OS's own footprint. No paging
+risk on our bench unit.
+
+For a hypothetical lower-RAM G3 (the `ppc750` baseline applies to any G3
+slice, not just yosemite): `Com_InitHunkMemory` (`common.c:1543-1577`)
+allocates via plain `calloc`, which on any Mac OS X version here is backed
+by a dynamic swap file - a 128 MB request degrades to paging under memory
+pressure, it does not `ERR_FATAL`. `calloc` only fails, and only then hits
+`ERR_FATAL`, if the OS truly cannot back the allocation at all (virtual
+address space or disk exhausted), not merely because physical RAM is
+smaller than the hunk size. So the failure mode for a lower-spec G3 is
+"runs slower," not "crashes at startup" - graceful, same shape as ADR
+0007's per-arch baseline being a safe default for unknown hardware. Nothing
+to change without a second, lower-RAM G3 to measure an actual regression
+on, which this fleet does not have.
+
+**Conclusion for #8 on Panther:** both named candidates are exhausted
+without a code or config change. Combined with the already-recorded G3
+findings above (fill-bound above 640x480, texture/picmip wall, r_fastsky,
+r_primitives, flare interval, sound rate), yosemite/Panther is optimization-
+exhausted at the current effects level. The only real remaining item on #8
+is the Tiger-side re-baseline, which is #15's scope, not a separate #8
+action.
+
+## Tiger-side re-baseline under the converged config (2026-08-28, issue #15)
+
+`yosemite-tiger` came reachable this session (another repo's OS-switch work,
+not this session's), and it was free, so the re-baseline #15 had been
+waiting on got taken while the window existed rather than requesting a
+dedicated switch for it.
+
+**MEASURED**, `scripts/safebench.sh yosemite-tiger 800x600`, demo `four`,
+shipped production config (`autoexec-ppc750.cfg` + `autoexec-yosemite.cfg` +
+`autoexec-yosemite-darwin8.cfg`, i.e. `r_primitives 2` and nothing else
+OS-specific - Tiger carries no quality overlay), 3 runs, median of runs 2
+and 3:
+
+    run 1   29.5 fps
+    run 2   28.9 fps
+    run 3   30.8 fps
+    median (2,3)   29.85 fps
+
+Compare the standing Panther number (`088c47d8`, above): **26.1 fps**, but
+that run is the FULL shipped Panther config, which includes
+`autoexec-yosemite-darwin7.cfg` - Panther's deliberate quality overlay
+(finer curve subdivision, full model LOD, trilinear filtering, detail
+textures, blob shadows), not just the shared baseline. Tiger has no
+equivalent overlay to compare against directly; the two "shipped" numbers
+are not the same effects level.
+
+**INFERRED**, not re-measured fresh: `autoexec-yosemite-darwin7.cfg`'s own
+header records that overlay's cost as measured, at the time the file was
+written: 33.35 -> 30.1 fps, about -9.7% (that measurement predates the
+`r_primitives` 3->2 revert, issue #26, so the absolute numbers are stale,
+but the overlay's own settings are unrelated to `r_primitives` and there is
+no reason its *relative* cost would have changed). Applying that -9.7% in
+reverse to today's Panther number: 26.1 / 0.903 ≈ **28.9 fps** for Panther
+at the shared baseline, no quality overlay - within noise of Tiger's
+measured 29.85.
+
+**Conclusion.** The original ~55% gap this issue opened with does not
+survive controlling the cvars that were drifting at the time (CVA,
+`cg_marks`, `r_textureMode`, `r_lodCurveError`, plus the two partitions
+running different binaries - see the "G3 on both OSes" section above).
+Under today's converged, explicitly-pinned config, Panther and Tiger
+perform within a few percent of each other at the same effects level; the
+real, large, and entirely intentional difference visible in the two
+*shipped* numbers is Panther spending its extra headroom on
+`autoexec-yosemite-darwin7.cfg`'s visual quality trade, not an unexplained
+OS or driver defect. That trade is deliberate (the file's own header: "the
+project rule is that above the floor effects beat frame rate") and correct
+to keep.
+
+The darwin7/darwin8 overlay files' "Why is Tiger slower at all: issue #15,
+not answered" lines are corrected in the same commit as this entry, to
+point here instead of implying an open question.
+
 ## Open questions
 
 - **Fleet-wide vsync.** Only mini-intel sets `r_swapInterval`. The trade: kills

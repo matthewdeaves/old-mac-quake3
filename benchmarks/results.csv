@@ -63,3 +63,4 @@ timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps
 2026-08-23T09:35:02Z,2b6eec5b-mi2-bisect-480x360-SINGLE-RUN,mini-intel2,four,480x360,225.4,n=1,n=1,225.4
 2026-08-23T09:35:02Z,2b6eec5b-mi2-bisect-560x420-SINGLE-RUN,mini-intel2,four,560x420,7.8,n=1,n=1,7.8
 2026-08-28T06:40:59Z,088c47d8-issue8-shipping-baseline,yosemite,four,800x600,26.2,26.3,25.9,26.10
+2026-08-28T08:44:53Z,8be7ca8f-issue15-tiger-shipping-baseline,yosemite-tiger,four,800x600,29.5,28.9,30.8,29.85

@@ -35,6 +35,17 @@ they bite inside these scripts.
 - Recover a wedged Mac with `ssh <m> '~/bin/qsreboot.sh'`, but only after the
   one-time NOPASSWD setup (`install-host-tools.sh` then `sudo
   qsreboot-setup.sh`), and confirm it actually cycles.
+- **A released bench lock is not proof the work stopped.** `--run`'s contract
+  is that the lock lives as long as the COMMAND — if that command is an ssh
+  session that backgrounds the engine (`... &`) and returns while the engine
+  is still alive, the lock releases with the ssh, not with the engine. Any
+  ad-hoc script or one-off command that backgrounds a process on a fleet
+  machine must either wait for that process to actually exit, or reboot the
+  host and verify it cycled (never trust a TERM's exit code). `safebench.sh`
+  encodes the reboot backstop; that is why it never orphans an engine.
+  Issue #29 — reproduced once, no fix in `scripts/` needed because nothing
+  shipped here has the bug; this note is the fix, for the next ad-hoc command
+  typed at a prompt.
 - **Tiger's `ps` lies**: `comm` is not a valid keyword on 10.4, and `ps ax`
   truncates at 79 columns. Use `killall -0 <name>` or `ps -axc -o pid,ucomm`.
 - **Panther `/bin/sleep` is integer-only** - `sleep 0.2` returns instantly. Poll

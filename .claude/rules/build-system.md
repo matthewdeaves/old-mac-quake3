@@ -43,6 +43,7 @@ scripts/install-host-tools.sh <host>     # one-time reboot-recovery setup
 - No Claude co-author on commits.
 
 ## Build Traps
+- **`mini-intel`/`mini-intel2` are the only build hosts, and that's deliberate, not unfinished.** `imac-2019` looks tempting (fastest Intel box in the fleet, and `/Users/mini/gcc14-ppc` really is present there) but a real same-day test - built the `lion` slice there with its own clang, correct subtype and `-mmacosx-version-min=10.6` stamp, then ran it on real Lion 10.7.5 hardware - segfaulted instantly, no output. A correct version-min flag does not mean a modern toolchain's SDK generation produces something that runs on a decade-older dyld. `docs/adr/0020`, `MISTAKES.md`.
 - **NEVER trust a build's "done".** A pipeline returns its LAST command's status.
 - **Never build g3 and g4 in parallel from one shell** - they race `.o` files.
 - **rsync target is always `<host>:quake3/`**.

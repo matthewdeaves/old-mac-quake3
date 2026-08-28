@@ -319,6 +319,47 @@ This sits with the `strings -n 3` entry and the greps that returned "0 matches"
 against an unreadable directory. Same family: the tool answered a slightly
 different question than the one being asked, and the answer looked like success.
 
+## A correct `-mmacosx-version-min` stamp does not mean the binary runs there (2026-08-28)
+
+**The smell:** "the compiler accepts `-mmacosx-version-min=10.6`, the linker
+stamps `LC_VERSION_MIN_MACOSX version 10.6` on the output, so it targets
+10.6." Issue #39 asked whether `imac-2019` (Sequoia 15.7.9, its own clang 17)
+could cross-... actually not even cross-compile, just *natively* build our
+`lion` (x86_64) slice faster than the Lion minis we currently use.
+
+It built clean. Correct `x86_64` subtype, correct `-mmacosx-version-min=10.6`,
+correct `LC_VERSION_MIN_MACOSX` load command on `otool -l`. Copied to
+**mini-intel2, real Lion 10.7.5 hardware**, run directly against real game
+data: `Segmentation fault: 11`, immediately, before a single byte reached
+`qconsole.log` or stdout. No dyld error text either - consistent with the
+crash happening inside dyld's own loading/binding, before our code ever runs.
+`otool -L` on the binary shows link-time library versions from Sequoia's own
+SDK (e.g. `libSystem.B.dylib` current version 1351.0.0) even though the
+`-mmacosx-version-min` flag was correct throughout.
+
+**Cause, as far as it was chased:** `-mmacosx-version-min` sets a *floor* the
+linker checks and stamps; it does not make the compiler emit code and ABI
+calls as if the SDK it actually ran against were the old one. A clang/SDK
+generation more than a decade newer than the target OS can produce a binary
+that is correctly labelled and still cannot load on that OS's dyld. This is
+the same family of trap as the prebuilt-`libSDL` SIGSEGV entry above (a
+"universal" claim that turns out to only cover architecture, not the full
+ABI envelope) but one layer further in: that one was a *third-party* prebuilt
+blob; this one was *our own source*, freshly compiled, with every flag we
+control set correctly, and it still only runs on the OS it was actually built
+under.
+
+Not chased further - root-causing the exact dyld failure mode was out of
+scope for a same-day investigation, and the negative result already answers
+the question asked. `docs/adr/0020` has the full writeup and the decision.
+
+**Lesson:** "the version-min flag is right" is necessary and not sufficient.
+For any binary meant to run on an OS meaningfully older than the toolchain
+that built it, the only test that means anything is running it on that real
+OS - the same rule this project already applies to CPU-subtype stamps
+(`-faltivec` entry, above) now applies to OS-version stamps too. A compile
+succeeding on a newer machine proves nothing about a launch on an older one.
+
 ## A timeout is not a crash, and the harness says "crash" (2026-08-23)
 
 `smoke-dmg.sh` reported "no fps line; the production launch did not render a

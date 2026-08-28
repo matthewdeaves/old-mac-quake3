@@ -26,6 +26,7 @@ their evidence live in [`adr/`](adr/).
 | [0017](adr/0017-the-arm64-slice-ships-sdl12-compat-over-an-sdl2-we-build.md) | The arm64 slice ships sdl12-compat over an SDL2 we build |
 | [0018](adr/0018-hw-model-identifies-the-logic-board-not-the-installed-gpu.md) | `hw.model` identifies the logic board, not the installed GPU (documented limitation, no code change) |
 | [0019](adr/0019-the-arm64-workstation-may-hold-a-staged-qa-copy-of-baseq3.md) | The arm64 workstation may hold a staged QA copy of `baseq3` |
+| [0020](adr/0020-imac-2019-is-not-a-build-host-yet.md) | imac-2019 is not a build host yet (negative result: real Lion-hardware segfault) |
 
 ## Live references
 

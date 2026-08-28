@@ -33,6 +33,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
+#include <dlfcn.h>
 
 /*
 ==============
@@ -114,4 +115,79 @@ char *Sys_StripAppBundle( char *dir )
 		return dir;
 	Q_strncpyz(cwd, Sys_Dirname(cwd), sizeof(cwd));
 	return cwd;
+}
+
+/*
+=================
+Sys_ResolveTranslocatedPath
+
+Gatekeeper's App Translocation (10.12 Sierra+) launches a freshly-quarantined
+.app that has never been moved by Finder from a randomized, read-only shadow
+copy under .../AppTranslocation/<uuid>/d/, and argv[0] then names THAT copy,
+not the real install location. Every fresh download hits this: the DMG-drag
+install our own README describes is fine (a Finder move clears translocation
+for future launches), but double-clicking straight off the mounted image, or
+any non-Finder copy (ditto/cp), does not, and Sys_SetBinaryPath(Sys_Dirname
+(argv[0])) then derives fs_basepath from the shadow copy, which has no
+baseq3/ next to it - the engine reports missing pak files even though the
+user's real baseq3/ sits right next to the real .app. MEASURED 2026-08-28 on
+imac-2019 (Sequoia): reproduced by ditto-copying a quarantined app and
+launching it via `open`; `open` succeeds (no Gatekeeper dialog - this app is
+ad-hoc signed, not blocked outright) but argv[0] comes back under
+/private/var/.../AppTranslocation/. See issue #37.
+
+SecTranslocateCreateOriginalPathForURL is the private Security-framework call
+that reverses this. It does not exist before 10.12, and this binary is one
+fat Mach-O spanning 10.3 Panther through modern macOS, so it is resolved with
+dlopen/dlsym at runtime rather than linked against directly - on every OS
+before Sierra the symbol is simply absent, which is fine because nothing
+translocates there in the first place.
+
+Returns path unchanged (never NULL) if not translocated, or the resolution
+fails for any reason - falling back to the old (wrong but never worse)
+behavior rather than crashing the launch path.
+=================
+*/
+char *Sys_ResolveTranslocatedPath( char *path )
+{
+	static char resolved[MAX_OSPATH];
+	void *sec;
+	CFURLRef (*createOriginal)( CFURLRef, CFErrorRef * );
+	CFURLRef translocated, original;
+	CFErrorRef err = NULL;
+
+	if( !strstr( path, "/AppTranslocation/" ) )
+		return path;
+
+	sec = dlopen( "/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY | RTLD_NOLOAD );
+	if( !sec )
+		sec = dlopen( "/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY );
+	if( !sec )
+		return path;
+
+	createOriginal = dlsym( sec, "SecTranslocateCreateOriginalPathForURL" );
+	if( !createOriginal )
+		return path;
+
+	translocated = CFURLCreateFromFileSystemRepresentation(
+		kCFAllocatorDefault, (const UInt8 *)path, strlen( path ), true );
+	if( !translocated )
+		return path;
+
+	original = createOriginal( translocated, &err );
+	CFRelease( translocated );
+	if( err )
+		CFRelease( err );
+	if( !original )
+		return path;
+
+	if( !CFURLGetFileSystemRepresentation( original, true, (UInt8 *)resolved, sizeof( resolved ) ) )
+	{
+		CFRelease( original );
+		return path;
+	}
+	CFRelease( original );
+
+	fprintf( stderr, "App Translocation detected; resolved real bundle path: %s\n", resolved );
+	return resolved;
 }

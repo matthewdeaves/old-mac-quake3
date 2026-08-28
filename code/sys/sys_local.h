@@ -46,6 +46,7 @@ unsigned int CON_LogRead( char *out, unsigned int outSize );
 
 #ifdef MACOS_X
 char *Sys_StripAppBundle( char *pwd );
+char *Sys_ResolveTranslocatedPath( char *path );
 #endif
 
 void Sys_GLimpSafeInit( void );

@@ -654,7 +654,17 @@ int main( int argc, char **argv )
 	Sys_Milliseconds( );
 
 	Sys_ParseArgs( argc, argv );
-	Sys_SetBinaryPath( Sys_Dirname( argv[ 0 ] ) );
+	{
+		char *binPath = Sys_Dirname( argv[ 0 ] );
+#ifdef MACOS_X
+		// A quarantined, never-Finder-moved .app launches from a Gatekeeper
+		// App Translocation shadow copy on 10.12+, and argv[0] names that
+		// copy, not the real install location next to the user's baseq3/.
+		// See Sys_ResolveTranslocatedPath (sys_osx.m) and issue #37.
+		binPath = Sys_ResolveTranslocatedPath( binPath );
+#endif
+		Sys_SetBinaryPath( binPath );
+	}
 	Sys_SetDefaultInstallPath( DEFAULT_BASEDIR );
 
 	// Concatenate the command line for passing to Com_Init

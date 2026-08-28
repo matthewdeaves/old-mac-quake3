@@ -527,6 +527,44 @@ reason giving up 3 cost nothing measurable in fps; it just wasn't yet known to
 also be a correctness bug. Do not re-add `r_primitives 3` on this machine
 without a second Rage 128 to test it on first.
 
+## NEGATIVE - r_fastsky 2 does not buy mirrors back on yosemite (2026-08-20, issue #6/#8)
+
+`r_fastsky 1` gates portal/mirror surfaces off entirely (`tr_main.c:969`,
+`r_fastsky->integer == 1` exactly). `r_fastsky 2` was tried to dodge that exact
+gate while keeping the fill saving, since both saving paths (`tr_backend.c:448`,
+`tr_sky.c:799`) are truthy tests, not `== 1` tests. It does restore the portal,
+but `tr_backend.c:448`'s same truthy test also clears the portal's colour
+buffer to black, so the mirror renders as a black rectangle (seen on hardware,
+q3dm0). And the fill saving does not exist: measured on yosemite, demo four,
+800x600 -
+
+    r_fastsky 2   13.7 fps, mirrors black
+    r_fastsky 0   13.9 fps, mirrors correct
+
+Real sky is if anything faster - the Rage 128 is not sky-fill-bound here, so
+the cheap-sky path cost every reflection in the game for no measurable gain.
+Shipped: `r_fastsky "0"` on both `autoexec-yosemite.cfg` and
+`autoexec-ppc750.cfg`. **Do not re-propose `r_fastsky 2` on this machine** -
+the mirrors-back argument for it was already tested and failed on the actual
+mechanism (black portal, not a partial render).
+
+## Fresh shipping-profile baseline, post-#26/#31 fixes (2026-08-28, issue #8)
+
+3 runs, median of runs 2 and 3, current shipped config (`r_primitives 2`,
+`cg_marks 1`, `r_ext_compiled_vertex_array 1`, `r_fastsky 0`, all converged -
+see #26/#31):
+
+    yosemite (Panther), demo four, 800x600: 26.2 / 26.3 / 25.9 -> 26.1 fps
+
+Up from the ~22 fps single-run figure in issue #8's original text (that run
+predates the r_primitives/cg_marks fixes). Well clear of the 20 fps floor.
+Mirrors already correct and costing nothing (see NEGATIVE above) - issue #8's
+"mirrors currently cost fps or are switched off" premise is stale. Remaining
+open items on #8: `com_hunkmegs`/`com_zonemegs` headroom audit,
+`r_simpleMipMaps`/`GL_SGIS_generate_mipmap`, and a Tiger-side re-baseline under
+this same converged config (`yosemite-tiger` unreachable this session - see
+#15).
+
 ## Open questions
 
 - **Fleet-wide vsync.** Only mini-intel sets `r_swapInterval`. The trade: kills

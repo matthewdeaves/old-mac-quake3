@@ -11,7 +11,7 @@
 #
 set -euo pipefail
 
-MACHINE="${1:?usage: distribute-data.sh <yosemite|sawtooth|quicksilver|mini-g4|imac-2019|imac-g5>}"
+MACHINE="${1:?usage: distribute-data.sh <yosemite|sawtooth|quicksilver|mini-g4|imac-2019|imac-g5|workstation>}"
 
 # Claim this machine for the whole run. See scripts/pick-bench-host.sh.
 #
@@ -52,7 +52,7 @@ REMOTE_DIR="~/Desktop/quake3/baseq3"
 ONLY_PK3=(--include='*.pk3' --include='*.PK3' --exclude='*')
 
 case "$MACHINE" in
-  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5) ;;
+  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5|workstation) ;;
   *) echo "distribute-data.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
 [ "$MACHINE" = "$SRC_HOST" ] && { echo "$MACHINE is the data source — nothing to do."; exit 0; }
@@ -64,10 +64,23 @@ mkdir -p "$CACHE"
 echo "==> cache baseq3 pk3s from $SRC_HOST -> $CACHE (first time pulls ~482M)"
 rsync -av --partial "${ONLY_PK3[@]}" "$SRC_HOST:$SRC_DIR/" "$CACHE/"
 
-echo "==> ship pk3s -> $MACHINE:$REMOTE_DIR"
-ssh "$MACHINE" "mkdir -p $REMOTE_DIR"
-rsync -av --partial $RSYNC_EXTRA "${ONLY_PK3[@]}" "$CACHE/" "$MACHINE:$REMOTE_DIR/"
+# `workstation` is this machine itself (docs/adr/0019, pick-bench-host.sh's
+# LOCAL_ALIASES) - no sshd, no hostkey, so ship via a local copy instead of
+# ssh+rsync-over-network, into THIS host's own home, not a remote tilde.
+if [ "$MACHINE" = workstation ]; then
+	LOCAL_DIR="$HOME/Desktop/quake3/baseq3"
+	echo "==> ship pk3s -> workstation:$LOCAL_DIR (local copy)"
+	mkdir -p "$LOCAL_DIR"
+	rsync -av --partial "${ONLY_PK3[@]}" "$CACHE/" "$LOCAL_DIR/"
 
-echo "==> verify on $MACHINE"
-ssh "$MACHINE" "cd $REMOTE_DIR && echo -n '  pk3 count: ' && ls *.[pP][kK]3 2>/dev/null | wc -l && du -ch *.[pP][kK]3 2>/dev/null | tail -1 | sed 's/^/  total: /'"
+	echo "==> verify on workstation"
+	( cd "$LOCAL_DIR" && echo -n '  pk3 count: ' && ls ./*.[pP][kK]3 2>/dev/null | wc -l && du -ch ./*.[pP][kK]3 2>/dev/null | tail -1 | sed 's/^/  total: /' )
+else
+	echo "==> ship pk3s -> $MACHINE:$REMOTE_DIR"
+	ssh "$MACHINE" "mkdir -p $REMOTE_DIR"
+	rsync -av --partial $RSYNC_EXTRA "${ONLY_PK3[@]}" "$CACHE/" "$MACHINE:$REMOTE_DIR/"
+
+	echo "==> verify on $MACHINE"
+	ssh "$MACHINE" "cd $REMOTE_DIR && echo -n '  pk3 count: ' && ls *.[pP][kK]3 2>/dev/null | wc -l && du -ch *.[pP][kK]3 2>/dev/null | tail -1 | sed 's/^/  total: /'"
+fi
 echo "==> [$MACHINE] data distributed."

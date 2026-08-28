@@ -210,6 +210,51 @@ regression pass, is exactly the kind of change that stays diagnosis, not a
 same-session fix. Left for whoever picks this up next, with the actual
 mechanism now fully understood rather than guessed at.
 
+## Follow-up 7: the stddef.h bug root-caused for real, a working fix, and the actual next blocker
+
+Correction to Follow-up 6's "GCC14 packaging defect" framing, from
+old-mac-build-host, reproduced independently by quakespasm too: it is real
+but much narrower than a general compiler bug. Panther's own
+`usr/include/ppc/ansi.h` defines `_BSD_PTRDIFF_T_` as a *value* macro
+(`#define _BSD_PTRDIFF_T_ __PTRDIFF_TYPE__`), not as an include guard.
+GCC14's `stddef.h` guards its own `ptrdiff_t` typedef on
+`#ifndef _BSD_PTRDIFF_T_` (confirmed by reading the header directly,
+`stddef.h:127`) - so Panther's SDK defining that macro at all makes GCC14
+believe the type is already provided and skip its typedef. Apple's real
+gcc-4.0 never hits this because it and Panther's `ansi.h` were built as one
+matched pair. Confirmed both halves of this directly: `grep` on Panther's
+`ansi.h` shows the macro; `grep` on GCC14's `stddef.h` shows the guard.
+Doesn't affect g4/g5 against Tiger/Leopard SDKs.
+
+**Working fix, verified against real source, not a synthetic test**: a
+one-file shim (`scripts/imac-2019-ptrdiff-shim.h`) providing
+`typedef __PTRDIFF_TYPE__ ptrdiff_t;` unconditionally, forced in via
+`-include` ahead of anything else that might pull `stddef.h` in first.
+Added to `build.sh`'s `g3`/`g4` `CPUFLAGS` for `BUILD_HOST=imac-2019`.
+**`code/zlib/crc32.c` - the exact file that was failing - now compiles
+clean**, and the real build ran much further: all of `libspeex`, all of
+`zlib`, and into this project's own PPC-specific code
+(`code/qcommon/vm_powerpc.c`, `vm_powerpc_asm.c`, `sys_unix.c`) without
+incident.
+
+**The actual next blocker, found immediately after**: `code/sys/sys_osx.m`
+- `powerpc-apple-darwin8-gcc: error: Objective-C compiler not installed on
+this system`. Checked before concluding: `--help=languages` and a
+filesystem search under `~/gcc14-ppc` turn up only Objective-C *plugin
+header stubs* (`c-objc.h`, `objc/objc-tree.def`), no real ObjC frontend -
+this toolchain was built `--enable-languages=c` only, not `c,objc`.
+Confirmed identical for both `g3` and `g4` - same file, same point, not
+PPC-subtype-specific. This is a toolchain-provisioning gap (the compiler
+itself needs rebuilding with Objective-C support), not something fixable
+from `build.sh`, flags, or this repo's own source.
+
+Net effect: one more real blocker cleared with a genuine, verified fix
+(pushed to `scratch/imac-2019-altivec-fix`, not `master`), and the build
+got substantially further before hitting the next one. `g3`/`g4` status is
+still no, but the actual remaining gap is now narrow and specific
+(Objective-C support in the GCC14 build) rather than an open-ended
+archaeology problem.
+
 ## Decision
 
 **`imac-2019` is not wired into `scripts/build.sh` or `scripts/build-fat.sh`

@@ -91,7 +91,12 @@ case "$TARGET" in
       # differently (stddef.h/ptrdiff_t undeclared reaching code/zlib/,
       # not machine/ansi.h) - same include-fixed-shadows-isysroot cause.
       # docs/adr/0020.
-      CPUFLAGS="-nostdinc -isystem $GCCBASE/include -isystem $GCCBASE/../../../../powerpc-apple-darwin8/include -isystem $SDK/usr/include -iframework $SDK/System/Library/Frameworks -isysroot $SDK -arch ppc -mcpu=750 -mmacosx-version-min=$VMIN -O3"
+      # -include the ptrdiff_t shim (docs/adr/0020 Follow-up 7): Panther's
+      # ansi.h defines _BSD_PTRDIFF_T_ as a value-alias macro, GCC14's
+      # stddef.h misreads that as "already typedef'd" and skips its own -
+      # force the real typedef in ahead of anything else that could pull
+      # stddef.h in first.
+      CPUFLAGS="-include scripts/imac-2019-ptrdiff-shim.h -nostdinc -isystem $GCCBASE/include -isystem $GCCBASE/../../../../powerpc-apple-darwin8/include -isystem $SDK/usr/include -iframework $SDK/System/Library/Frameworks -isysroot $SDK -arch ppc -mcpu=750 -mmacosx-version-min=$VMIN -O3"
     else
       CC=/usr/bin/gcc-4.0
       # -arch ppc750 stamps cpusubtype 9 AND leaves __ALTIVEC__ undefined, so no
@@ -111,7 +116,9 @@ case "$TARGET" in
       CC=/Users/mini/gcc14-ppc/bin/powerpc-apple-darwin8-gcc
       SDK=/Users/mini/SDKs/MacOSX10.3.9.sdk
       GCCBASE=/Users/mini/gcc14-ppc/lib/gcc/powerpc-apple-darwin8/14.2.0
-      CPUFLAGS="-nostdinc -isystem $GCCBASE/include -isystem $GCCBASE/../../../../powerpc-apple-darwin8/include -isystem $SDK/usr/include -iframework $SDK/System/Library/Frameworks -isysroot $SDK -arch ppc -mcpu=7400 -maltivec -mabi=altivec -mmacosx-version-min=$VMIN -O3"
+      # -include the ptrdiff_t shim, same reasoning as g3 above. docs/adr/0020
+      # Follow-up 7.
+      CPUFLAGS="-include scripts/imac-2019-ptrdiff-shim.h -nostdinc -isystem $GCCBASE/include -isystem $GCCBASE/../../../../powerpc-apple-darwin8/include -isystem $SDK/usr/include -iframework $SDK/System/Library/Frameworks -isysroot $SDK -arch ppc -mcpu=7400 -maltivec -mabi=altivec -mmacosx-version-min=$VMIN -O3"
     else
       CC=/usr/bin/gcc-4.0
       # -arch ppc7400 stamps cpusubtype 10 AND defines __ALTIVEC__; -faltivec

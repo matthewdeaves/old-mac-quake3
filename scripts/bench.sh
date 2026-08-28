@@ -208,7 +208,7 @@ for ((r=1; r<=RUNS; r++)); do
     cd $REMOTE_DIR
     engine_kill TERM
     g=0; while [ \$g -lt 12 ]; do alive || break; sleep 1; g=\$((g+1)); done
-    rm -f baseq3/qconsole.log \"$PIDF\"
+    mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null; rm -f \"$PIDF\"
     ./ioquake3-bench +set com_archAutoexec 0 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
       +set logfile 2 +set com_maxfps 0 +set r_fullscreen 1 \\
       +set r_mode -1 +set r_customwidth $W +set r_customheight $H \\

@@ -173,7 +173,7 @@ out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
   # wedged fullscreen app won't die cleanly to KILL, and the health check reboots
   # if anything is still stuck.
   killall -TERM ioquake3 2>/dev/null; sleep 2
-  rm -f \"$PIDF\" baseq3/qconsole.log
+  rm -f \"$PIDF\"; mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null
 
   # nextdemo=quit → when the timedemo finishes, CL_DemoCompleted prints the fps
   # line and runs 'quit', so the engine exits the NORMAL way (SDL restores the

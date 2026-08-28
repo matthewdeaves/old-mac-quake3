@@ -3,6 +3,13 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-08-28** `smoke-dmg.sh`/`bench.sh`/`safebench.sh` deleted
+  `baseq3/qconsole.log` as pre-launch "clean slate" setup, destroying the
+  previous run's evidence right when a crash/hang needs it (cross-port
+  finding from old-mac-half-life-1 ADR 0018, same bug there). Now rotates
+  to `qconsole.log.prev` instead of `rm -f`. Verified live on quicksilver:
+  two consecutive smoke runs left both files with distinct content/mtimes,
+  not one overwritten copy.
 - **2026-08-28** Filesystem crash cluster, six upstream fixes (#17,
   `750a15c8`): `FS_FOpenFileReadDir` left a stale non-zero handle on
   not-found; `FS_Seek` double-seeked a streamed file and discarded the

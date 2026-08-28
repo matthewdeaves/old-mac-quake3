@@ -343,7 +343,7 @@ fi
 ssh "$HOST" "
   killall -TERM ioquake3 2>/dev/null && sleep 2
   cd $REMOTE_DIR || { echo 'NO_INSTALL'; exit 9; }
-  rm -f baseq3/qconsole.log \"$PIDF\"
+  mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null; rm -f \"$PIDF\"
 $LAUNCH_CMD
   # wait for the engine to self-quit (process gone) or error out; self-bounded
   j=0

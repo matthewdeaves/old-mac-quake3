@@ -123,6 +123,43 @@ PPC blockers (`-arch ppc7400` unsupported, missing `crt1.10.5.o`) - not
 independently re-tested by this session, same as Follow-up 2's LC_MAIN
 report above.
 
+## Follow-up 4: real g4 source build attempted, one blocker cleared, a new one found
+
+old-mac-build-host fixed the `include-fixed`/Panther-`sys/types.h` issue
+(Follow-up 3): the workaround (`-nostdinc` plus an explicit `-isystem`
+list, dropping only `include-fixed`) was independently re-verified here -
+compiled `<sys/types.h> <stdio.h> <stdlib.h> <string.h> <math.h>` together
+clean, against both the 10.4u SDK (their tested case) and the 10.3.9 SDK
+with `-mmacosx-version-min=10.3` (this project's actual requirement, since
+G5-Panther shares the ppc7400 slice - not previously tested by them).
+
+Then attempted a real build, not a synthetic header test: synced current
+source to `imac-2019` and ran the actual `g4` slice through `make` with
+this project's real build flags (`BUILD_CLIENT=1`, etc.) plus the
+workaround include list. Genuine progress - it got past `include-fixed`
+entirely and compiled real engine source (`snd_wavelet.c` and others, warts
+like an existing `-Warray-bounds` warning notwithstanding) before hitting a
+**new, different, real blocker**: `code/client/snd_mix.c`'s AltiVec-SIMD
+mixer fails with `implicit declaration of function 'vec_splat_u32'` (and
+`vec_lvsl`, `vec_perm`, `vec_mule`, `vec_sra`, `vec_mulo`, `vec_add`) under
+GCC14's `-maltivec`, even though the file already does `#include
+<altivec.h>` (confirmed - the include is present). This project's g4/g5
+slice currently builds under Apple's ancient `gcc-4.0` with `-faltivec`,
+which apparently exposes a different (or differently-named) set of AltiVec
+builtins than GCC14's mainline `<altivec.h>` does under `-maltivec`. Not
+investigated further this session - a real toolchain-version ABI/intrinsics
+gap, not a missing flag or header, and worth its own dedicated pass rather
+than a same-session dig.
+
+Net effect: the PPC build-host thread has now cleared 2 of its original 3
+blockers (`-arch ppc7400` syntax, `include-fixed`/`sys/types.h`) through
+combined effort across sessions, and surfaced a fourth, more specific one
+(AltiVec intrinsic declarations) in their place. `crt1.10.5.o` (g5/10.5
+target only, reported fixed with `-L $SDK/usr/lib`, not retested here since
+this session's failure was on the g4/10.3 path) and this AltiVec gap are
+what's left. Still not wired into `build.sh` - still a real, unfinished
+toolchain, now closer than the earlier follow-ups found it.
+
 ## Decision
 
 **`imac-2019` is not wired into `scripts/build.sh` or `scripts/build-fat.sh`

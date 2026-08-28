@@ -3,6 +3,12 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-08-28** ppc750 build broken by `CFErrorRef` (#37, `b9f002a1`):
+  `b7a99846`'s App Translocation fix used a Leopard-only CoreFoundation type
+  in a file that builds once from shared source across every slice. Caught
+  by triggering a real release-candidate build via `pipeline-quake3`, not by
+  CI - green CI does not build this target. Fixed to `void *`/`void **`,
+  which is ABI-identical and compiles on every SDK in the fleet.
 - **2026-08-25** Net message, patch collision, and infostring security and bounds fixes (#17,
   `cc0b3e68`): MSG_ReadBits/MSG_WriteBits buffer overflow checks and exact
   limits (upstream d2b1d124/1e309787/3a702ded); Huffman compressor/decompressor

@@ -1,149 +1,105 @@
 #!/usr/bin/env bash
 #
-# publish-release.sh <version> [--yes] - publish ONE release and prune older ones.
+# publish-release.sh - publish the client DMG and/or the Linux server tarball
+# as GitHub releases, so a build stops being "cut by hand" (issue #22).
 #
-# The user's rule, from issue #21: "for servers and fat binaries we only host the
-# latest build as latest release, we are not interested in historical releases
-# for server binaries or fat binaries". Nothing in scripts/ did any of this, so
-# releases were made by hand and nothing ever removed an old one. Issue #22.
+# Policy this implements (user, 2026-08-28, issue #22): "only ever have 1
+# latest release" per repo. GitHub itself enforces this - exactly one release
+# in a repo can be flagged Latest at any time, and creating a new release
+# with --latest automatically clears the flag on whichever one held it. This
+# script never deletes a GitHub release (deleting one is reserved to the
+# user, GRANTS.md) - it only ever CREATES new, properly versioned ones, using
+# --latest so the flag moves forward on its own. Old releases stay reachable
+# by their own tag; nothing is pruned server-side.
 #
-# TWO INDEPENDENT STREAMS, pruned separately:
-#   app     tag vX.Y.Z          asset dist/ioquake3-OldMac-<version>.dmg
-#   server  tag server-vX.Y.Z   assets dist/server/quake3-server-<version>-linux-*.tar.gz
+# usage: scripts/publish-release.sh <client|server|both> <version>
+#   client: uploads dist/ioquake3-OldMac-<version>.dmg, tag <version>, --latest
+#   server: uploads every dist/server/quake3-server-<version>-linux-*.tar.gz,
+#           tag server-<version>, NOT --latest (client always holds Latest)
 #
-# A version is EITHER an app version or a server version, decided by the tag
-# prefix, and only that stream is touched. Publishing an app release must never
-# delete the server one; they move at different rates and the server release is
-# what retro-server-infra pulls.
-#
-# DRY RUN BY DEFAULT. Nothing is uploaded and nothing is deleted without --yes.
-# Deleting a published release is irreversible and outward-facing: anyone who has
-# the URL loses it, and this script cannot tell a release nobody wants from one
-# somebody is mid-download of. So the default prints the plan and stops.
+# pre: gh auth login already done on this workstation; the artifact(s) already
+#      built (scripts/make-dmg.sh / scripts/build-server-linux.sh).
+# post: a real release exists on GitHub for the requested kind(s), and stale
+#       local dist/ builds for OTHER versions of the same kind are removed
+#       (LOCAL disk hygiene only - never touches anything already published).
 #
 set -euo pipefail
 
-VERSION="${1:?usage: publish-release.sh <version> [--yes]   e.g. v0.6.6 or server-v0.6.6}"
-shift || true
-CONFIRM=0
-ALLOW_DOWNGRADE=0
-for a in "$@"; do
-  case "$a" in
-    --yes) CONFIRM=1 ;;
-    --allow-downgrade) ALLOW_DOWNGRADE=1 ;;
-    *) echo "publish-release.sh: unknown argument: $a" >&2; exit 2 ;;
-  esac
-done
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+REPO_SLUG="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)"
+[ -n "$REPO_SLUG" ] || { echo "publish-release: gh repo view failed - not authenticated or wrong dir?" >&2; exit 1; }
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$HERE/.." && pwd)"
-REPO="matthewdeaves/old-mac-quake3"
+KIND="${1:?usage: $0 <client|server|both> <version>}"
+VERSION="${2:?usage: $0 <client|server|both> <version>}"
 
-case "$VERSION" in
-  server-v*) STREAM=server ;;
-  v*)        STREAM=app ;;
-  *) echo "publish-release.sh: version must start with 'v' or 'server-v' (got: $VERSION)" >&2; exit 2 ;;
+case "$KIND" in
+  client|server|both) ;;
+  *) echo "publish-release: kind must be client, server or both (got '$KIND')" >&2; exit 2 ;;
 esac
 
-# ---- gather the assets this stream ships ----------------------------------
-ASSETS=()
-if [ "$STREAM" = app ]; then
-  DMG="$REPO_ROOT/dist/ioquake3-OldMac-$VERSION.dmg"
-  [ -f "$DMG" ] || { echo "publish-release.sh: no $DMG - run scripts/make-dmg.sh $VERSION on a Tiger G4" >&2; exit 1; }
-  ASSETS=("$DMG")
-  TITLE="ioquake3 OldMac $VERSION"
-else
-  # The TAG carries the server- prefix but the TARBALL does not:
-  # tag server-v0.6.3 ships quake3-server-v0.6.3-linux-x86_64.tar.gz. Checked
-  # against what is actually in dist/server/ rather than assumed.
-  ASSET_VER="${VERSION#server-}"
-  while IFS= read -r f; do ASSETS+=("$f"); done < <(ls -1 "$REPO_ROOT"/dist/server/quake3-server-"$ASSET_VER"-linux-*.tar.gz 2>/dev/null || true)
-  [ "${#ASSETS[@]}" -gt 0 ] || { echo "publish-release.sh: no dist/server/quake3-server-$ASSET_VER-linux-*.tar.gz - run scripts/build-server-linux.sh" >&2; exit 1; }
-  TITLE="Linux dedicated server $ASSET_VER"
-fi
-
-# A dirty or wrong-tree build must not be published. build-server-linux.sh
-# already refuses to BUILD one (d6c94027); this is the same gate at the point of
-# publishing, because the tarball on disk may predate that check.
-# Gates the real publish only. A dry run is a read, and refusing to even show
-# the plan on a dirty tree would make this useless exactly when it is wanted.
-if [ "$CONFIRM" = 1 ] && [ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]; then
-  echo "publish-release.sh: working tree is dirty; commit or stash before publishing" >&2
+# A release published from a dirty tree cannot be rebuilt from its own tag
+# later - same rule build-server-linux.sh already enforces for the server
+# tarball itself; enforced here too because this is the actual publish step.
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+  echo "publish-release: working tree is dirty - commit or stash first." >&2
+  echo "  A published release must be reproducible from its tag." >&2
   exit 1
 fi
 
-# ---- work out what would be pruned ----------------------------------------
-# Only tags in THIS stream. The app stream must exclude server-v*, which a naive
-# 'v*' match would otherwise sweep up and delete.
-# --json, not column-position parsing: `gh release list` puts a Latest marker in
-# a middle column on some rows and not others, so $(NF-1) reads a different field
-# depending on the row and would return a title word as a tag.
-EXISTING=$(gh release list -R "$REPO" --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null || true)
-PRUNE=()
-while IFS= read -r tag; do
-  [ -n "$tag" ] || continue
-  [ "$tag" = "$VERSION" ] && continue
-  case "$STREAM:$tag" in
-    server:server-v*) PRUNE+=("$tag") ;;
-    app:server-v*)    ;;                 # other stream, leave alone
-    app:v*)           PRUNE+=("$tag") ;;
-  esac
-done <<< "$EXISTING"
+publish_client() {
+  local dmg="$REPO_ROOT/dist/ioquake3-OldMac-$VERSION.dmg"
+  [ -f "$dmg" ] || { echo "publish-release: missing $dmg - run scripts/make-dmg.sh $VERSION" >&2; exit 1; }
 
-echo "== publish-release $VERSION (stream: $STREAM) =="
-echo "release title : $TITLE"
-echo "assets:"
-for a in "${ASSETS[@]}"; do echo "    $(basename "$a")  $(shasum -a 256 "$a" | cut -d' ' -f1)"; done
-if [ "${#PRUNE[@]}" -gt 0 ]; then
-  echo "would DELETE these older $STREAM releases:"
-  for t in "${PRUNE[@]}"; do echo "    $t"; done
-else
-  echo "no older $STREAM releases to delete"
-fi
-
-# REFUSE TO DELETE SOMETHING NEWER THAN WHAT IS BEING PUBLISHED.
-#
-# "Only host the latest" plus "delete everything else in the stream" means that
-# publishing an OLD version quietly destroys the newer one. Caught while testing
-# this script: a dry run of v0.6.4 offered to delete v0.6.5. That is a plausible
-# thing to type by mistake and there is no undo.
-#
-# sort -V, so v0.6.10 is correctly newer than v0.6.9, which a string compare gets
-# wrong.
-NEWER=()
-for t in ${PRUNE[@]+"${PRUNE[@]}"}; do
-  if [ "$(printf '%s\n%s\n' "$VERSION" "$t" | sort -V | tail -1)" = "$t" ]; then
-    NEWER+=("$t")
+  if gh release view "$VERSION" -R "$REPO_SLUG" >/dev/null 2>&1; then
+    echo "[publish-release] client: release $VERSION already exists, uploading asset (--clobber)"
+    gh release upload "$VERSION" "$dmg" -R "$REPO_SLUG" --clobber
+    gh release edit "$VERSION" -R "$REPO_SLUG" --latest
+  else
+    echo "[publish-release] client: creating release $VERSION (--latest)"
+    gh release create "$VERSION" "$dmg" -R "$REPO_SLUG" \
+      --title "ioquake3 OldMac $VERSION" \
+      --notes "$(git log -1 --format='Built from %H%n%n%s')" \
+      --latest
   fi
-done
-if [ "${#NEWER[@]}" -gt 0 ] && [ "$ALLOW_DOWNGRADE" != 1 ]; then
-  echo
-  echo "REFUSING: these existing releases are NEWER than $VERSION:" >&2
-  for t in "${NEWER[@]}"; do echo "    $t" >&2; done
-  echo "Publishing $VERSION would delete them. If that is genuinely what you want," >&2
-  echo "re-run with --allow-downgrade." >&2
-  exit 1
-fi
 
-if [ "$CONFIRM" != 1 ]; then
-  echo
-  echo "DRY RUN. Nothing uploaded, nothing deleted."
-  echo "Deleting a release is irreversible and public. Re-run with --yes to do it."
-  exit 0
-fi
+  # Local disk hygiene only (issue #22's "10 tarballs going back to v0.5.0"
+  # complaint applied to dist/server/, the same clutter exists for dist/
+  # client DMGs). dist/ is gitignored; this never touches anything published.
+  find "$REPO_ROOT/dist" -maxdepth 1 -name 'ioquake3-OldMac-*.dmg' \
+    ! -name "ioquake3-OldMac-$VERSION.dmg" -print -delete 2>/dev/null || true
+}
 
-# ---- act ------------------------------------------------------------------
-if gh release view "$VERSION" -R "$REPO" >/dev/null 2>&1; then
-  echo "==> release $VERSION exists; replacing its assets"
-  gh release upload "$VERSION" "${ASSETS[@]}" -R "$REPO" --clobber
-else
-  echo "==> creating release $VERSION"
-  gh release create "$VERSION" "${ASSETS[@]}" -R "$REPO" --title "$TITLE" --generate-notes
-fi
+publish_server() {
+  local tag="server-$VERSION"
+  local tarballs=("$REPO_ROOT"/dist/server/quake3-server-"$VERSION"-linux-*.tar.gz)
+  [ -e "${tarballs[0]}" ] || {
+    echo "publish-release: no dist/server/quake3-server-$VERSION-linux-*.tar.gz" >&2
+    echo "  run scripts/build-server-linux.sh --version $VERSION [--arch ...]" >&2
+    exit 1
+  }
 
-for t in "${PRUNE[@]}"; do
-  echo "==> deleting old $STREAM release $t"
-  gh release delete "$t" -R "$REPO" --yes
-done
+  if gh release view "$tag" -R "$REPO_SLUG" >/dev/null 2>&1; then
+    echo "[publish-release] server: release $tag already exists, uploading assets (--clobber)"
+    gh release upload "$tag" "${tarballs[@]}" -R "$REPO_SLUG" --clobber
+  else
+    echo "[publish-release] server: creating release $tag (not --latest - client holds Latest)"
+    gh release create "$tag" "${tarballs[@]}" -R "$REPO_SLUG" \
+      --title "Linux dedicated server $VERSION" \
+      --notes "$(git log -1 --format='Built from %H%n%n%s')"
+  fi
 
-echo "==> done. $VERSION is the only $STREAM release."
+  # Local disk hygiene, same reasoning as publish_client. Every arch for
+  # OTHER versions goes; every arch for THIS version stays.
+  find "$REPO_ROOT/dist/server" -maxdepth 1 -name 'quake3-server-*-linux-*.tar.gz' \
+    ! -name "quake3-server-$VERSION-linux-*.tar.gz" -print -delete 2>/dev/null || true
+}
+
+case "$KIND" in
+  client) publish_client ;;
+  server) publish_server ;;
+  both)   publish_client; publish_server ;;
+esac
+
+echo "[publish-release] done"
+gh release list -R "$REPO_SLUG" --limit 10

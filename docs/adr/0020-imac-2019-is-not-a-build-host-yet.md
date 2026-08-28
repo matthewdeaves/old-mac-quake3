@@ -105,6 +105,24 @@ mean current-generation `ld64` cannot produce Snow-Leopard/Lion-runnable
 binaries at all, for any host, which is a fact worth having plainly rather
 than continuing to treat as an open toolchain-config question.
 
+## Follow-up 3: a separate PPC compile blocker, from old-mac-build-host (not independently re-verified here)
+
+Reported after this ADR's PPC findings above: any real g4/g5 source that
+includes `<sys/types.h>` (i.e. nearly everything) hits a hard compile
+failure on `machine/ansi.h` through this GCC14 build. Reported cause: the
+toolchain was bootstrapped against the Panther SDK, and GCC always searches
+its own `include-fixed` directory before an explicit `-isysroot`, so it
+silently pulls Panther's `sys/types.h` instead of the Tiger/Leopard one the
+build actually targets. Reported fix: `-nostdinc` plus an explicit
+`-isystem` list to skip `include-fixed` entirely, said to be verified for
+both g4 and g5 (not this port's own C code, general toolchain behavior; g3/
+Panther targets are unaffected since Panther's headers are the ones already
+baked in). Written up in old-mac-build-host's `docs/imac-2019.md` and
+quakespasm#37. Recorded here for completeness alongside this ADR's own two
+PPC blockers (`-arch ppc7400` unsupported, missing `crt1.10.5.o`) - not
+independently re-tested by this session, same as Follow-up 2's LC_MAIN
+report above.
+
 ## Decision
 
 **`imac-2019` is not wired into `scripts/build.sh` or `scripts/build-fat.sh`

@@ -42,7 +42,7 @@ in `docs/PROFILING.md`.
 
 | cvar | meaning |
 |---|---|
-| `com_maxfps` | fps cap (0 = uncapped). Classic Q3 physics is tuned to 125, and jump heights depend on fps - keep it consistent for benching. |
+| `com_maxfps` | fps cap (0 = uncapped). Classic Q3 physics is tuned to 125, and jump heights depend on fps - keep it consistent for benching. **Uncapped is also a real online-multiplayer bug on fast machines**: the client keeps only `CMD_BACKUP` (64) usercmds, and `CG_DrawDisconnect` (`cg_draw.c`) declares the link dead when the oldest one predates the server's last ack. Fast enough hardware wraps that ring faster than a real internet round trip and flashes "Connection Interrupted" (plus `MAX_PACKET_USERCMDS` console spam, broken movement) on a healthy connection - measured 2026-08-29 on imac-2019. `com_maxfps "125"` on any machine with no real fps ceiling (arm64, quad-g5, imac-2019, imac-g5); machines with a real hardware/vsync ceiling below that are unaffected. |
 | `r_swapInterval` | vsync. **Separate from `com_maxfps`** - `com_maxfps 0` does NOT defeat vsync. |
 | `cg_drawfps` | on-screen fps counter |
 | `cg_draw3dIcons` | **0 on the Rage 128.** The status bar draws three real MD3 models into HUD viewports (ammo/head/armor) and the Rage 128 renders them as garbage smudges. 0 gives a clean 2D-icon fallback, also faster. |

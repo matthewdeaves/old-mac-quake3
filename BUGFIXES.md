@@ -106,3 +106,17 @@ first. Not a changelog; routine work and refactors do not belong here.
   is false there, so every changed guard takes its original branch).
   Not yet done: a real hardware timedemo/launch proof of a GCC14-built
   binary, and a build-time comparison against `mini-intel` - see ADR 0020.
+- **2026-08-29** `imac-2019` and `imac-g5` shipped `com_maxfps "0"`
+  (uncapped) like every other machine tier, but unlike `arm64` and
+  `quad-g5` never got the fix those two tiers already carry for the same
+  bug: at high enough fps the client's `CMD_BACKUP` (64-slot) usercmd ring
+  wraps faster than a real internet round trip, so `CG_DrawDisconnect`
+  (`cg_draw.c`) declares a healthy connection dead - "Connection
+  Interrupted" icon, `MAX_PACKET_USERCMDS` console spam, and broken
+  movement, single player unaffected (loopback keeps pace fine). Reported
+  live (#40) on `imac-2019` against a real internet server; user confirmed
+  `/com_maxfps 125` in-console clears it immediately. Fixed at the source
+  (`com_maxfps "125"`, matching the arm64/quad-g5 configs exactly) for
+  `imac-2019`; applied the same fix to `imac-g5` as a preventive parity fix
+  (same "no fps floor" class of machine, not independently reproduced
+  there).

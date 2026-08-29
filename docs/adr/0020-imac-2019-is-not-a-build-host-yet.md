@@ -255,6 +255,38 @@ still no, but the actual remaining gap is now narrow and specific
 (Objective-C support in the GCC14 build) rather than an open-ended
 archaeology problem.
 
+## Follow-up 8: i386 fixed - a period-correct SDK, real build, real result
+
+Taken on separately from the g3/g4 ObjC gap (a toolchain rebuild, not this
+repo's fix to make) since it's a smaller, independent problem: `i386`'s
+`SDK=` is empty, defaulting to whatever frameworks the build host itself
+has - Sequoia's, on `imac-2019`, which is what produced Follow-up 6's
+`NSItemProvider` category error. Verified the actual mechanism first, not
+guessed: an isolated `clang -arch i386 -mmacosx-version-min=10.4` compile
+of `code/sys/sys_osx.m` alone reproduced the exact error against no
+`-isysroot`, and compiled clean against `-isysroot
+/Users/mini/SDKs/MacOSX10.4u.sdk` (already staged, no new file needed).
+
+Applied to `build.sh`'s `i386` case for `BUILD_HOST=imac-2019`, ran the
+**real, full** build, not just the one failing file: succeeds end to end,
+correct `i386` subtype, and (carrying the same `-Wl,-ld_classic` fix as
+`lion`, same `ld64`/`LC_MAIN` risk applies to any `-arch` this linker
+handles) `otool -l` confirms `LC_UNIXTHREAD`, not `LC_MAIN`. One `ld`
+warning worth naming rather than hiding: the compiler runtime helper
+(`libclang_rt.osx.a`'s `moddi3.S.o`, needed for 64-bit division on 32-bit
+x86) was itself built for a 10.7 floor, linked into a 10.4-floor binary -
+a static-archive object, not a runtime symbol lookup, so unlikely to
+matter, but not something this session could rule out for certain. No
+hardware pass possible for either claim: this repo has never had a
+32-bit-only Intel Mac in the fleet to test on, `BUILD_HOST=imac-2019` or
+otherwise - a pre-existing limitation of this slice generally, not new
+here.
+
+`i386` moves from "no" to "yes, to the same standard the slice has always
+been held to" (compiles clean, correct subtype, correct load command, no
+fleet hardware to go further than that). Committed to
+`scratch/imac-2019-altivec-fix`, not `master`.
+
 ## Decision
 
 **`imac-2019` is not wired into `scripts/build.sh` or `scripts/build-fat.sh`

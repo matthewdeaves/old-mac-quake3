@@ -168,10 +168,18 @@ case "$TARGET" in
     ARCH=x86;    CC=/usr/bin/clang
     SDK=;        VMIN=10.4; SUBTYPE=i386
     CPUFLAGS="-arch i386 -mmacosx-version-min=$VMIN -O3 -Qunused-arguments"
-    # scratch/imac-2019-altivec-fix: same LC_MAIN risk as lion above - ld64
-    # is the same binary regardless of -arch, so defensively apply the same
-    # fix here. NOT independently hardware-tested for i386 specifically.
-    [ "$BUILD_HOST" = "imac-2019" ] && CPUFLAGS="$CPUFLAGS -Wl,-ld_classic"
+    if [ "$BUILD_HOST" = "imac-2019" ]; then
+      # scratch/imac-2019-altivec-fix: MEASURED, real error without this -
+      # Sequoia's own system AppKit headers (SDK="" defaults to the host's
+      # own frameworks) fail to compile at all for i386/-mmacosx-version-
+      # min=10.4: "cannot define category for undefined class
+      # 'NSItemProvider'" (NSPreviewRepresentingActivityItem.h forward-
+      # declaration ordering) - a modern-SDK-generation/old-deployment-
+      # target incompatibility, unrelated to GCC14/PPC entirely (i386 uses
+      # system clang, same as lion). A period-correct staged SDK sidesteps
+      # it clean - compiles with zero errors. docs/adr/0020.
+      CPUFLAGS="$CPUFLAGS -isysroot /Users/mini/SDKs/MacOSX10.4u.sdk -Wl,-ld_classic"
+    fi
     true ;;
   arm64)
     echo "build.sh: arm64 cannot be built on a Lion mini (its Xcode 4.6" >&2

@@ -1,7 +1,8 @@
 # 20. imac-2019 is not a build host yet
 
 Date: 2026-08-28
-Status: accepted (negative result; revisit only with new evidence)
+Status: accepted, PPC (g3/g4) superseded 2026-08-29 - see Follow-up 7. i386/lion
+still an open negative result; revisit only with new evidence.
 
 ## Context
 
@@ -307,3 +308,61 @@ above. What is still untried: root-causing the actual early-crash mechanism
 something before or during dyld's own startup, not a straightforward missing
 symbol), and comparing against exactly what `mini-intel`/`mini-intel2` do
 differently at the toolchain level, not just the SDK level.
+
+## Follow-up 7: g3 and g4 now build and link clean end-to-end via imac-2019 (2026-08-29)
+
+New evidence this ADR's own reopening criteria asked for: old-mac-quakespasm#37
+independently proved the same GCC14/imac-2019 path end-to-end for their port
+(ptrdiff_t shim, `-fnext-runtime` against build-host's `~/gcc14-ppc-objc`
+toolchain install, correct cpusubtype+SDL linkage, real Mach-O output). That
+recipe transfers - same SDK, same toolchain, same class of header/runtime
+gaps - so it was worth a real retry here rather than treating Follow-up 6's
+"not today" as final without retesting against new tooling.
+
+Wired an opt-in `BUILD_HOST=imac-2019` path into `scripts/build.sh`'s `g3`
+and `g4` cases (Apple-toolchain path unchanged and still the default -
+nothing here alters an unpinned `build.sh`/`build-fat.sh` run). Three real,
+new blockers found and fixed on top of what quakespasm's recipe already
+covered - none of them present in quakespasm's own source, so genuinely new
+information for this port specifically:
+
+1. Seven files' AltiVec `#include <altivec.h>` guards assumed `MACOS_X`
+   means "Apple's real compiler, which exposes `vec_*` as bare compiler
+   built-ins." A first attempt gated that on `__APPLE_ALTIVEC__` too - wrong,
+   measured against a real build: this GCC14 cross-toolchain targets
+   `powerpc-apple-darwin8` and defines `__APPLE_ALTIVEC__`/`__APPLE_CC__`
+   itself for compatibility, so the guard still skipped the real header and
+   failed on `vec_splat_u32` etc. as implicitly declared. Fixed for real
+   with `__GNUC__ >= 5` (Apple never shipped a PowerPC gcc past the 4.x
+   line) - see BUGFIXES.md for the full file list.
+2. `q_platform.h`'s `VECCONST_UINT8` macro had the identical MACOS_X-means-
+   Apple assumption for which vector-literal syntax to emit. Same fix.
+3. `rend2/tr_bsp.c` passes a `uint32_t*` where the bundled
+   `SDL_opengl.h`'s own `typedef unsigned long GLuint` wants a `GLuint*` -
+   same 4-byte type on this 32-bit target, but GCC14 makes this class of
+   pointer mismatch a hard error by default where Apple's gcc-4.0.1 only
+   warned. Flag-only fix (`-Wno-error=incompatible-pointer-types`, GCC14
+   path only), no source change.
+
+Verified, not just compiled: `lipo -info` confirms `ppc750` on the g3
+output and `ppc7400` on g4, both via `BUILD_HOST=imac-2019
+scripts/build.sh <g3|g4>`. Also regression-built g4 on the real production
+toolchain (`mini-intel`, Apple gcc-4.0.1) after all seven source changes -
+clean, unaffected, exactly as expected (`__GNUC__ >= 5` is false there, so
+every changed guard takes its original, unchanged branch).
+
+pick-build-host.sh's OS check (`classify()`) was hardcoded to accept only
+`10.7*`, so even an explicit `--acquire-host imac-2019` was refused as
+wrong-os regardless of `BUILD_HOSTS`. Routed around it this session via
+`pick-bench-host.sh --run` + `BUILD_HOST_PRECLAIMED=1`; build-host has since
+synced a host-aware fix (buildhost#48, `expect_os()`), so that workaround
+should no longer be needed.
+
+**Not done here**: no real-hardware timedemo/launch proof of a GCC14-built
+binary (compile+link success is not the same claim - same caveat
+quakespasm's own writeup flagged for their port), and no build-time
+comparison against `mini-intel` to say whether imac-2019 is actually
+faster. i386/lion on imac-2019 (Follow-up 6's other two negative results)
+not retried - unrelated toolchain, no new evidence for those two. Whether
+to actually flip `build.sh`'s default BUILD_HOST, or wire this into
+`build-fat.sh`, is a separate decision from "can it build" - not made here.

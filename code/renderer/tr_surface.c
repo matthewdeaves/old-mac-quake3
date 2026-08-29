@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 // tr_surf.c
 #include "tr_local.h"
-#if idppc_altivec && !defined(MACOS_X)
+#if idppc_altivec && (!defined(MACOS_X) || __GNUC__ >= 5)  // non-Apple GCC on MACOS_X, e.g. GCC14: see snd_mix.c (#39)
 #include <altivec.h>
 #endif
 

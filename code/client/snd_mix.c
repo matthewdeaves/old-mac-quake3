@@ -23,7 +23,16 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "client.h"
 #include "snd_local.h"
-#if idppc_altivec && (!defined(MACOS_X) || !defined(__APPLE_ALTIVEC__))
+// __APPLE_ALTIVEC__ is NOT a reliable "this is really Apple's compiler" test
+// (measured 2026-08-29, #39): the imac-2019 GCC14 cross-toolchain targets
+// powerpc-apple-darwin8 and defines __APPLE_ALTIVEC__/__APPLE_CC__ itself for
+// Apple compatibility, so that guard alone still skips the include and fails
+// with "implicit declaration of vec_splat_u32" etc. __GNUC__ is the real
+// signal: Apple never shipped a PowerPC gcc past the 4.x line, so any GCC
+// claiming __GNUC__ >= 5 while targeting MACOS_X is a non-Apple build (this
+// GCC14 cross-compiler) and needs the real header, bare-builtin behavior or
+// not.
+#if idppc_altivec && (!defined(MACOS_X) || __GNUC__ >= 5)
 #include <altivec.h>
 #endif
 

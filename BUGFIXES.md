@@ -77,13 +77,32 @@ first. Not a changelog; routine work and refactors do not belong here.
   upstream c8c7bb1d); skin Hunk_Alloc took sizeof(pointer) not
   sizeof(struct) at two sites (a5fbc1bf); PNG tRNS length check could
   never fire, `(!x) == 2` (fda03ee4).
-- **2026-08-29** `snd_mix.c`'s AltiVec include guard skipped
-  `<altivec.h>` on any `MACOS_X` build (#39), which only works because
-  Apple's gcc-4.0.1 exposes `vec_*` as bare compiler built-ins under
-  `-faltivec`. A non-Apple GCC (e.g. GCC14 on `imac-2019`) defines none
-  of those without the real header, so the guard now also checks
-  `__APPLE_ALTIVEC__` (Apple-only macro) before skipping the include.
-  Inert under the current build (Apple gcc-4.0.1 always defines
-  `__APPLE_ALTIVEC__` under `-faltivec`, so the macro truth table is
-  unchanged there); only matters if/when a non-Apple PPC toolchain is
-  wired in.
+- **2026-08-29** Seven files' AltiVec include guards (`snd_mix.c`,
+  `renderer/tr_shade.c`, `renderer/tr_shade_calc.c`, `renderer/tr_surface.c`,
+  `rend2/` copies of the same three) skipped `<altivec.h>` on any `MACOS_X`
+  build (#39), which only works because Apple's gcc-4.0.1 exposes `vec_*` as
+  bare compiler built-ins under `-faltivec`. First attempt gated the skip on
+  `__APPLE_ALTIVEC__` too (Apple-only macro) - measured wrong against a real
+  build: the imac-2019 GCC14 cross-toolchain targets
+  `powerpc-apple-darwin8` and defines `__APPLE_ALTIVEC__`/`__APPLE_CC__`
+  itself for compatibility, so that guard still skipped the include and
+  failed with "implicit declaration of vec_splat_u32" etc. Real
+  discriminator is `__GNUC__`: Apple never shipped a PowerPC gcc past 4.x,
+  so `__GNUC__ >= 5` on a `MACOS_X` build is always a non-Apple compiler.
+  `q_platform.h`'s `VECCONST_UINT8` macro had the identical MACOS_X-assumes-
+  Apple bug (Apple's parenthesized vector-literal syntax vs. the standard
+  braced compound-literal one) and got the same fix.
+  Also hit and fixed: `rend2/tr_bsp.c` passes a `uint32_t*` where
+  `code/SDL12/include/SDL_opengl.h`'s own `typedef unsigned long GLuint`
+  wants a `GLuint*` - same 4-byte type on this 32-bit target either way,
+  but GCC14 makes this class of mismatch a hard error by default where
+  Apple's gcc-4.0.1 only warned (`-Wno-error=incompatible-pointer-types`
+  added to the GCC14 build path only, no source change).
+  End result: `scripts/build.sh g3` and `g4` now build and link clean
+  end-to-end via `imac-2019`'s GCC14 (opt-in, `BUILD_HOST=imac-2019`) -
+  correct `ppc750`/`ppc7400` cpusubtype confirmed via `lipo` on both. Also
+  regression-built g4 on the real production toolchain (`mini-intel`,
+  Apple gcc-4.0.1) after these changes - clean, unaffected (`__GNUC__ >= 5`
+  is false there, so every changed guard takes its original branch).
+  Not yet done: a real hardware timedemo/launch proof of a GCC14-built
+  binary, and a build-time comparison against `mini-intel` - see ADR 0020.

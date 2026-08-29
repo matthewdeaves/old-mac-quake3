@@ -46,7 +46,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define idppc 1
 #if defined(__VEC__)
 #define idppc_altivec 1
-#ifdef MACOS_X  // Apple's GCC does this differently than the FSF.
+// Apple's real gcc (4.x, MACOS_X, __GNUC__ < 5) accepts its own parenthesized
+// vector-literal extension; a non-Apple GCC targeting MACOS_X (__GNUC__ >= 5,
+// e.g. the imac-2019 GCC14 cross-toolchain, #39) needs the standard braced
+// compound-literal syntax instead - same MACOS_X-isn't-really-Apple lesson as
+// the altivec.h include guard above snd_mix.c's includes.
+#if defined(MACOS_X) && __GNUC__ < 5
 #define VECCONST_UINT8(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p) \
 	(vector unsigned char) (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p)
 #else

@@ -74,24 +74,74 @@ flock -w 600 9 || { echo "build.sh: timed out waiting for $LOCK"; exit 1; }
 
 case "$TARGET" in
   g3)
-    ARCH=ppc;    CC=/usr/bin/gcc-4.0
-    SDK=/Developer/SDKs/MacOSX10.3.9.sdk; VMIN=10.3; SUBTYPE=ppc750
-    # -arch ppc750 stamps cpusubtype 9 AND leaves __ALTIVEC__ undefined, so no
-    # AltiVec instructions reach the 449 MHz G3 (which has no vector unit).
-    CPUFLAGS="-isysroot $SDK -arch ppc750 -mcpu=750 -mmacosx-version-min=$VMIN -O3" ;;
+    ARCH=ppc; SDK=/Developer/SDKs/MacOSX10.3.9.sdk; VMIN=10.3; SUBTYPE=ppc750
+    if [ "$BUILD_HOST" = "imac-2019" ]; then
+      # GCC14 cross-compiler path (#39, build-host). Apple's own gcc-4.0
+      # does not exist on Sequoia at all - this is a different toolchain,
+      # not just a different SDK path. Recipe proven end-to-end by
+      # old-mac-quakespasm#37 (same SDK, same toolchain install) before
+      # being adapted here; see scripts/gcc14-ptrdiff-compat.h for the
+      # ptrdiff_t shim this path needs and why.
+      #
+      # gcc14-ppc-objc, NOT gcc14-ppc: the plain toolchain has no cc1obj,
+      # so sys_osx.m / SDLMain.m cannot compile on it at all. Hardcoded
+      # /Users/mini, NOT $HOME: this string is expanded HERE on the
+      # orchestration host before being embedded in the remote ssh/make
+      # command below, not on imac-2019 itself.
+      CC14BASE="/Users/mini/gcc14-ppc-objc"
+      GCCINCBASE="$CC14BASE/lib/gcc/powerpc-apple-darwin8/14.2.0"
+      SDK="/Users/mini/SDKs/MacOSX10.3.9.sdk"
+      CC="$CC14BASE/bin/powerpc-apple-darwin8-gcc"
+      # -nostdinc + explicit -isystem order: without it GCC14's own
+      # fixincludes pulls a mismatched machine/ansi.h regardless of SDK.
+      # -fnext-runtime: this GCC defaults to the GNU ObjC runtime, which
+      # cannot talk to real Cocoa/Foundation; applies repo-wide via CFLAGS
+      # since ioquake3's Makefile has no separate OBJCFLAGS - harmless on
+      # the .c files it also touches.
+      # -Wno-error=incompatible-pointer-types: rend2 passes a uint32_t* where
+      # code/SDL12/include/SDL_opengl.h's own `typedef unsigned long GLuint`
+      # wants a GLuint* (tr_bsp.c R_MergeLeafSurfaces). Same 4-byte type on
+      # this 32-bit target either way - Apple's gcc-4.0 only ever warned on
+      # it; GCC14 makes this class of mismatch a hard error by default. Flag
+      # only, no source change - downgrades it back to a warning.
+      CPUFLAGS="-isysroot $SDK -arch ppc -mcpu=750 -mmacosx-version-min=$VMIN -O3 -nostdinc -isystem $GCCINCBASE/include -isystem $GCCINCBASE/../../../../powerpc-apple-darwin8/include -isystem $SDK/usr/include -iframework $SDK/System/Library/Frameworks -include scripts/gcc14-ptrdiff-compat.h -fnext-runtime -Wno-error=incompatible-pointer-types"
+    else
+      CC=/usr/bin/gcc-4.0
+      # -arch ppc750 stamps cpusubtype 9 AND leaves __ALTIVEC__ undefined,
+      # so no AltiVec instructions reach the 449 MHz G3 (no vector unit).
+      CPUFLAGS="-isysroot $SDK -arch ppc750 -mcpu=750 -mmacosx-version-min=$VMIN -O3"
+    fi ;;
   g4)
-    ARCH=ppc;    CC=/usr/bin/gcc-4.0
-    SDK=/Developer/SDKs/MacOSX10.3.9.sdk; VMIN=10.3; SUBTYPE=ppc7400
-    # -arch ppc7400 stamps cpusubtype 10 AND defines __ALTIVEC__; -faltivec
-    # enables the AltiVec ABI/codegen, -mtune=7450 schedules for the G4 line.
-    #
-    # 10.3.9 SDK at min 10.3, NOT 10.4u/min-10.4: dyld grades slices by CPU
-    # subtype alone, so a G4 on Panther is handed this slice with no fallback
-    # to the min-10.3 ppc750 one. A 10.4-built slice is simply dead there.
-    # AltiVec codegen is independent of the SDK, so this costs nothing on
-    # Tiger. -isystem is required because <altivec.h> is a *compiler* header
-    # and -isysroot hides it.
-    CPUFLAGS="-isysroot $SDK -arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=$VMIN -O3 -isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/include" ;;
+    ARCH=ppc; SDK=/Developer/SDKs/MacOSX10.3.9.sdk; VMIN=10.3; SUBTYPE=ppc7400
+    # 10.3.9 SDK at min 10.3, NOT 10.4u/min-10.4, on both toolchain paths:
+    # dyld grades slices by CPU subtype alone, so a G4 on Panther is handed
+    # this slice with no fallback to the min-10.3 ppc750 one. A 10.4-built
+    # slice is simply dead there. AltiVec codegen is independent of the SDK,
+    # so this costs nothing on Tiger.
+    if [ "$BUILD_HOST" = "imac-2019" ]; then
+      # GCC14 cross-compiler path (#39, build-host) - see the g3 case above
+      # for the ansi.h/ptrdiff_t/ObjC-runtime rationale, identical here
+      # since this is the same 10.3.9 SDK and same toolchain install. GCC14
+      # bundles its own altivec.h (found via -isystem $GCCINCBASE/include
+      # above); code/client/snd_mix.c's own include guard was fixed to
+      # actually pull it in on this path (df911b97).
+      #
+      # -maltivec -mabi=altivec, NOT -faltivec: FSF GCC's flag spelling,
+      # not Apple gcc's. cpusubtype is patched post-link below regardless
+      # of what -arch/-mcpu produces here, same as the Apple-toolchain path.
+      CC14BASE="/Users/mini/gcc14-ppc-objc"
+      GCCINCBASE="$CC14BASE/lib/gcc/powerpc-apple-darwin8/14.2.0"
+      SDK="/Users/mini/SDKs/MacOSX10.3.9.sdk"
+      CC="$CC14BASE/bin/powerpc-apple-darwin8-gcc"
+      CPUFLAGS="-isysroot $SDK -arch ppc -mcpu=7400 -maltivec -mabi=altivec -mmacosx-version-min=$VMIN -O3 -nostdinc -isystem $GCCINCBASE/include -isystem $GCCINCBASE/../../../../powerpc-apple-darwin8/include -isystem $SDK/usr/include -iframework $SDK/System/Library/Frameworks -include scripts/gcc14-ptrdiff-compat.h -fnext-runtime -Wno-error=incompatible-pointer-types"
+    else
+      CC=/usr/bin/gcc-4.0
+      # -arch ppc7400 stamps cpusubtype 10 AND defines __ALTIVEC__; -faltivec
+      # enables the AltiVec ABI/codegen, -mtune=7450 schedules for the G4 line.
+      # -isystem is required because <altivec.h> is a *compiler* header and
+      # -isysroot hides it.
+      CPUFLAGS="-isysroot $SDK -arch ppc7400 -mcpu=7400 -faltivec -mtune=7450 -mmacosx-version-min=$VMIN -O3 -isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/include"
+    fi ;;
   lion)
     ARCH=x86_64; CC=/usr/bin/clang
     SDK=;        VMIN=10.6; SUBTYPE=x86_64

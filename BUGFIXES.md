@@ -77,3 +77,13 @@ first. Not a changelog; routine work and refactors do not belong here.
   upstream c8c7bb1d); skin Hunk_Alloc took sizeof(pointer) not
   sizeof(struct) at two sites (a5fbc1bf); PNG tRNS length check could
   never fire, `(!x) == 2` (fda03ee4).
+- **2026-08-29** `snd_mix.c`'s AltiVec include guard skipped
+  `<altivec.h>` on any `MACOS_X` build (#39), which only works because
+  Apple's gcc-4.0.1 exposes `vec_*` as bare compiler built-ins under
+  `-faltivec`. A non-Apple GCC (e.g. GCC14 on `imac-2019`) defines none
+  of those without the real header, so the guard now also checks
+  `__APPLE_ALTIVEC__` (Apple-only macro) before skipping the include.
+  Inert under the current build (Apple gcc-4.0.1 always defines
+  `__APPLE_ALTIVEC__` under `-faltivec`, so the macro truth table is
+  unchanged there); only matters if/when a non-Apple PPC toolchain is
+  wired in.

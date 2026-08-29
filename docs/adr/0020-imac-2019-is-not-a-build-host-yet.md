@@ -287,6 +287,21 @@ been held to" (compiles clean, correct subtype, correct load command, no
 fleet hardware to go further than that). Committed to
 `scratch/imac-2019-altivec-fix`, not `master`.
 
+## Follow-up 9: lion, hardware-verified for real - genuine PASS
+
+The one thing Follow-up 6 left open: the `imac-2019`-built `lion` binary
+(with `-Wl,-ld_classic` applied) had the right `LC_UNIXTHREAD` load command
+but no real-hardware run. `mini-intel2` freed up - ran it there for real,
+full engine, not a `hi.c`. **Genuine PASS**: loaded, `CL_InitCGame`, ran a
+complete `four` timedemo live (`1260 frames, 166.3 seconds, 7.6 fps`),
+clean `Client Shutdown`, SDL audio torn down properly. That 7.6 fps is not
+a new problem - it matches this specific machine's already-documented #30
+headless-display collapse exactly (no monitor attached), the same number
+every other build of this slice gets on `mini-intel2`. This is the
+definitive result Follow-up 6 was missing: `lion`, built on `imac-2019`
+with the `-Wl,-ld_classic` fix, is a real, working, hardware-verified
+binary, not just a correct load command.
+
 ## Decision
 
 **`imac-2019` is not wired into `scripts/build.sh` or `scripts/build-fat.sh`

@@ -3,6 +3,21 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-08-30** `code/rend2/tr_image_jpg.c`'s `R_JPGErrorExit` called
+  `ri.Error(ERR_FATAL, ...)` unconditionally on any libjpeg decode error (#41)
+  - no `setjmp`/`longjmp` recovery at all, unlike `code/renderer/tr_image_jpg.c`
+  (fixed for the classic renderer back in `40e10ce3`, #17). A bad/non-JPEG
+  levelshot would take the whole client down instead of failing that one
+  image load, same class of bug upstream's `d8fd07b6`/`e2503567` already fixed
+  for the classic renderer. Ported the identical setjmp-based recovery into
+  rend2's copy. Not the cause of the live crash reported in #41 (this port
+  never ships the rend2 binary - `USE_RENDERER_DLOPEN=0` statically links
+  classic opengl1 only, confirmed in `scripts/build.sh`/the Makefile's
+  `TARGETS` logic) - that crash traced to a stale client build plus one
+  bit-rotted texture in the user's own `pak0.pk3` (not this repo's data, fixed
+  by replacing the file from a known-good fleet copy). Logging this fix
+  because it is real and rend2 remains a shipped source path even if not the
+  active binary today.
 - **2026-08-28** `smoke-dmg.sh`/`bench.sh`/`safebench.sh` deleted
   `baseq3/qconsole.log` as pre-launch "clean slate" setup, destroying the
   previous run's evidence right when a crash/hang needs it (cross-port

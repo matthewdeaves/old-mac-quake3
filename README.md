@@ -184,6 +184,9 @@ status queries with about 32 times what it was asked for, so an open server can
 be used to reflect traffic at someone else. Quake III at least rate limits this
 itself, which the other three engines in this family do not.
 
+Hosting and running a dedicated server long-term (deployment, firewall setup,
+webadmin) is covered in a separate private repo, `retro-server-infra`, not here.
+
 ## Get the latest release
 
 Download the latest disk image from

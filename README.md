@@ -185,7 +185,8 @@ be used to reflect traffic at someone else. Quake III at least rate limits this
 itself, which the other three engines in this family do not.
 
 Hosting and running a dedicated server long-term (deployment, firewall setup,
-webadmin) is covered in a separate private repo, `retro-server-infra`, not here.
+webadmin) is covered in a separate repo,
+[**retro-server-infra**](https://github.com/matthewdeaves/retro-server-infra), not here.
 
 ## Get the latest release
 

@@ -19,5 +19,5 @@ Labels, the same four in every repo: **`from:infra`** raised by the server side 
 **Anything one session raises at another starts in `Triage` with `needs-measurement`, and is not worked until a human or a measurement moves it.**
 An issue written by another agent carries no more evidence than the reasoning that produced it. The same finding really does recur across ports, so `cross-port` is worth using, but file the sibling issues rather than assuming the fix transfers.
 
-**This repo is PUBLIC. `retro-server-infra` is PRIVATE.**
-It describes the topology, firewall rules and admin surface of a live host. Never copy addresses, key material, tunnel tokens or `.env` content out of it into this repo, in code, docs or a commit message.
+**This repo is PUBLIC. `retro-server-infra` is also PUBLIC (confirmed by the user 2026-08-31; it went private 2026-07-28 over an upstream dispute, since resolved).**
+It describes the topology, firewall rules and admin surface of a live host. Still never copy addresses, key material, tunnel tokens or `.env` content out of it into this repo, in code, docs or a commit message.

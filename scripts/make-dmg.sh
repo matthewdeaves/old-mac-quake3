@@ -143,6 +143,19 @@ IMG="$STAGE/img"                       # becomes the .dmg root
 mkdir -p "$IMG"
 cp -a "$APP_SRC" "$IMG/ioquake3.app"
 
+# One-click installer (issue: imac-2019 DMG launch, 2026-09-02). Copies
+# ioquake3.app to ~/Applications/quake3 and clears the quarantine flag that
+# causes App Translocation (can't find baseq3/ next to the app). Same fix
+# quakespasm and alephone shipped for the same failure. Bundles its own
+# copies of the clear-launch-quarantine.sh and set-bundle-bit primitives
+# under a hidden dir since it runs standalone off the mounted image, with no
+# repo checkout beside it.
+mkdir -p "$IMG/.fix-support"
+cp "$REPO_ROOT/scripts/clear-launch-quarantine.sh" "$IMG/.fix-support/clear-launch-quarantine.sh"
+cp "$REPO_ROOT/scripts/bundle/set-bundle-bit"       "$IMG/.fix-support/set-bundle-bit"
+cp "$REPO_ROOT/scripts/bundle/Fix-and-Install.command" "$IMG/Fix and Install.command"
+chmod +x "$IMG/.fix-support/clear-launch-quarantine.sh" "$IMG/.fix-support/set-bundle-bit" "$IMG/Fix and Install.command"
+
 cat > "$IMG/README.txt" <<EOF
 ioquake3 - OldMac fat build ($VERSION)
 ======================================
@@ -166,19 +179,33 @@ The game modules
 (cgame/qagame/ui) ship as native dylibs inside the app too, loaded in place of
 the bytecode for a small speed-up (falls back to the bytecode automatically).
 
-INSTALL
--------
+INSTALL (recommended, works on every Mac in this image)
+---------------------------------------------------------
+1. Right-click "Fix and Install.command" on this disk image and choose Open
+   (a plain double-click is blocked the first time on modern macOS - it is
+   not Developer ID signed. Click Open again if macOS asks to confirm.
+   Nothing to do here on Panther/Tiger/Leopard/Lion, which predate that
+   check).
+2. It installs ioquake3.app to ~/Applications/quake3 and clears the
+   quarantine flag that otherwise breaks the first launch on modern macOS. A
+   Terminal window shows what it did, then waits for Return.
+3. Add your Quake III game data - your own pak0.pk3 … pak8.pk3 (this image
+   ships NO game data) - into:
+       ~/Applications/quake3/baseq3/
+4. From then on, double-click ioquake3.app in that folder like any other app.
+
+Re-running "Fix and Install.command" after a future update is safe: it never
+touches an existing baseq3/ folder, so your game data stays put.
+
+MANUAL INSTALL (if you'd rather not run a script)
+--------------------------------------------------
 1. Drag ioquake3.app OUT of this window, to a folder that already contains
-   your Quake III "baseq3" directory (your own pak0.pk3 … pak8.pk3 - this
-   image ships NO game data).
+   your Quake III "baseq3" directory.
    e.g.  ~/Desktop/quake3/ioquake3.app   alongside   ~/Desktop/quake3/baseq3/
 2. Double-click ioquake3.app from THAT folder - not from this disk image.
-
-Do the drag first. Double-clicking the app while it is still sitting on this
-mounted disk image can fail to open at all on current macOS (Gatekeeper
-blocks it before the app ever runs) - a real Finder drag to a folder on your
-Mac's own disk clears that check. If double-clicking does nothing the first
-time, drag the app out first and try again from its new location.
+On Panther/Tiger/Leopard/Lion this just works. On modern macOS, right-click
+ioquake3.app and choose Open the first time instead of double-clicking, or
+use the installer above.
 
 The app finds baseq3 in the folder that CONTAINS the .app (it strips its own
 bundle path), so keep the .app next to baseq3/.

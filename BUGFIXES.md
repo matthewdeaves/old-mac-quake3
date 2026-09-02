@@ -3,6 +3,24 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-09-02** DMG install could App-Translocate on modern macOS. The
+  README's only fix was "run `xattr -dr com.apple.quarantine` by hand" -- not
+  a fix per CLAUDE.md ("Quarantine fix must be tooling, not a human step").
+  `scripts/clear-launch-quarantine.sh` already existed in this repo (synced
+  from old-mac-build-host) but was never called by `make-dmg.sh` or
+  `deploy-dmg.sh` -- dead tooling. quakespasm and alephone hit and fixed the
+  identical failure on `imac-2019` the same day. Shipped the actual fix:
+  `scripts/bundle/Fix-and-Install.command`, now bundled on every DMG from
+  `make-dmg.sh`, that a user right-click-Opens once -- it installs to
+  `~/Applications/quake3`, sets the Finder bundle bit
+  (`scripts/bundle/set-bundle-bit`, Panther/Tiger only need it, no-op
+  elsewhere), and clears quarantine. All three steps are safe no-ops on
+  Panther/Tiger/Leopard/Lion, which predate Gatekeeper/quarantine/App
+  Translocation entirely, so the one script covers the whole fleet (G3/G4/G5
+  PowerPC through Apple Silicon) rather than needing a PPC-only manual path.
+  README.md and the in-DMG README.txt both lead with it now; the old manual
+  `xattr` instruction is now the documented fallback for a device data
+  drag-install, not the primary path.
 - **2026-08-30** `code/rend2/tr_image_jpg.c`'s `R_JPGErrorExit` called
   `ri.Error(ERR_FATAL, ...)` unconditionally on any libjpeg decode error (#41)
   - no `setjmp`/`longjmp` recovery at all, unlike `code/renderer/tr_image_jpg.c`

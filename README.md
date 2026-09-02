@@ -195,15 +195,19 @@ Download the latest disk image from
 (`ioquake3-OldMac-<version>.dmg`), one image runs on Panther, Tiger, Lion and
 modern macOS.
 
-Open the `.dmg`. On modern macOS, right-click **`Fix and Install.command`**
-and choose Open (once -- this app isn't Developer ID signed, so an unsigned
-script needs one right-click-Open bypass the first time instead of a plain
-double-click). It installs `ioquake3.app` to `~/Applications/quake3` and
-clears the quarantine flag that otherwise breaks the first launch -- see
-"Where to put it" below for why that flag matters. Game data (`baseq3`
-`.pk3` files) is **not** included, you need your own copy of Quake III
-Arena -- add your `pak0.pk3` … `pak8.pk3` into that same folder's `baseq3/`,
-then double-click `ioquake3.app` from there like any other app.
+Open the `.dmg`, then drag everything out of that window -- `ioquake3.app`,
+`Fix Launch Problems.command`, and the `fix-support` folder -- together to
+wherever you want the game to live (an empty folder is easiest, e.g.
+`~/Applications/quake3`). On modern macOS, right-click
+**`Fix Launch Problems.command`** there and choose Open (once -- this app
+isn't Developer ID signed, so an unsigned script needs one right-click-Open
+bypass the first time instead of a plain double-click). It clears the
+quarantine flag that otherwise breaks the first launch, right where you put
+it -- it does not move or copy anything for you -- see "Where to put it"
+below for why that flag matters. Game data (`baseq3` `.pk3` files) is **not**
+included, you need your own copy of Quake III Arena -- add your `pak0.pk3`
+… `pak8.pk3` into that same folder's `baseq3/`, then double-click
+`ioquake3.app` from there like any other app.
 
 Panther/Tiger/Leopard/Lion predate Gatekeeper and quarantine entirely --
 just drag `ioquake3.app` into a folder anywhere (e.g. `~/Desktop/quake3/`)
@@ -218,9 +222,9 @@ Same machines, same tooling, older id engines:
 
 ### Where to put it on Apple Silicon and modern macOS
 
-Put the game folder in **`/Applications`** (or `~/Applications` -- what
-`Fix and Install.command` uses by default, no admin password needed), not on
-the Desktop.
+Put the game folder in **`/Applications`** (or `~/Applications`, no admin
+password needed -- wherever you drag it to when you run
+`Fix Launch Problems.command`, see above), not on the Desktop.
 
 macOS asks an app for permission before it may read files in Desktop, Documents
 or Downloads, and it asks **every launch** for an app it cannot identify
@@ -230,8 +234,9 @@ folder without being interrupted.
 
 A quarantined app also gets **App Translocation** wherever it lives: macOS
 runs it from a random, sandboxed copy instead of its real folder, so it can't
-see `baseq3/` next to it at all. `Fix and Install.command` clears the
-quarantine flag for you; doing it by hand is:
+see `baseq3/` next to it at all. `Fix Launch Problems.command` clears the
+quarantine flag for you, in place, wherever you dragged the app; doing it by
+hand is:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/<folder>

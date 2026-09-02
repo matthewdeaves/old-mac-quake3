@@ -3,6 +3,60 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-09-02** `Fix Launch Problems.command`'s local-disk-copy fix (below)
+  was not actually sufficient for `set-bundle-bit`. Caught before shipping
+  by re-testing the fix-in-place rework against a copy carrying real
+  `com.apple.quarantine` xattrs end to end (not the DMG-volume scenario
+  alone): after copying the helpers to `$STAGE` per the fix below,
+  `set-bundle-bit` still got silently SIGKILLed running from there --
+  `clear-launch-quarantine.sh` (a script, interpreted by the Apple-signed
+  `/bin/sh`) did not. Different mechanism: the volume-level
+  `AppleSystemPolicy` block documented below is specific to code executing
+  off a translocated/quarantined DMG volume; this is the ordinary
+  per-binary Gatekeeper code-signature check, which fires on any `execve`
+  of quarantined unsigned Mach-O regardless of which volume it is on.
+  Fix: `xattr -d com.apple.quarantine` on each file in `$STAGE` right after
+  copying it, before running it -- confirmed this alone is enough, no
+  ad-hoc signing needed. Only the throwaway `$STAGE` copies are touched,
+  never the shipped originals, so a re-run always starts clean.
+- **2026-09-02** `Fix and Install.command` copied `ioquake3.app` to
+  `~/Applications/quake3` instead of fixing it wherever the user actually
+  put it -- inconsistent with quakespasm and alephone, both reworked the
+  same day to fix-in-place (user drags the game where they want; the
+  command just clears quarantine/bundle-bit and re-registers there), and
+  not what the user asked for: "the command should come in the dmg to be
+  run in same folder as the fat binary etc." Renamed to
+  `Fix Launch Problems.command` and reworked: no more copy step, it now
+  operates on `ioquake3.app` next to itself (`$DIR`, not a hardcoded
+  `~/Applications/quake3`), and refuses early with a clear message if `$DIR`
+  is not writable (the app is still on the read-only mounted image and
+  needs dragging out first -- quarantine can't be cleared on a read-only
+  volume anyway, so this used to fail with a confusing `xattr` error
+  instead). `fix-support/` (the sidecar copies of
+  `clear-launch-quarantine.sh` and `set-bundle-bit`) is now shipped
+  VISIBLE, no leading dot -- it has to travel along with a plain
+  "drag everything out of this window" gesture, which a hidden dir would
+  silently miss. The local-disk-copy-before-exec trick from the fix below
+  is unchanged and still required regardless of copy-vs-in-place: the
+  SIGKILL is about the volume code executes FROM, not about where the app
+  ends up.
+- **2026-09-02** `Fix and Install.command` (shipped in v0.6.12, same day)
+  silently never cleared quarantine on a real browser-downloaded DMG. It ran
+  its two helper executables (`set-bundle-bit`, `clear-launch-quarantine.sh`)
+  straight off the mounted disk image. Found by actually reproducing the
+  install with a real GitHub-downloaded DMG (not a synthetic local test): both
+  helpers got silently SIGKILLed with zero output, confirmed via the unified
+  log (`kernel: (AppleSystemPolicy) ASP: Security policy would not allow
+  process: ..., /Volumes/.../.fix-support/clear-launch-quarantine.sh`). A real
+  browser download's mounted DMG volume is itself quarantined and read-only;
+  macOS silently kills any unsigned executable run directly from it, no
+  dialog, nothing to approve. The installed app was left still quarantined and
+  wouldn't launch, despite the script printing "Done." Fix: copy both helpers
+  to local disk (`$DEST/.fix-support/`) before running them - a plain `cp` off
+  that same quarantined volume is not subject to the block, only direct
+  execution from it is. My earlier "verified" claim for v0.6.12 was a
+  synthetic dry run (fake `.app`, no real quarantine xattr involved) and did
+  not catch this - only a real downloaded DMG does.
 - **2026-09-02** DMG install could App-Translocate on modern macOS. The
   README's only fix was "run `xattr -dr com.apple.quarantine` by hand" -- not
   a fix per CLAUDE.md ("Quarantine fix must be tooling, not a human step").

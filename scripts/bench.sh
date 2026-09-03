@@ -20,6 +20,17 @@
 # and the engine is launched with `+set com_archAutoexec 0`. Our cmdline +set
 # then owns res/timedemo outright.
 #
+# env: EXTRA_CVARS  optional cmdline cvar overrides spliced into the launch,
+#                    for an A/B leg against the same commit/machine/demo/res, e.g.
+#                      EXTRA_CVARS="+set r_ext_multisample 0" scripts/bench.sh ...
+#                    Recorded in results.csv's extra_cvars column and folded into
+#                    the raw log filename (see CVAR_TAG below) — old-mac-quake3#48,
+#                    same overwrite bug quakespasm's bench.sh already fixed:
+#                    without a tag, two same-day legs that differ only in
+#                    EXTRA_CVARS share one raw log filename and the second leg
+#                    silently clobbers the first leg's evidence while
+#                    results.csv still (mis)records both rows as correct.
+#
 set -euo pipefail
 
 MACHINE="${1:?usage: bench.sh <machine> <demo> <WxH> [runs]}"
@@ -63,6 +74,27 @@ case "$RES" in
      echo "  usage: $0 <machine> <demo> <WxH> [runs]  — runs is the FOURTH arg" >&2
      exit 2 ;;
 esac
+
+# REFUSE A COMMAND LINE THE ENGINE WILL SILENTLY TRUNCATE — same guard as
+# safebench.sh (see its comment for the full citation). Com_ParseCommandLine
+# (code/qcommon/common.c) splits on '+' into at most MAX_CONSOLE_LINES = 32
+# entries and silently drops the rest once it hits 32, with no message. Entry 0
+# is the binary path, so 31 '+' groups survive; the launch line below
+# contributes 12 fixed ones, leaving 19 for EXTRA_CVARS. Past that, the dropped
+# groups are the ones at the END — nextdemo/timedemo/demo — so the engine
+# launches, sits at the main menu, and this script just times out per run
+# looking like a hang, not an error.
+_EXTRA_PLUS=$(printf '%s' "${EXTRA_CVARS:-}" | tr -cd '+' | wc -c | tr -d ' ')
+_FIXED_PLUS=12
+_TOTAL_PLUS=$(( _FIXED_PLUS + _EXTRA_PLUS ))
+if [ "$_TOTAL_PLUS" -gt 31 ]; then
+  echo "bench.sh: REFUSING: command line has $_TOTAL_PLUS '+' groups ($_FIXED_PLUS fixed + $_EXTRA_PLUS in EXTRA_CVARS)." >&2
+  echo "  The engine keeps 31 (MAX_CONSOLE_LINES 32, code/qcommon/common.c) and drops" >&2
+  echo "  the rest of the line silently, including +demo, so timedemo never runs." >&2
+  echo "  Pass at most 19 '+' groups in EXTRA_CVARS, or set the rest in the machine's" >&2
+  echo "  baseq3/q3config.cfg before the run." >&2
+  exit 2
+fi
 
 W="${RES%x*}"; H="${RES#*x}"
 
@@ -195,12 +227,28 @@ trap bench_cleanup EXIT INT TERM
 ssh "$MACHINE" "cd $REMOTE_DIR && [ -f baseq3/autoexec.cfg ] && mv -f baseq3/autoexec.cfg baseq3/autoexec.cfg.bench-aside || true" 2>/dev/null || true
 
 # CSV header — atomic create (noclobber) so concurrent legs don't double-write.
-( set -C; echo "timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps" > "$CSV" ) 2>/dev/null || true
+( set -C; echo "timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps,extra_cvars" > "$CSV" ) 2>/dev/null || true
+
+# Tag the raw log with the cvars when this is an A/B leg — same pattern as
+# quakespasm/scripts/bench.sh (old-mac-quake3#48). Without it two legs that
+# differ only in EXTRA_CVARS share one filename and the second overwrites the
+# first leg's raw evidence, even though both rows land correctly in the CSV.
+# Cap the readable slug and append a hash of the FULL cvar string for
+# uniqueness — a long sweep can blow past the filesystem's 255-byte name limit.
+CVAR_TAG=""
+if [ -n "${EXTRA_CVARS:-}" ]; then
+  CVAR_SLUG="$(printf '%s' "$EXTRA_CVARS" | tr -cs 'A-Za-z0-9' '_' | sed 's/^_//; s/_$//')"
+  if [ "${#CVAR_SLUG}" -gt 60 ]; then
+    CVAR_HASH="$(printf '%s' "$EXTRA_CVARS" | shasum -a 256 | cut -c1-8)"
+    CVAR_SLUG="$(printf '%s' "$CVAR_SLUG" | cut -c1-60)_$CVAR_HASH"
+  fi
+  CVAR_TAG="_$CVAR_SLUG"
+fi
 
 declare -a FPS
 for ((r=1; r<=RUNS; r++)); do
   echo "==> [$MACHINE] $DEMO ${W}x${H} run $r/$RUNS (timeout ${TMO}s)"
-  LOG="$RAWDIR/${COMMIT}_${MACHINE}_${DEMO}_${RES}_run${r}.log"
+  LOG="$RAWDIR/${COMMIT}_${MACHINE}_${DEMO}_${RES}${CVAR_TAG}_run${r}.log"
   # cd/rm/launch carefully: only the engine goes to background (cd && X & would
   # background the whole chain). Integer sleeps only — Panther sleep is int-only.
   ssh "$MACHINE" "$ALIVE_FN
@@ -212,7 +260,7 @@ for ((r=1; r<=RUNS; r++)); do
     ./ioquake3-bench +set com_archAutoexec 0 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
       +set logfile 2 +set com_maxfps 0 +set r_fullscreen 1 \\
       +set r_mode -1 +set r_customwidth $W +set r_customheight $H \\
-      +set nextdemo quit +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &
+      ${EXTRA_CVARS:+$EXTRA_CVARS }+set nextdemo quit +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &
     # FIRST wait for the engine to actually come up. Polling 'has it exited yet?'
     # straight after backgrounding is a race: on a slower Mac the process has not
     # exec'd yet, the check finds nothing, and we would 'break' immediately and
@@ -293,7 +341,8 @@ median() {
 }
 MED="$(median)"
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-echo "$TS,$COMMIT,$MACHINE,$DEMO,$RES,${FPS[1]:-NA},${FPS[2]:-NA},${FPS[3]:-NA},$MED" >> "$CSV"
+EXTRA_CSV=$(printf '%s' "${EXTRA_CVARS:-}" | tr -d '"')
+echo "$TS,$COMMIT,$MACHINE,$DEMO,$RES,${FPS[1]:-NA},${FPS[2]:-NA},${FPS[3]:-NA},$MED,\"$EXTRA_CSV\"" >> "$CSV"
 echo "==> [$MACHINE] median ${MED} fps -> results.csv"
 
 # Belt-and-braces. MEASURED 2026-07-27: the LaunchServices corruption needs a

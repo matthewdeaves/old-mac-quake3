@@ -80,6 +80,32 @@ sudo cp /opt/quake3-server/baseq3/server.cfg /opt/quake3-server/server.cfg.mine
 
 Your pak files are untouched: the tarball contains no game content.
 
+## Server identity
+
+`sv_hostname`, `g_motd` and `g_password` in `server.cfg`, or live over rcon -
+all three take effect immediately, no `map_restart` needed.
+
+**`g_motd`** shows on a connecting player's loading/info screen and as the
+scoreboard title (`code/cgame/cg_info.c`, `cg_scoreboard.c`). Blank by
+default.
+
+**`g_password`** - a joining player must supply this to connect (checked in
+`code/game/g_client.c`). Existing connections are unaffected by a live
+change; only new joins are checked. Reserved slots
+(`sv_privateClients`/`sv_privatePassword`, above) bypass it.
+
+**`g_needpass`** is NOT something you set - it is a read-only status cvar
+(`CVAR_ROM`) the game code derives automatically from whether `g_password` is
+currently blank or not (`code/game/g_main.c`), and it is what the server
+browser / client connect screen actually reads to show "requires password".
+Setting it directly does nothing; set `g_password` instead and this follows.
+
+```
+rcon set sv_hostname "New name"
+rcon set g_motd "Reset Friday 20:00 UTC"
+rcon set g_password "letmein"     # or "" to remove it
+```
+
 ## Changing the map
 
 **From inside the game**, if `rconPassword` is set. On any client:

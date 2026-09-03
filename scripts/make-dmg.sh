@@ -188,11 +188,18 @@ INSTALL (recommended, works on every Mac in this image)
    game to live (an empty folder is easiest, e.g. ~/Applications/quake3).
 2. Right-click "Fix Launch Problems.command" there and choose Open (a plain
    double-click is blocked the first time on modern macOS - it is not
-   Developer ID signed. Click Open again if macOS asks to confirm. Nothing
-   to do here on Panther/Tiger/Leopard/Lion, which predate that check).
+   Developer ID signed. Click Open again if macOS asks to confirm).
+
+   On OS X 10.5-10.7 (Leopard, Snow Leopard, Lion) you do NOT need to run
+   this at all - those predate Gatekeeper and the quarantine flag entirely.
+   The script checks your OS version itself and just tells you so if you
+   run it anyway; either way, skip straight to step 4 there and just
+   double-click ioquake3.app once you've dragged it out.
 3. It clears the quarantine flag that otherwise breaks the first launch on
    modern macOS, right where you put it - it does not move or copy anything
-   for you. A Terminal window shows what it did, then waits for Return.
+   for you. (On Panther/Tiger it still sets the Finder bundle icon, a
+   separate old-Finder fix, unrelated to quarantine.) A Terminal window
+   shows what it did, then waits for Return.
 4. Add your Quake III game data - your own pak0.pk3 … pak8.pk3 (this image
    ships NO game data) - into the baseq3/ folder next to ioquake3.app.
 5. From then on, double-click ioquake3.app in that folder like any other app.

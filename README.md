@@ -209,9 +209,13 @@ included, you need your own copy of Quake III Arena -- add your `pak0.pk3`
 … `pak8.pk3` into that same folder's `baseq3/`, then double-click
 `ioquake3.app` from there like any other app.
 
-Panther/Tiger/Leopard/Lion predate Gatekeeper and quarantine entirely --
-just drag `ioquake3.app` into a folder anywhere (e.g. `~/Desktop/quake3/`)
-next to your own `baseq3/`, no script needed.
+OS X 10.5-10.7 (Leopard, Snow Leopard, Lion) predate Gatekeeper and
+quarantine entirely -- just drag `ioquake3.app` into a folder anywhere
+(e.g. `~/Desktop/quake3/`) next to your own `baseq3/`, no script needed
+(`Fix Launch Problems.command` checks the OS version itself and says so if
+you run it anyway). Panther/Tiger (10.3/10.4) can skip it too, but running
+it there still sets the Finder bundle icon -- a separate old-Finder fix,
+unrelated to quarantine.
 
 ## Sister projects
 

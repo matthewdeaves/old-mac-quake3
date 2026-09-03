@@ -21,11 +21,15 @@
 # must be tooling, not a human step"). This script IS that tooling.
 #
 # WORKS ON THE WHOLE FLEET (G3/G4/G5 PowerPC, Intel, Apple Silicon), not just
-# modern macOS: on Panther/Tiger/Leopard/Lion there is no Gatekeeper/quarantine
-# to clear at all, so clear-launch-quarantine.sh below finds nothing and says
-# so -- that is a normal outcome there, not an error. This script is plain
-# POSIX sh (no bashisms), the same dialect as clear-launch-quarantine.sh, so
-# it runs under every /bin/sh on the fleet from Panther forward.
+# modern macOS, but NOT uniformly: Leopard/Snow Leopard/Lion (10.5-10.7)
+# predate Gatekeeper/quarantine entirely and this script has genuinely
+# nothing to do there, so it checks the OS version below and says so
+# explicitly instead of silently running through no-op steps. Panther/Tiger
+# (10.3/10.4) are different: they still need the Finder bundle-icon fix
+# below (an old-Finder quirk, unrelated to quarantine), so they are NOT
+# skipped. This script is plain POSIX sh (no bashisms), the same dialect as
+# clear-launch-quarantine.sh, so it runs under every /bin/sh on the fleet
+# from Panther forward.
 #
 # You still have to get THIS script running once via right-click > Open (or
 # macOS says it "cannot be opened because it is from an unidentified
@@ -48,6 +52,32 @@ if [ ! -d "$APP" ]; then
 	printf 'Press Return to close this window...'; read -r _
 	exit 1
 fi
+
+# Leopard/Snow Leopard/Lion (10.5-10.7) predate Gatekeeper/quarantine
+# entirely -- this script has nothing to fix there, so say so explicitly
+# and exit rather than silently running no-op steps. Panther/Tiger
+# (10.3/10.4) are NOT included here: they still need the bundle-icon fix
+# below. If the OS version can't be determined at all, fall through and
+# run the real steps anyway -- an unnecessary no-op is a much smaller
+# problem than skipping a real fix on a guess.
+OS_VERSION=$(sw_vers -productVersion 2>/dev/null || true)
+OS_MAJOR=${OS_VERSION%%.*}
+case "$OS_MAJOR" in
+	10)
+		OS_MINOR=${OS_VERSION#*.}; OS_MINOR=${OS_MINOR%%.*}
+		case "$OS_MINOR" in
+			5|6|7)
+				echo "This Mac is running macOS $OS_VERSION, which predates"
+				echo "Gatekeeper and the quarantine flag entirely (introduced"
+				echo "in OS X 10.8 Mountain Lion). There is nothing here for"
+				echo "this script to fix -- just double-click ioquake3.app"
+				echo "directly, right where you put it."
+				printf 'Press Return to close this window...'; read -r _
+				exit 0
+				;;
+		esac
+		;;
+esac
 
 # If $DIR is not writable, ioquake3.app is still sitting on the mounted disk
 # image (read-only once it's a real released .dmg -- make-dmg.sh's hard rule

@@ -233,6 +233,57 @@ Untested here, real engineering work, and a genuine design question (does
 turning all of that on for baseq3 have side effects worth living with) -
 **not decided in this file.**
 
+## Match flow and moderation
+
+All plain `server.cfg` cvars or live over rcon, all unconditional
+(`code/game/g_main.c`/`g_cmds.c`/`g_team.c`/`g_svcmds.c`, `code/server/
+sv_ccmds.c` - none behind `#ifdef MISSIONPACK`, checked the same way as
+"Game types" above).
+
+**Warmup** - two separate cvars, not one:
+
+```
+set g_doWarmup 1    # 0/1, off by default: turns warmup on at all
+set g_warmup 20      # seconds, only matters if g_doWarmup is 1
+```
+
+The countdown does not start the instant you set these - it starts once
+enough players have actually joined (`code/game/g_main.c`), so "I turned it
+on and nothing happened" usually means the server is still waiting on
+players, not a broken setting.
+
+**Team balance:**
+
+```
+set g_teamAutoJoin 0        # 1: auto-assign new players to a team instead
+                             # of dropping them in as a spectator
+set g_teamForceBalance 0    # 1: caps the team size spread at 2
+```
+
+**`forceteam <player> <red|blue|spectator|free>`** - admin override, over
+rcon exactly like `addbot` (`code/game/g_svcmds.c`'s `ConsoleCommand`
+dispatches both the same way). **Not actually an unconditional override**:
+it calls the same `SetTeam()` a player's own team-change goes through
+(`code/game/g_cmds.c`), so with `g_teamForceBalance 1` set, `forceteam` can
+silently do nothing if the target team is already ahead by more than one
+player - confirmed by reading `SetTeam`, there is no admin bypass of that
+check. If a webadmin "force team" button needs to always work regardless of
+balance, that is not available today without a source change.
+
+```
+rcon forceteam Sarge red
+```
+
+**Kick (no ban)** - `kicknum <slot>` / `clientkick <slot>` (`clientkick` is
+the legacy name for the same command, `code/server/sv_ccmds.c`), immediate,
+survives no restart, unrelated to the "IP bans" section above. `rcon status`
+shows slot numbers.
+
+```
+rcon status
+rcon kicknum 3
+```
+
 ## Bots
 
 Worth remembering on a server that mostly has two people on it. Quake III ships

@@ -14,7 +14,7 @@
 | imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7 | x86_64 | modern reference |
 
 Build TARGET names (`g3`/`g4`/`lion`) are chip family plus SDK, not machines.
-The two Intel minis are interchangeable Macmini2,1 / 10.7.5 boxes. The read-only Q3 install lives at `mini-intel:/Users/mini/Games/ioquake3/`; staged copy is `mini-intel:~/Desktop/quake3/baseq3/`.
+The two Intel minis are interchangeable Macmini2,1 / 10.7.5 boxes. The read-only Q3 install lives at `mini-intel:/Users/mini/Games/ioquake3/`; staged copy is `mini-intel:~/quake3/baseq3/` (moved off `~/Desktop/` 2026-09-04, old-mac-quake3#49 — TCC blocks headless reads there).
 
 ## Hardware that can be wedged or damaged
 Read `docs/adr/0009` before benching anything.

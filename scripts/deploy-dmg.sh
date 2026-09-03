@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
-# Install the release DMG onto a target Mac *exactly the way an end user would*:
-# copy the .dmg to the Desktop, mount it, copy ioquake3.app into
-# ~/Desktop/quake3/, then unmount. This is deliberately the DMG path (not
-# deploy.sh's direct rsync) so the test loop exercises the same artifact and the
-# same install steps a human performs (where the Q2 port's corrupt-DMG bug hid).
+# Install the release DMG onto a target Mac *approximating* the way an end user
+# would: copy the .dmg to the Desktop (a real user's download location), mount
+# it, copy ioquake3.app into ~/quake3/, then unmount. This is deliberately the
+# DMG path (not deploy.sh's direct rsync) so the test loop exercises the same
+# artifact and the same install steps a human performs (where the Q2 port's
+# corrupt-DMG bug hid).
+#
+# INSTALL DIR IS NOT ~/Desktop/quake3 (old-mac-quake3#49, measured 2026-09-04):
+# ~/Desktop is one of macOS's TCC-protected special folders (Desktop/Documents/
+# Downloads, since Mojave). A headless/ssh-driven launch has nobody to answer
+# the one-time consent dialog, so TCC silently denies the ad-hoc-signed engine
+# read access to its own baseq3/ with NOTHING written to qconsole.log — this
+# bit imac-2019 outright. ~/quake3 is not a protected folder, so this is a
+# real fix, not a workaround: it removes the wall entirely rather than routing
+# around a permission that would still trip up an unattended real install.
+# The .dmg file ITSELF still lands on the real Desktop below (that's Apple's
+# own hdiutil/cp doing the reading, not our ad-hoc binary, and is not gated).
 #
 # usage: scripts/deploy-dmg.sh <machine> [version]
 #   machine: any bench-box ssh alias: yosemite[-tiger] | sawtooth | quicksilver | mini-g4 |
@@ -68,12 +80,12 @@ RMT_MD5=$(ssh "$HOST" "md5 'Desktop/$DMG_BASE' | awk '{print \$NF}'")
 [ "$LCL_MD5" = "$RMT_MD5" ] || { echo "[deploy-dmg $HOST] FATAL: scp corrupted the DMG ($LCL_MD5 != $RMT_MD5)" >&2; exit 1; }
 echo "[deploy-dmg $HOST] DMG on Desktop verified intact ($RMT_MD5)"
 
-echo "[deploy-dmg $HOST] mount + install ioquake3.app into ~/Desktop/quake3/ (preserving game data)"
+echo "[deploy-dmg $HOST] mount + install ioquake3.app into ~/quake3/ (preserving game data)"
 ssh "$HOST" bash -s "$DMG_BASE" <<'REMOTE_EOF'
 set -e
 DMG_BASE="$1"
 MNT="$HOME/ioq3install-mnt"
-DEST="$HOME/Desktop/quake3"
+DEST="$HOME/quake3"
 
 # fresh mountpoint — detach any stale attach, then rmdir (NEVER rm -rf a path
 # that might still be a mounted read-only volume).

@@ -119,7 +119,7 @@ for m in "${MACHINES[@]}"; do
 
   # 4a. the installed bundle is the version we think it is
   GOT=$(ssh -n -o ConnectTimeout=8 "$m" \
-    'f=~/Desktop/quake3/ioquake3.app/Contents/Info.plist; [ -f "$f" ] && grep -A1 CFBundleVersion "$f" | tail -1 | sed "s/.*<string>//;s|</string>.*||"' 2>/dev/null)
+    'f=~/quake3/ioquake3.app/Contents/Info.plist; [ -f "$f" ] && grep -A1 CFBundleVersion "$f" | tail -1 | sed "s/.*<string>//;s|</string>.*||"' 2>/dev/null)
   if [ "$GOT" = "$VERSION" ]; then
     pass "$m has $VERSION installed"
   else
@@ -127,7 +127,7 @@ for m in "${MACHINES[@]}"; do
   fi
 
   # 4b. no loose Mach-O called "ioquake3" beside the bundle (issue #10)
-  if ssh -n -o ConnectTimeout=8 "$m" 'test -f ~/Desktop/quake3/ioquake3' 2>/dev/null; then
+  if ssh -n -o ConnectTimeout=8 "$m" 'test -f ~/quake3/ioquake3' 2>/dev/null; then
     fail "$m still has a loose ./ioquake3 beside the .app (double-click footgun, issue #10)"
   else
     pass "$m install dir has no duplicate 'ioquake3'"

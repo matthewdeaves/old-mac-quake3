@@ -13,7 +13,7 @@
 # last thing the log said, so a failed sweep row is still diagnosable.
 #
 # env:
-#   Q3DIR   game dir            (default $HOME/Desktop/quake3)
+#   Q3DIR   game dir            (default $HOME/quake3)
 #   Q3DEMO  demo name           (default four)
 #   Q3W/Q3H resolution          (default 800x600)
 #   Q3FS    1 = fullscreen      (default 0, windowed: a mode switch is the one
@@ -30,7 +30,7 @@
 #
 set -u
 
-Q3DIR="${Q3DIR:-$HOME/Desktop/quake3}"
+Q3DIR="${Q3DIR:-$HOME/quake3}"
 Q3DEMO="${Q3DEMO:-four}"
 Q3W="${Q3W:-800}"
 Q3H="${Q3H:-600}"

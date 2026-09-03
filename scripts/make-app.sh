@@ -8,8 +8,9 @@
 # scripts/bundle/set-bundle-bit.c).
 #
 # Data: ioquake3 on macOS derives fs_basepath via Sys_StripAppBundle(), i.e. the
-# directory CONTAINING the .app. So ~/Desktop/quake3/ioquake3.app finds the user's
-# baseq3 at ~/Desktop/quake3/baseq3 — that game data stays OUTSIDE the bundle.
+# directory CONTAINING the .app. So ~/Applications/quake3/ioquake3.app finds the
+# user's baseq3 at ~/Applications/quake3/baseq3 — that game data stays OUTSIDE
+# the bundle.
 #
 # The ONLY files we put inside the bundle's baseq3 are our own native game dylibs
 # (Contents/MacOS/baseq3/{cgame,qagame,ui}{ppc,x86_64}.dylib). On macOS that path

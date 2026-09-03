@@ -212,7 +212,7 @@ MANUAL INSTALL (if you'd rather not run a script)
 --------------------------------------------------
 1. Drag ioquake3.app OUT of this window, to a folder that already contains
    your Quake III "baseq3" directory.
-   e.g.  ~/Desktop/quake3/ioquake3.app   alongside   ~/Desktop/quake3/baseq3/
+   e.g.  ~/Applications/quake3/ioquake3.app   alongside   ~/Applications/quake3/baseq3/
 2. Double-click ioquake3.app from THAT folder - not from this disk image.
 On Panther/Tiger/Leopard/Lion this just works. On modern macOS, right-click
 ioquake3.app and choose Open the first time instead of double-clicking, or

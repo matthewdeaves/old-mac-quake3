@@ -398,3 +398,19 @@ compile+link, or even a clean launch at default flags, as sufficient: per
 quake2's finding, test `-O3` against `-O0` explicitly, on real G3/G4/G5
 hardware, before trusting this toolchain's output for anything beyond a
 compile-time smoke check.
+
+**Update 2026-09-03, relayed from quake2:** they since tested g3/`yosemite`
+(real hardware) at default flags (`-O2`/`-O3`) - clean, no crash through
+filesystem/config/sound init. Combined with their `-mcpu=970` crash, the
+bug now looks narrower than "GCC14's whole powerpc-apple-darwin8 backend at
+`-O2`+", closer to `-mcpu=970` specifically - which this repo never builds
+(no ppc970 slice, confirmed above). Worth revising the risk down for, but
+only for `-mcpu=750`: quake2's clean result is THEIR g3 binary, not a test
+of this repo's own GCC14 g3 output, and says nothing about `-mcpu=7400`
+either way - nobody has reported a real-hardware result, clean or crashing,
+at that specific `-mcpu` value, from any port, as of this writing. That is
+exactly the value G4 **and** G5 both run here (shared ppc7400 slice), so it
+is the one that actually matters most for this repo and it remains
+completely untested. Narrowed, not cleared - the "test `-O3` against `-O0`
+on real hardware before trusting this toolchain" recommendation above
+stands unchanged, especially for g4/ppc7400.

@@ -137,6 +137,48 @@ journalctl -u ioq3ded -f
 Rotation is handled in `server.cfg` by chaining `vstr` configs, the standard
 Quake III idiom because there is no maplist cvar.
 
+## IP bans
+
+Persistent, survive a restart, by IP/CIDR - not tied to a player name or
+Quake III account (there is no such thing on a standalone server, see the
+warning below). Backed by `sv_banFile` (`code/server/sv_ccmds.c`), default
+`serverbans.dat`, written to `baseq3/` next to `server.cfg` - same directory
+gotcha as everything else in "Install" above. Every add/remove writes the
+file immediately; nothing here needs an explicit save.
+
+```
+rcon banaddr 203.0.113.10          # ban one address
+rcon banaddr 203.0.113.0/24        # ban a subnet (CIDR)
+rcon banaddr 3                     # ban by client slot instead of address -
+                                    # resolves to that client's current IP
+rcon listbans                      # numbered list: Ban #1, Ban #2, Except #1 ...
+rcon bandel 2                      # delete by the number listbans showed you
+rcon bandel 203.0.113.10           # or delete by address directly
+rcon exceptaddr 203.0.113.10       # allowlist one address - wins over a
+                                    # broader ban that would otherwise match
+rcon exceptdel 1
+rcon flushbans                     # remove every ban AND exception
+rcon rehashbans                    # reload from serverbans.dat on disk,
+                                    # e.g. after hand-editing the file
+```
+
+`listbans`' numbering is per category (bans and exceptions numbered
+separately, starting at 1 each) and `bandel`/`exceptdel` expect that same
+per-category number - confirmed by reading `SV_DelBanFromList`, this is not
+a raw array index. A number past the end of its own category (but within
+the combined ban+exception count) is accepted with no error and silently
+bans nothing - give it a number `listbans` actually showed you.
+
+**Do not wire `banUser` or `banClient` into anything.** They exist
+(`code/server/sv_ccmds.c`) but resolve and contact id Software's original
+authorize server (`AUTHORIZE_SERVER_NAME`) to register the ban centrally -
+that server has been dead for years, so calling either hangs or fails
+outright. The names are easy to reach for by mistake: `kicknum` /
+`clientkick` (`code/server/sv_ccmds.c`) are the ordinary ban-free "remove
+this slot right now" commands, and `banaddr <clientnum>` (which resolves
+their current IP) is the persistent-ban equivalent that actually works
+standalone.
+
 ## Game types
 
 Set with `g_gametype` in `server.cfg`, or live with `rcon set g_gametype <n>`

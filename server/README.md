@@ -111,6 +111,60 @@ journalctl -u ioq3ded -f
 Rotation is handled in `server.cfg` by chaining `vstr` configs, the standard
 Quake III idiom because there is no maplist cvar.
 
+## Game types
+
+Set with `g_gametype` in `server.cfg`, or live with `rcon set g_gametype <n>`
+followed by `rcon map_restart` - a running match does not pick up a gametype
+change until the map (re)loads.
+
+| `g_gametype` | Name | Works on this server |
+|---|---|---|
+| 0 | Free For All | yes |
+| 1 | Tournament | yes |
+| 2 | Single Player | not for a dedicated server |
+| 3 | Team Deathmatch | yes |
+| 4 | Capture the Flag | yes |
+| 5 | One Flag CTF | **partially - see below** |
+| 6 | Overload | **no - see below** |
+| 7 | Harvester | **no - see below** |
+
+Values and names come straight from the engine
+(`code/game/bg_public.h`'s `gametype_t` enum, `code/game/g_cmds.c`'s
+`gameNames[]`), not guessed.
+
+**5-7 are NOT safe to enable yet, and it is more than a missing-map problem.**
+These three gametypes started in Quake III: Team Arena, a separate expansion.
+Upstream ioquake3 keeps their actual game logic behind `#ifdef MISSIONPACK` in
+`code/game/` - obelisk spawn/health/regen and the whole win condition for
+Overload (`code/game/g_team.c`, one guarded block alone runs lines 1201-1492),
+`TossClientCubes` for Harvester (`code/game/g_combat.c`), even the
+`g_obeliskHealth`/`g_obeliskRegenPeriod`/`g_obeliskRegenAmount`/
+`g_obeliskRespawnDelay`/`g_cubeTimeout` cvars themselves - the `vmCvar_t` and
+the `cvarTable_t` entry that registers each one are both inside the same
+`#ifdef` in `code/game/g_main.c`. This repo's baseq3 game module is built with
+`BASEGAME_CFLAGS`, not `MISSIONPACK_CFLAGS` (`Makefile`'s `DO_GAME_CC`), and
+ships `BUILD_MISSIONPACK=0` everywhere it sets it
+(`scripts/build-gamedylibs.sh`, `scripts/build-gamedylibs-arm64.sh`,
+`scripts/build-server-linux.sh`) - so none of that code is in the binary this
+repo ships. Confirmed by reading the actual guarded ranges, not assumed from
+upstream docs.
+
+What that means running today: the gametype **selects and displays** cleanly
+(menus, vote naming, the `CS_FLAGSTATUS` configstring plumbing for 1FCTF's
+flag status at `g_team.c` line ~219, which is NOT guarded) but Overload has no
+working obelisks at all, Harvester never drops cubes, and 1FCTF is missing at
+least its team-item pickup validation (`code/game/bg_misc.c` lines 1128-1144).
+Setting any of these on a live server produces a match that looks selectable
+but plays broken, not a working mode waiting on the right map.
+
+Making 5-7 real would mean building baseq3's game module with `-DMISSIONPACK`
+defined, which is not just an Overload/Harvester switch - the same guard also
+covers persistent powerups (Guard/Scout/Doubler/Ammo Regen), kamikaze, and
+other Team Arena holdables throughout `g_combat.c`/`g_items.c`/`bg_misc.c`.
+Untested here, real engineering work, and a genuine design question (does
+turning all of that on for baseq3 have side effects worth living with) -
+**not decided in this file.**
+
 ## Bots
 
 Worth remembering on a server that mostly has two people on it. Quake III ships

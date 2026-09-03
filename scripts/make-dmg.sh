@@ -325,6 +325,23 @@ while [ "$attempt" -lt 3 ]; do
   echo "[make-dmg] attempt $attempt/3: ship staged image to $DMG_HOST and run hdiutil"
   ssh "$DMG_HOST" "rm -rf '$REMOTE' && mkdir -p '$REMOTE'"
   rsync -a $RSYNC_EXTRA -e 'ssh -o ServerAliveInterval=15' "$IMG/" "$DMG_HOST:$REMOTE/img/"
+
+  # Set the Finder bundle-bit HERE, on $DMG_HOST, AFTER the rsync above, not
+  # locally before it. VERIFIED on real hardware 2026-09-03 that hdiutil
+  # create -srcfolder preserves HFS+ Finder-info metadata end to end, but
+  # measured the same day that plain `rsync -a` (this line, no -E/xattr
+  # support) does NOT -- setting the bit locally and rsyncing it over lost
+  # it before hdiutil ever saw it (confirmed: the shipped DMG's app came out
+  # with the bit unset despite the local build log saying "kHasBundle SET").
+  # Same root cause as why deploy-dmg.sh/deploy.sh already need their own
+  # post-transfer set-bundle-bit call. Running it here, remotely, right
+  # before hdiutil packages $REMOTE/img, is what actually survives into the
+  # shipped image -- uses the fix-support/set-bundle-bit copy that rsync
+  # just carried over as part of img/, no separate transfer needed. Not
+  # fatal: Fix Launch Problems.command's own runtime step is still the
+  # fallback if this ever silently does nothing.
+  ssh "$DMG_HOST" "'$REMOTE/img/fix-support/set-bundle-bit' '$REMOTE/img/ioquake3.app'" || true
+
   # UDZO = zlib-compressed read-only image; widest compatibility incl. Panther.
   ssh "$DMG_HOST" "rm -f '$REMOTE/out.dmg' && \
     hdiutil create -volname '$VOLNAME' -srcfolder '$REMOTE/img' \

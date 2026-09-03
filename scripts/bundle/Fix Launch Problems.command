@@ -22,12 +22,13 @@
 #
 # WORKS ON THE WHOLE FLEET (G3/G4/G5 PowerPC, Intel, Apple Silicon), not just
 # modern macOS, but NOT uniformly: Leopard/Snow Leopard/Lion (10.5-10.7)
-# predate Gatekeeper/quarantine entirely and this script has genuinely
-# nothing to do there, so it checks the OS version below and says so
-# explicitly instead of silently running through no-op steps. Panther/Tiger
-# (10.3/10.4) are different: they still need the Finder bundle-icon fix
-# below (an old-Finder quirk, unrelated to quarantine), so they are NOT
-# skipped. This script is plain POSIX sh (no bashisms), the same dialect as
+# predate Gatekeeper being on by default and this script's quarantine step
+# has genuinely nothing to do there (see the OS-version check below for the
+# researched, sourced reasoning, not just "predates quarantine" -- the xattr
+# itself is older than the enforcement is). Panther/Tiger (10.3/10.4) are
+# different: they still need the Finder bundle-icon fix below (an
+# old-Finder quirk, unrelated to quarantine), so they are NOT skipped. This
+# script is plain POSIX sh (no bashisms), the same dialect as
 # clear-launch-quarantine.sh, so it runs under every /bin/sh on the fleet
 # from Panther forward.
 #
@@ -53,13 +54,35 @@ if [ ! -d "$APP" ]; then
 	exit 1
 fi
 
-# Leopard/Snow Leopard/Lion (10.5-10.7) predate Gatekeeper/quarantine
-# entirely -- this script has nothing to fix there, so say so explicitly
-# and exit rather than silently running no-op steps. Panther/Tiger
-# (10.3/10.4) are NOT included here: they still need the bundle-icon fix
-# below. If the OS version can't be determined at all, fall through and
-# run the real steps anyway -- an unnecessary no-op is a much smaller
-# problem than skipping a real fix on a guess.
+# Leopard/Snow Leopard/Lion (10.5-10.7): this script's quarantine-clearing
+# step has nothing to fix here, so say so explicitly and exit rather than
+# silently running no-op steps. Panther/Tiger (10.3/10.4) are NOT included
+# here: they still need the bundle-icon fix below.
+#
+# The threshold is 10.8, not 10.5 or 10.12 -- checked, not guessed, after
+# two peer sessions relayed different numbers for different reasons.
+# Researched properly (2026-09-03): three separate things, three separate
+# dates. The com.apple.quarantine xattr itself exists since Leopard 10.5
+# (https://derflounder.wordpress.com/2012/11/20/clearing-the-quarantine-extended-attribute-from-downloaded-applications/)
+# but nothing enforces it by default until Gatekeeper turns on in Mountain
+# Lion 10.8. "App Translocation" specifically (silently running a
+# quarantined app from a random hidden copy) is much later still -- Sierra
+# 10.12 (https://eclecticlight.co/2023/05/09/what-causes-app-translocation/,
+# https://weblog.rogueamoeba.com/2016/06/29/sierra-and-gatekeeper-path-randomization/).
+# This script's own header describes App Translocation as the symptom, but
+# it is not the ONLY thing clearing quarantine here fixes: the SIGKILL this
+# script's fix-support helpers work around (see below) is Gatekeeper's
+# ordinary per-binary code-signature enforcement, not App-Translocation-
+# specific, and THAT starts at 10.8 same as the plain "unidentified
+# developer, cannot be opened" launch block does. So 10.8 is the right
+# threshold for "does clearing quarantine do anything useful here", even
+# though the original bug report that motivated this script was itself a
+# 10.12+ App Translocation case. Leopard/Snow Leopard (10.5/10.6) carry the
+# xattr but nothing checks it by default; Lion 10.7 got a Gatekeeper
+# preview but not on by default either. If the OS version can't be
+# determined at all, fall through and run the real steps anyway -- an
+# unnecessary no-op is a much smaller problem than skipping a real fix on
+# a guess.
 OS_VERSION=$(sw_vers -productVersion 2>/dev/null || true)
 OS_MAJOR=${OS_VERSION%%.*}
 case "$OS_MAJOR" in
@@ -67,11 +90,11 @@ case "$OS_MAJOR" in
 		OS_MINOR=${OS_VERSION#*.}; OS_MINOR=${OS_MINOR%%.*}
 		case "$OS_MINOR" in
 			5|6|7)
-				echo "This Mac is running macOS $OS_VERSION, which predates"
-				echo "Gatekeeper and the quarantine flag entirely (introduced"
-				echo "in OS X 10.8 Mountain Lion). There is nothing here for"
-				echo "this script to fix -- just double-click ioquake3.app"
-				echo "directly, right where you put it."
+				echo "This Mac is running macOS $OS_VERSION. Gatekeeper isn't"
+				echo "on by default here yet (that starts in OS X 10.8 Mountain"
+				echo "Lion), so there is nothing here for this script to fix --"
+				echo "just double-click ioquake3.app directly, right where you"
+				echo "put it."
 				printf 'Press Return to close this window...'; read -r _
 				exit 0
 				;;

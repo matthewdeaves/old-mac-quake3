@@ -191,10 +191,11 @@ INSTALL (recommended, works on every Mac in this image)
    Developer ID signed. Click Open again if macOS asks to confirm).
 
    On OS X 10.5-10.7 (Leopard, Snow Leopard, Lion) you do NOT need to run
-   this at all - those predate Gatekeeper and the quarantine flag entirely.
-   The script checks your OS version itself and just tells you so if you
-   run it anyway; either way, skip straight to step 4 there and just
-   double-click ioquake3.app once you've dragged it out.
+   this at all - Gatekeeper isn't on by default there yet (that starts in
+   OS X 10.8 Mountain Lion). The script checks your OS version itself and
+   just tells you so if you run it anyway; either way, skip straight to
+   step 4 there and just double-click ioquake3.app once you've dragged it
+   out.
 3. It clears the quarantine flag that otherwise breaks the first launch on
    modern macOS, right where you put it - it does not move or copy anything
    for you. (On Panther/Tiger it still sets the Finder bundle icon, a

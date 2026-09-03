@@ -284,6 +284,49 @@ rcon status
 rcon kicknum 3
 ```
 
+## Vote system
+
+**`g_allowVote`** is real and works as a simple on/off gate:
+
+```
+set g_allowVote 0    # 1 (default): players can call votes. 0: they can't.
+```
+
+**Everything past that gate is not what it looks like from outside the
+game, checked directly against the source rather than assumed:**
+
+**There is no admin veto.** Searched for one - nothing. `g_allowVote` is
+only checked when a vote is *called* (`Cmd_CallVote_f`,
+`code/game/g_cmds.c`); the resolution logic that counts yes/no and passes
+or fails a vote already in progress (`CheckVote`, `code/game/g_main.c`)
+never checks it again. Setting `g_allowVote 0` mid-vote stops the *next*
+vote from being called; it does not touch the one already running. There
+is no other command, cvar, or code path anywhere in `code/game/` or
+`code/server/` that cancels an in-progress vote early. The closest real
+lever is `rcon map_restart`, which resets the whole match (`level.voteTime`
+included) as a side effect - it works, but it is not a veto, it is
+restarting the game to get one.
+
+**Live vote state is not visible outside an actual connected game
+client.** `CS_VOTE_TIME`/`CS_VOTE_STRING`/`CS_VOTE_YES`/`CS_VOTE_NO`
+(`code/game/bg_public.h`) are real configstrings, set by `Cmd_CallVote_f`
+and updated by `CheckVote`, but configstrings are part of the client-server
+snapshot protocol - something that only exists once you are a connected
+player in the match. `rcon status` shows none of it (checked
+`SV_Status_f`, `code/server/sv_ccmds.c` - map name and per-client rows
+only), and Quake III's out-of-band `getstatus`/`getinfo` server-browser
+queries only return `CVAR_SERVERINFO`/`CVAR_SYSTEMINFO`-flagged cvars, not
+level-local state like an in-progress vote. A webadmin panel that talks
+rcon and OOB status queries (the pattern the rest of this doc uses) has no
+way to read "is a vote happening right now, and what is the tally" - doing
+that for real means implementing enough of the Q3 client protocol to join
+as a spectator and parse configstrings, a materially bigger integration
+than anything else in this file.
+
+**What is actually buildable today**: an on/off `g_allowVote` toggle.
+Nothing else in this section is - not decided here whether that alone is
+worth a webadmin feature on its own.
+
 ## Bots
 
 Worth remembering on a server that mostly has two people on it. Quake III ships

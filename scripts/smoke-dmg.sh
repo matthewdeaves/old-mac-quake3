@@ -55,7 +55,7 @@ DEMO="${2:-four}"
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must
 # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-REMOTE_DIR="~/quake3"
+REMOTE_DIR="~/quake3-play"
 
 case "$HOST" in
   yosemite|yosemite-tiger) TIMEOUT=300; COOLDOWN=5 ;;
@@ -398,7 +398,7 @@ fi
 
 # Pull the log and report.
 TMP=$(mktemp)
-scp -q "$HOST:quake3/baseq3/qconsole.log" "$TMP" 2>/dev/null || { echo "[smoke $HOST] FAIL: no qconsole.log (engine never wrote one)"; rm -f "$TMP"; exit 1; }
+scp -q "$HOST:quake3-play/baseq3/qconsole.log" "$TMP" 2>/dev/null || { echo "[smoke $HOST] FAIL: no qconsole.log (engine never wrote one)"; rm -f "$TMP"; exit 1; }
 
 FPS_LINE=$(grep -E 'frames.*seconds.*fps' "$TMP" 2>/dev/null | tail -1 || true)
 MODE_LINE=$(grep -iE 'GL_RENDERER|Initializing OpenGL|setting mode|MODE:' "$TMP" 2>/dev/null | tail -2 | tr '\n' ' ' || true)

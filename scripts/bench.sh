@@ -110,7 +110,7 @@ RAWDIR="${BENCH_RAW_DIR:-$PROJ_LOCAL/benchmarks/raw}"
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must
 # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-REMOTE_DIR="~/quake3"
+REMOTE_DIR="~/quake3-play"
 COMMIT="${COMMIT:-$(git -C "$PROJ_LOCAL" rev-parse --short HEAD)}"
 mkdir -p "$RAWDIR"
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # deploy.sh <machine> — ship the fat binary + per-machine config to a bench
-# Mac. Quake III runs from ~/quake3/ with baseq3/ alongside the
+# Mac. Quake III runs from ~/quake3-play/ with baseq3/ alongside the
 # binary (no .app needed for benching). Adapted from ~/quakespasm/scripts.
 #
 # Game data (baseq3/*.pk3) is NOT shipped by this script — it originates on
@@ -54,7 +54,7 @@ SBB="$BUNDLE/set-bundle-bit"     # fat (ppc+x86_64) Finder bundle-bit setter
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must
 # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-REMOTE_DIR="~/quake3"
+REMOTE_DIR="~/quake3-play"
 
 case "$MACHINE" in
   yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5) ;;
@@ -110,8 +110,8 @@ else
 fi
 
 # --- ioquake3.app bundle (icon + double-click play) ---------------------------
-# One fat-binary .app per machine. Sits at ~/quake3/ioquake3.app; ioquake3
-# strips the bundle path (Sys_StripAppBundle) so fs_basepath = ~/quake3,
+# One fat-binary .app per machine. Sits at ~/quake3-play/ioquake3.app; ioquake3
+# strips the bundle path (Sys_StripAppBundle) so fs_basepath = ~/quake3-play,
 # finding the baseq3/ alongside. The raw ./ioquake3-bench above is kept for bench.sh.
 "$HERE/make-app.sh" >/dev/null
 echo "==> [$MACHINE] ship ioquake3.app -> $REMOTE_DIR/ioquake3.app"

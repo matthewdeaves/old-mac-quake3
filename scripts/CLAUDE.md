@@ -63,9 +63,11 @@ they bite inside these scripts.
 - The `<demo>` argument is a real Q3 demo name (e.g. `four`), not `demo1/2/3`.
   Point-release `.dm_68` demos live in `pak8.pk3`.
 - `qconsole.log` lands under `fs_homepath`; `bench.sh` sets `fs_homepath=$PWD`
-  so it writes into `~/quake3/baseq3/` (moved off `~/Desktop/` 2026-09-04,
+  so it writes into `~/quake3-play/baseq3/` (moved off `~/Desktop/` 2026-09-04,
   old-mac-quake3#49 -- TCC silently denies a headless launch read access
-  there on modern macOS, with nothing written to qconsole.log).
+  there on modern macOS, with nothing written to qconsole.log. NOT plain
+  `~/quake3` -- that's the build-tree rsync target on mini-intel/mini-intel2,
+  see build-system.md).
 - `benchmarks/results.csv` is **rolling history** - never wipe it mid-round.
   `--reset` is the only wipe and backs up first.
 - `bench.sh` validates the resolution argument: `bench.sh <m> four 3` would

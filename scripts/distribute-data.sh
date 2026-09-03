@@ -2,12 +2,13 @@
 #
 # distribute-data.sh <machine> — copy the baseq3 game data (9 pk3s, ~482M) from
 # mini-intel (the only machine with Quake III installed) to a bench machine's
-# ~/quake3/baseq3/. Relays through a local cache because the PPC/old
+# ~/quake3-play/baseq3/. Relays through a local cache because the PPC/old
 # Macs are NOT in mini-intel's ssh config — only this orchestration host can
 # reach the whole fleet. Idempotent: rsync only ships missing/changed pk3s.
 #
 # NEVER touches the read-only install at mini-intel:/Users/mini/Games/ioquake3.
-# Source is the staged copy at mini-intel:~/quake3/baseq3/.
+# Source is the staged copy at mini-intel:~/quake3-play/baseq3/ (NOT plain
+# ~/quake3 — that's the build-tree checkout on this same host).
 #
 set -euo pipefail
 
@@ -42,13 +43,13 @@ SRC_HOST="${SRC_HOST:-mini-intel}"
 # shellcheck disable=SC2088
 # both tildes stay unexpanded on purpose: they
 # must resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-SRC_DIR="~/quake3/baseq3"
+SRC_DIR="~/quake3-play/baseq3"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 CACHE="$PROJ_LOCAL/build/baseq3-cache"        # gitignored (under build/)
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must resolve on the REMOTE host's
 # home, not this workstation's. See ci.yml.
-REMOTE_DIR="~/quake3/baseq3"
+REMOTE_DIR="~/quake3-play/baseq3"
 ONLY_PK3=(--include='*.pk3' --include='*.PK3' --exclude='*')
 
 case "$MACHINE" in

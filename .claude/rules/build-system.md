@@ -12,7 +12,7 @@ scripts/build-fat.sh                     # all three + lipo -> build/ioquake3-fa
 scripts/build-gamedylibs.sh              # the 6 native game dylibs
 scripts/make-app.sh                      # -> build/ioquake3.app
 scripts/make-dmg.sh [version]            # Tiger G4 ONLY, see hard rules
-scripts/deploy.sh <machine>              # fat binary + app + cfg -> ~/quake3/
+scripts/deploy.sh <machine>              # fat binary + app + cfg -> ~/quake3-play/
 scripts/deploy-dmg.sh <machine> [ver]    # install the DMG as a user would
 scripts/smoke-dmg.sh <machine>           # does the installed app actually run
 scripts/distribute-data.sh <machine>     # ship baseq3 pk3s from mini-intel

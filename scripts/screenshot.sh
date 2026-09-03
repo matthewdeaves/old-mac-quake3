@@ -55,7 +55,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must
 # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-REMOTE_DIR="~/quake3"
+REMOTE_DIR="~/quake3-play"
 
 case "$HOST" in
   yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|mini-intel|imac-2019) ;;
@@ -96,7 +96,7 @@ CFG=$(mktemp)
 
 echo "[shot $HOST] staging autoshot.cfg ($COUNT shots, demo=$DEMO)"
 ssh "$HOST" "mkdir -p $REMOTE_DIR/baseq3 && rm -rf $REMOTE_DIR/baseq3/screenshots && mkdir -p $REMOTE_DIR/baseq3/screenshots"
-scp -q "$CFG" "$HOST:quake3/baseq3/autoshot.cfg"
+scp -q "$CFG" "$HOST:quake3-play/baseq3/autoshot.cfg"
 rm -f "$CFG"
 
 echo "[shot $HOST] capturing (1024x768 fullscreen, timedemo)"
@@ -122,7 +122,7 @@ ssh "$HOST" "
 OUT="$REPO_ROOT/docs/screenshots"
 mkdir -p "$OUT"
 TMPD=$(mktemp -d); trap 'rm -rf "$TMPD"' EXIT
-scp -q "$HOST:quake3/baseq3/screenshots/*.jpg" "$TMPD/" 2>/dev/null || { echo "[shot $HOST] FAIL: no screenshots produced" >&2; exit 1; }
+scp -q "$HOST:quake3-play/baseq3/screenshots/*.jpg" "$TMPD/" 2>/dev/null || { echo "[shot $HOST] FAIL: no screenshots produced" >&2; exit 1; }
 
 n=0
 for f in $(ls "$TMPD"/*.jpg 2>/dev/null | sort); do

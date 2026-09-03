@@ -12,7 +12,7 @@ build-fat.sh                             # all three + lipo -> build/ioquake3-fa
 build-gamedylibs.sh                      # the 6 native game dylibs -> build/gamedylibs/
 make-app.sh                              # -> build/ioquake3.app
 make-dmg.sh [version]                    # -> dist/ioquake3-OldMac-<v>.dmg  (Tiger G4 only)
-deploy.sh <machine>                      # fat binary + app + cfg -> ~/quake3/
+deploy.sh <machine>                      # fat binary + app + cfg -> ~/quake3-play/
 deploy-dmg.sh <machine> [version]        # install the DMG the way a user does
 smoke-dmg.sh <machine> [demo]            # does the installed app actually run
 distribute-data.sh <machine>             # baseq3 pk3s from mini-intel (~482M)

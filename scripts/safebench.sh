@@ -72,7 +72,7 @@ EXTRA="${4:-}"
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must
 # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-RDIR='~/quake3'
+RDIR='~/quake3-play'
 PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
 SSHO="-o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3"
 DEADLINE=${SAFEBENCH_TIMEOUT:-260}          # per-run wall-clock budget (seconds)

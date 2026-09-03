@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # lsregister-app.sh — repair the target's LaunchServices record for
-# ~/quake3/ioquake3.app, so the app can still be opened by DOUBLE-CLICK.
+# ~/quake3-play/ioquake3.app, so the app can still be opened by DOUBLE-CLICK.
 #
 # usage: scripts/lsregister-app.sh <machine> [--quiet]
 #
@@ -69,7 +69,7 @@ QUIET="${2:-}"
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must
 # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-REMOTE_DIR="~/quake3"
+REMOTE_DIR="~/quake3-play"
 
 say() { [ "$QUIET" = "--quiet" ] || echo "$@"; }
 

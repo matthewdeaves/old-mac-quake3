@@ -366,3 +366,35 @@ faster. i386/lion on imac-2019 (Follow-up 6's other two negative results)
 not retried - unrelated toolchain, no new evidence for those two. Whether
 to actually flip `build.sh`'s default BUILD_HOST, or wire this into
 `build-fat.sh`, is a separate decision from "can it build" - not made here.
+
+## Follow-up 8: a specific reason not to skip the real-hardware step above (2026-09-03)
+
+Cross-port finding, relayed from old-mac-quake2#53: on real G5 hardware,
+their GCC14 `-mcpu=970` build compiled and linked clean but crashed with a
+full backtrace pointing at `FS_InitFilesystem`/`Con_Print` - a genuine
+codegen bug, not a source or flag mistake, present at `-O2`/`-O3` and gone
+at `-O0`. Compile+link success said nothing about it; only running the
+result on real hardware did.
+
+This repo has exactly that same untested gap, flagged and left open by
+Follow-up 7 above: g3/g4 compile and link clean via GCC14/`imac-2019`, but
+have never actually run on real G3/G4/G5 hardware. Checked, not assumed:
+both `CPUFLAGS` in `scripts/build.sh`'s GCC14 branches (g3 `-mcpu=750`, g4
+`-mcpu=7400`) carry `-O3`, copied over unexamined from the existing
+Apple-gcc-4.0 path's own `-O3` when the GCC14 branch was added (Follow-up
+7) - never independently chosen or measured for this toolchain, so there is
+no existing evidence either way that this repo's GCC14 output avoids
+quake2's bug class at `-mcpu=750`/`-mcpu=7400` specifically. Different
+`-mcpu` target than quake2's `-mcpu=970` (this repo has no ppc970 slice -
+G5 shares ppc7400, `CLAUDE.md`), so quake2's exact repro does not transfer
+as-is, but a GCC14 optimizer bug is not obviously scoped to one `-mcpu`
+value, and nothing here rules it out.
+
+**Not tested this session**: this repo has no GCC14-built g3/g4 binary that
+has ever run on real hardware to test in the first place (Follow-up 7's own
+gap, still open) - there is nothing to reproduce against yet. Recorded here
+so whoever does that first real-hardware run does not treat a clean
+compile+link, or even a clean launch at default flags, as sufficient: per
+quake2's finding, test `-O3` against `-O0` explicitly, on real G3/G4/G5
+hardware, before trusting this toolchain's output for anything beyond a
+compile-time smoke check.

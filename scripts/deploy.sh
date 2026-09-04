@@ -16,7 +16,7 @@ set -euo pipefail
 # `yosemite-tiger` is the SAME Power Mac G3 as `yosemite`, booted from its second
 # partition (10.4.11 instead of 10.3.9) — one IP, one OS at a time. It exists so a
 # G3-on-Tiger run can be deployed and benched without editing host lists.
-MACHINE="${1:?usage: deploy.sh <yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5>}"
+MACHINE="${1:?usage: deploy.sh <yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|g5-panther|g5-tiger|g5-desktop|quad-tiger|quad-leopard|mini-sl|mini-intel|mini-intel2|imac-2019>}"
 
 # Claim this machine for the whole run. See scripts/pick-bench-host.sh.
 #
@@ -57,7 +57,7 @@ SBB="$BUNDLE/set-bundle-bit"     # fat (ppc+x86_64) Finder bundle-bit setter
 REMOTE_DIR="~/quake3-play"
 
 case "$MACHINE" in
-  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5) ;;
+  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|g5-panther|g5-tiger|g5-desktop|quad-tiger|quad-leopard|mini-sl|mini-intel|mini-intel2|imac-2019) ;;
   *) echo "deploy.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
 test -f "$FAT" || { echo "deploy.sh: build/ioquake3-fat missing — run build-fat.sh first"; exit 1; }

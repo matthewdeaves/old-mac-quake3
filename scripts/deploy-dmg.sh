@@ -85,11 +85,14 @@ LCL_MD5=$(md5sum "$DMG" | cut -d' ' -f1)
 RMT_MD5=$(ssh "$HOST" "md5 'Desktop/$DMG_BASE' | awk '{print \$NF}'")
 [ "$LCL_MD5" = "$RMT_MD5" ] || { echo "[deploy-dmg $HOST] FATAL: scp corrupted the DMG ($LCL_MD5 != $RMT_MD5)" >&2; exit 1; }
 echo "[deploy-dmg $HOST] DMG on Desktop verified intact ($RMT_MD5)"
+ssh "$HOST" 'mkdir -p ~/oldmac/quake3'
+scp -q "$REPO_ROOT/scripts/deploy-promotion.sh" "$HOST:oldmac/quake3/deploy-promotion.sh"
 
 echo "[deploy-dmg $HOST] mount + install ioquake3.app into /Applications/Quake3 (preserving game data)"
 ssh "$HOST" bash -s "$DMG_BASE" <<'REMOTE_EOF'
 set -e
 DMG_BASE="$1"
+source "$HOME/oldmac/quake3/deploy-promotion.sh"
 ROOT="$HOME/oldmac/quake3"
 MNT="$ROOT/mount.$$"
 DEST="/Applications/Quake3"
@@ -174,51 +177,7 @@ done
 [ "$detached" = yes ] || hdiutil detach -force "$MNT" >/dev/null 2>&1 || true
 rmdir "$MNT" 2>/dev/null || true
 
-# Promote only after staged verification; preserve a timestamped rollback.
-# A plain `mv staged DEST` is wrong when DEST already exists: macOS puts the
-# staged tree *inside* DEST. Rename the old tree away first (same-volume fast
-# path), or make and verify a ditto backup before removing only that exact path.
-PROMOTE="$ROOT/promote.$$"
-rollback_ready=no
-rollback_moved=no
-if [ -d "$DEST" ]; then
-  if mv "$DEST" "$ROLLBACK" 2>/dev/null; then
-    rollback_ready=yes
-    rollback_moved=yes
-  else
-    rm -rf "$ROLLBACK"
-    if ditto "$DEST" "$ROLLBACK" && [ -d "$ROLLBACK" ] && [ -f "$ROLLBACK/ioquake3.app/Contents/MacOS/ioquake3" ]; then
-      rollback_ready=yes
-    fi
-  fi
-fi
-if [ -d "$DEST" ] && [ "$rollback_ready" != yes ]; then
-  echo "FATAL: could not create verified rollback; destination untouched" >&2
-  exit 8
-fi
-if ! mv "$STAGE" "$PROMOTE"; then
-  if [ "$rollback_moved" = yes ]; then mv "$ROLLBACK" "$DEST" || true; fi
-  echo "FATAL: staging move failed; restored rollback" >&2
-  exit 8
-fi
-# With a ditto fallback the original DEST is still present; remove only that
-# exact verified destination so the final rename cannot nest PROMOTE inside it.
-if [ -d "$DEST" ]; then
-  if ! rm -rf "$DEST"; then
-    rm -rf "$PROMOTE"
-    if [ "$rollback_moved" = yes ]; then mv "$ROLLBACK" "$DEST" || true
-    elif [ "$rollback_ready" = yes ]; then ditto "$ROLLBACK" "$DEST" || true
-    fi
-    echo "FATAL: could not remove destination; restored rollback" >&2
-    exit 8
-  fi
-fi
-if ! mv "$PROMOTE" "$DEST"; then
-  rm -rf "$PROMOTE"
-  rm -rf "$DEST"
-  if [ "$rollback_moved" = yes ]; then mv "$ROLLBACK" "$DEST" || true
-  elif [ "$rollback_ready" = yes ]; then ditto "$ROLLBACK" "$DEST" || true
-  fi
+if ! promote_staged_install "$ROOT" "$DEST" "$STAGE" "$ROLLBACK"; then
   echo "FATAL: promotion failed; restored rollback" >&2
   exit 8
 fi

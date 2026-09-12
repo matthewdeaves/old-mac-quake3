@@ -27,6 +27,9 @@ promote() {
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/Desktop"; printf keep > "$tmp/Desktop/ioquake3-OldMac-prior.dmg"
+! grep -q 'rm -f "\$HOME"/Desktop/ioquake3-OldMac' scripts/deploy-dmg.sh
+grep -qx keep "$tmp/Desktop/ioquake3-OldMac-prior.dmg"
 new_app="$tmp/new/ioquake3.app/Contents/MacOS"
 mkdir -p "$new_app"; printf new > "$new_app/ioquake3"
 

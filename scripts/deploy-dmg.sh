@@ -223,14 +223,7 @@ if ! mv "$PROMOTE" "$DEST"; then
   exit 8
 fi
 
-# Tidy: drop any OTHER ioquake3-OldMac-*.dmg left on the Desktop from previous
-# rounds — keep only the one we just installed from (small disks).
-for old in "$HOME"/Desktop/ioquake3-OldMac-*.dmg; do
-  [ -e "$old" ] || continue
-  if [ "$(basename "$old")" != "$DMG_BASE" ]; then
-    rm -f "$old" && echo "removed old image $(basename "$old")"
-  fi
-done
+# Existing Desktop DMGs are user-owned artifacts and are deliberately preserved.
 
 echo "app binary archs:"
 file "$DEST/ioquake3.app/Contents/MacOS/ioquake3" 2>/dev/null | sed 's/^/  /' || true

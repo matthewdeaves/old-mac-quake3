@@ -175,13 +175,39 @@ done
 rmdir "$MNT" 2>/dev/null || true
 
 # Promote only after staged verification; preserve a timestamped rollback.
-if [ -d "$DEST" ]; then ditto "$DEST" "$ROLLBACK"; fi
+# A plain `mv staged DEST` is wrong when DEST already exists: macOS puts the
+# staged tree *inside* DEST. Rename the old tree away first (same-volume fast
+# path), or make and verify a ditto backup before removing only that exact path.
 PROMOTE="$ROOT/promote.$$"
-rm -rf "$PROMOTE"
-mv "$STAGE" "$PROMOTE"
+rollback_ready=no
+rollback_moved=no
+if [ -d "$DEST" ]; then
+  if mv "$DEST" "$ROLLBACK" 2>/dev/null; then
+    rollback_ready=yes
+    rollback_moved=yes
+  else
+    rm -rf "$ROLLBACK"
+    if ditto "$DEST" "$ROLLBACK" && [ -d "$ROLLBACK" ] && [ -f "$ROLLBACK/ioquake3.app/Contents/MacOS/ioquake3" ]; then
+      rollback_ready=yes
+    fi
+  fi
+fi
+if [ -d "$DEST" ] && [ "$rollback_ready" != yes ]; then
+  echo "FATAL: could not create verified rollback; destination untouched" >&2
+  exit 8
+fi
+if ! mv "$STAGE" "$PROMOTE"; then
+  if [ "$rollback_moved" = yes ]; then mv "$ROLLBACK" "$DEST" || true; fi
+  echo "FATAL: staging move failed; restored rollback" >&2
+  exit 8
+fi
+# With a ditto fallback the original DEST is still present; remove only that
+# exact verified destination so the final rename cannot nest PROMOTE inside it.
+if [ -d "$DEST" ]; then rm -rf "$DEST"; fi
 if ! mv "$PROMOTE" "$DEST"; then
   rm -rf "$PROMOTE"
-  if [ -d "$ROLLBACK" ]; then rm -rf "$DEST"; ditto "$ROLLBACK" "$DEST"; fi
+  rm -rf "$DEST"
+  if [ "$rollback_ready" = yes ]; then ditto "$ROLLBACK" "$DEST"; fi
   echo "FATAL: promotion failed; restored rollback" >&2
   exit 8
 fi

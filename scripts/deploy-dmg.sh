@@ -203,11 +203,22 @@ if ! mv "$STAGE" "$PROMOTE"; then
 fi
 # With a ditto fallback the original DEST is still present; remove only that
 # exact verified destination so the final rename cannot nest PROMOTE inside it.
-if [ -d "$DEST" ]; then rm -rf "$DEST"; fi
+if [ -d "$DEST" ]; then
+  if ! rm -rf "$DEST"; then
+    rm -rf "$PROMOTE"
+    if [ "$rollback_moved" = yes ]; then mv "$ROLLBACK" "$DEST" || true
+    elif [ "$rollback_ready" = yes ]; then ditto "$ROLLBACK" "$DEST" || true
+    fi
+    echo "FATAL: could not remove destination; restored rollback" >&2
+    exit 8
+  fi
+fi
 if ! mv "$PROMOTE" "$DEST"; then
   rm -rf "$PROMOTE"
   rm -rf "$DEST"
-  if [ "$rollback_ready" = yes ]; then ditto "$ROLLBACK" "$DEST"; fi
+  if [ "$rollback_moved" = yes ]; then mv "$ROLLBACK" "$DEST" || true
+  elif [ "$rollback_ready" = yes ]; then ditto "$ROLLBACK" "$DEST" || true
+  fi
   echo "FATAL: promotion failed; restored rollback" >&2
   exit 8
 fi

@@ -402,10 +402,22 @@ scp -q "$HOST:quake3-play/baseq3/qconsole.log" "$TMP" 2>/dev/null || { echo "[sm
 
 FPS_LINE=$(grep -E 'frames.*seconds.*fps' "$TMP" 2>/dev/null | tail -1 || true)
 MODE_LINE=$(grep -iE 'GL_RENDERER|Initializing OpenGL|setting mode|MODE:' "$TMP" 2>/dev/null | tail -2 | tr '\n' ' ' || true)
+GL_VENDOR_LINE=$(grep -i '^GL_VENDOR:' "$TMP" 2>/dev/null | tail -1 || true)
+GL_RENDERER_LINE=$(grep -i '^GL_RENDERER:' "$TMP" 2>/dev/null | tail -1 || true)
+GL_VERSION_LINE=$(grep -i '^GL_VERSION:' "$TMP" 2>/dev/null | tail -1 || true)
+EFFECTIVE_LINE=$(grep -iE '^(MODE:|texturemode:|picmip:)' "$TMP" 2>/dev/null | tr '\n' ' ' || true)
 rm -f "$TMP"
+
+# Keep the run's actual bundle identity with its renderer evidence.  The host
+# is still claimed here, so this cannot race another test replacing the app.
+META=$(ssh "$HOST" "b=$REMOTE_DIR/ioquake3.app/Contents/MacOS/ioquake3; \
+  printf 'host=%s os=%s host_arch=%s installed_exe_sha256=' '$HOST' \"\$(sw_vers -productVersion 2>/dev/null || echo UNTESTED)\" \"\$(uname -m 2>/dev/null || echo UNTESTED)\"; \
+  (shasum -a 256 \"\$b\" 2>/dev/null || openssl dgst -sha256 \"\$b\" 2>/dev/null) | awk '{print \$NF}'" 2>/dev/null || true)
 
 echo "[smoke $HOST] renderer : ${MODE_LINE:-<none>}"
 echo "[smoke $HOST] result   : ${FPS_LINE:-<NO FPS LINE>}"
+echo "VALIDATION artifact_path=$REMOTE_DIR/ioquake3.app artifact_sha256=UNTESTED ${META:-host=$HOST os=UNTESTED host_arch=UNTESTED installed_exe_sha256=UNTESTED} binary_arches=UNTESTED selected_slice=UNTESTED display=IODisplayConnect:${DCONNECT:-UNTESTED} data_path=$REMOTE_DIR/baseq3 permissions=UNTESTED profile_path=$REMOTE_DIR/baseq3/q3config.cfg"
+echo "VALIDATION ${GL_VENDOR_LINE:-gl_vendor=UNTESTED} ${GL_RENDERER_LINE:-gl_renderer=UNTESTED} ${GL_VERSION_LINE:-gl_version=UNTESTED} ${EFFECTIVE_LINE:-effective_fullscreen=UNTESTED effective_resolution=UNTESTED effective_vsync=UNTESTED effective_msaa=UNTESTED effective_dynamiclight=UNTESTED effective_shadows=UNTESTED}"
 
 # Repair on the way out regardless of pass/fail — a smoke test must not leave
 # the machine less launchable than it found it. Belt and braces: this script

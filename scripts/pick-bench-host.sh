@@ -259,7 +259,7 @@ probe() {
 		game_pids() {
 			ps ax -o pid=,ucomm= 2>/dev/null | while IFS= read -r line; do
 				pid=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*//; s/[[:space:]].*$//")
-				exe=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*[0-9][0-9]*[[:space:]]*//")
+				exe=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*[0-9][0-9]*[[:space:]]*//; s/[[:space:]]*$//")
 				base=${exe##*/}
 				case "$base" in
 					'"$GAME_PROC_CASE"'|"Classic Marathon") printf "%s\n" "$pid" ;;
@@ -269,7 +269,7 @@ probe() {
 		busy_pids() {
 			ps ax -o pid=,ucomm= 2>/dev/null | while IFS= read -r line; do
 				pid=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*//; s/[[:space:]].*$//")
-				exe=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*[0-9][0-9]*[[:space:]]*//")
+				exe=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*[0-9][0-9]*[[:space:]]*//; s/[[:space:]]*$//")
 				base=${exe##*/}
 				case "$base" in
 					'"$GAME_PROC_CASE"'|"Classic Marathon"|hdiutil|ditto|make|gmake|waf|cc1|cc1plus|clang|collect2|ninja) printf "%s\n" "$pid" ;;
@@ -515,7 +515,7 @@ cmd_release() {
 		game_pids() {
 			ps ax -o pid=,ucomm= 2>/dev/null | while IFS= read -r line; do
 				pid=\$(printf '%s\\n' \"\$line\" | sed 's/^[[:space:]]*//; s/[[:space:]].*$//')
-				exe=\$(printf '%s\\n' \"\$line\" | sed 's/^[[:space:]]*[0-9][0-9]*[[:space:]]*//')
+				exe=\$(printf '%s\\n' \"\$line\" | sed 's/^[[:space:]]*[0-9][0-9]*[[:space:]]*//; s/[[:space:]]*$//')
 				base=\${exe##*/}
 				case \"\$base\" in
 					$GAME_PROC_CASE|\"Classic Marathon\") printf '%s\\n' \"\$pid\" ;;
@@ -544,7 +544,7 @@ cmd_release() {
 				# it. TERM ONLY, no escalation. old-mac-quake3-3f caught this
 				# BEFORE it shipped, quoting their own measured hardware
 				# hazard (docs/adr/0009, scripts/CLAUDE.md there):
-				# `killall -KILL` on a rendering fullscreen engine sticks it
+				# killall with KILL on a rendering fullscreen engine sticks it
 				# in uninterruptible GPU-driver exit (ps state E) and hangs
 				# the WHOLE WindowServer until a physical reboot -- measured
 				# on the Rage128/GeForce2/Radeon9200/9600 driver generation

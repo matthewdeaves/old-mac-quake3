@@ -257,7 +257,7 @@ probe() {
 		# Match only executable basenames. Argument text can contain game names
 		# in an agent prompt, but that does not mean an engine is running.
 		game_pids() {
-			ps ax -o pid=,comm= 2>/dev/null | while IFS= read -r line; do
+			ps ax -o pid=,ucomm= 2>/dev/null | while IFS= read -r line; do
 				pid=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*//; s/[[:space:]].*$//")
 				exe=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*[0-9][0-9]*[[:space:]]*//")
 				base=${exe##*/}
@@ -267,7 +267,7 @@ probe() {
 			done
 		}
 		busy_pids() {
-			ps ax -o pid=,comm= 2>/dev/null | while IFS= read -r line; do
+			ps ax -o pid=,ucomm= 2>/dev/null | while IFS= read -r line; do
 				pid=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*//; s/[[:space:]].*$//")
 				exe=$(printf "%s\n" "$line" | sed "s/^[[:space:]]*[0-9][0-9]*[[:space:]]*//")
 				base=${exe##*/}
@@ -513,7 +513,7 @@ cmd_release() {
 	fi
 	run_remote "$h" "
 		game_pids() {
-			ps ax -o pid=,comm= 2>/dev/null | while IFS= read -r line; do
+			ps ax -o pid=,ucomm= 2>/dev/null | while IFS= read -r line; do
 				pid=\$(printf '%s\\n' \"\$line\" | sed 's/^[[:space:]]*//; s/[[:space:]].*$//')
 				exe=\$(printf '%s\\n' \"\$line\" | sed 's/^[[:space:]]*[0-9][0-9]*[[:space:]]*//')
 				base=\${exe##*/}

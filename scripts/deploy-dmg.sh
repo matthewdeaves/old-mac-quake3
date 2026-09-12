@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the release DMG onto a target Mac *approximating* the way an end user
 # would: copy the .dmg to the Desktop (a real user's download location), mount
-# it, copy ioquake3.app into ~/quake3-play/, then unmount. This is deliberately the
+# it, copy ioquake3.app into /Applications/Quake3/, then unmount. This is deliberately the
 # DMG path (not deploy.sh's direct rsync) so the test loop exercises the same
 # artifact and the same install steps a human performs (where the Q2 port's
 # corrupt-DMG bug hid).
@@ -11,7 +11,7 @@
 # Downloads, since Mojave). A headless/ssh-driven launch has nobody to answer
 # the one-time consent dialog, so TCC silently denies the ad-hoc-signed engine
 # read access to its own baseq3/ with NOTHING written to qconsole.log — this
-# bit imac-2019 outright. ~/quake3-play is not a protected folder, so this is a
+# bit imac-2019 outright. /Applications/Quake3 is the canonical install, so this is a
 # real fix, not a workaround: it removes the wall entirely rather than routing
 # around a permission that would still trip up an unattended real install.
 # NOT plain ~/quake3 — that name is already reserved on the two Lion build
@@ -86,12 +86,16 @@ RMT_MD5=$(ssh "$HOST" "md5 'Desktop/$DMG_BASE' | awk '{print \$NF}'")
 [ "$LCL_MD5" = "$RMT_MD5" ] || { echo "[deploy-dmg $HOST] FATAL: scp corrupted the DMG ($LCL_MD5 != $RMT_MD5)" >&2; exit 1; }
 echo "[deploy-dmg $HOST] DMG on Desktop verified intact ($RMT_MD5)"
 
-echo "[deploy-dmg $HOST] mount + install ioquake3.app into ~/quake3-play/ (preserving game data)"
+echo "[deploy-dmg $HOST] mount + install ioquake3.app into /Applications/Quake3 (preserving game data)"
 ssh "$HOST" bash -s "$DMG_BASE" <<'REMOTE_EOF'
 set -e
 DMG_BASE="$1"
-MNT="$HOME/ioq3install-mnt"
-DEST="$HOME/quake3-play"
+ROOT="$HOME/oldmac/quake3"
+MNT="$ROOT/mount.$$"
+DEST="/Applications/Quake3"
+STAGE="$ROOT/install.stage.$$"
+ROLLBACK="$ROOT/rollback-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$ROOT"
 
 # fresh mountpoint — detach any stale attach, then rmdir (NEVER rm -rf a path
 # that might still be a mounted read-only volume).
@@ -100,7 +104,9 @@ rmdir "$MNT" 2>/dev/null || true
 mkdir -p "$MNT"
 hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$HOME/Desktop/$DMG_BASE" >/dev/null
 
-mkdir -p "$DEST/baseq3"
+rm -rf "$STAGE"
+mkdir -p "$STAGE/baseq3"
+if [ -d "$DEST/baseq3" ]; then ditto "$DEST/baseq3" "$STAGE/baseq3"; fi
 
 # md5 helper (portable Panther->Lion: `md5` prints "MD5 (f) = HASH").
 _md5() { md5 "$1" 2>/dev/null | awk '{print $NF}'; }
@@ -113,8 +119,8 @@ _md5() { md5 "$1" 2>/dev/null | awk '{print $NF}'; }
 APP_BIN="ioquake3.app/Contents/MacOS/ioquake3"
 appok=no
 for k in 1 2 3 4; do
-  rm -rf "$DEST/ioquake3.app"; ditto "$MNT/ioquake3.app" "$DEST/ioquake3.app"; sync
-  if [ "$(_md5 "$DEST/$APP_BIN")" = "$(_md5 "$MNT/$APP_BIN")" ]; then appok=yes; break; fi
+  rm -rf "$STAGE/ioquake3.app"; ditto "$MNT/ioquake3.app" "$STAGE/ioquake3.app"; sync
+  if [ "$(_md5 "$STAGE/$APP_BIN")" = "$(_md5 "$MNT/$APP_BIN")" ]; then appok=yes; break; fi
   echo "  [verify] app binary mismatch (try $k) — re-dittoing" >&2; sleep 1
 done
 [ "$appok" = yes ] || { echo "  FATAL: app binary still corrupt after retries" >&2; exit 7; }
@@ -129,13 +135,13 @@ echo "  [verify] installed ioquake3 binary matches the image byte-for-byte"
 # not a bundle. This line was the source of that duplicate: it recreated the
 # file on every DMG install, so renaming it in deploy.sh alone did not remove
 # it. Issue #10.
-cp -p "$DEST/ioquake3.app/Contents/MacOS/ioquake3"            "$DEST/ioquake3-bench"      && chmod +x "$DEST/ioquake3-bench" || true
-rm -f "$DEST/ioquake3"
-cp -p "$DEST/ioquake3.app/Contents/MacOS/libSDL-1.2.0.dylib"  "$DEST/libSDL-1.2.0.dylib"  || true
+cp -p "$STAGE/ioquake3.app/Contents/MacOS/ioquake3"            "$STAGE/ioquake3-bench"      && chmod +x "$STAGE/ioquake3-bench" || true
+rm -f "$STAGE/ioquake3"
+cp -p "$STAGE/ioquake3.app/Contents/MacOS/libSDL-1.2.0.dylib"  "$STAGE/libSDL-1.2.0.dylib"  || true
 
 # Set the Finder bundle bit so Panther/Tiger show the app icon, not a folder.
-if [ -x "$DEST/.set-bundle-bit" ]; then
-  "$DEST/.set-bundle-bit" "$DEST/ioquake3.app" >/dev/null 2>&1 || true
+if [ -x "$STAGE/.set-bundle-bit" ]; then
+  "$STAGE/.set-bundle-bit" "$STAGE/ioquake3.app" >/dev/null 2>&1 || true
 fi
 
 # Re-register with LaunchServices. The rm -rf + ditto above gives the bundle new
@@ -153,7 +159,7 @@ for lsr in \
   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
   /System/Library/Frameworks/ApplicationServices.framework/Frameworks/LaunchServices.framework/Support/lsregister; do
   if [ -x "$lsr" ]; then
-    "$lsr" -f "$DEST/ioquake3.app" >/dev/null 2>&1 || true
+    "$lsr" -f "$STAGE/ioquake3.app" >/dev/null 2>&1 || true
     break
   fi
 done
@@ -167,6 +173,18 @@ for k in 1 2 3 4 5; do
 done
 [ "$detached" = yes ] || hdiutil detach -force "$MNT" >/dev/null 2>&1 || true
 rmdir "$MNT" 2>/dev/null || true
+
+# Promote only after staged verification; preserve a timestamped rollback.
+if [ -d "$DEST" ]; then ditto "$DEST" "$ROLLBACK"; fi
+PROMOTE="$ROOT/promote.$$"
+rm -rf "$PROMOTE"
+mv "$STAGE" "$PROMOTE"
+if ! mv "$PROMOTE" "$DEST"; then
+  rm -rf "$PROMOTE"
+  if [ -d "$ROLLBACK" ]; then rm -rf "$DEST"; ditto "$ROLLBACK" "$DEST"; fi
+  echo "FATAL: promotion failed; restored rollback" >&2
+  exit 8
+fi
 
 # Tidy: drop any OTHER ioquake3-OldMac-*.dmg left on the Desktop from previous
 # rounds — keep only the one we just installed from (small disks).

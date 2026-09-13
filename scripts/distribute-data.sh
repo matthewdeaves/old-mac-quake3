@@ -12,7 +12,7 @@
 #
 set -euo pipefail
 
-MACHINE="${1:?usage: distribute-data.sh <yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-2019|imac-g5|g5-panther|g5-tiger|g5-desktop|quad-tiger|quad-leopard|workstation>}"
+MACHINE="${1:?usage: distribute-data.sh <yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-sl|mini-intel2|imac-2019|imac-g5|g5-panther|g5-tiger|g5-desktop|quad-tiger|quad-leopard|workstation>}"
 
 # Claim this machine for the whole run. See scripts/pick-bench-host.sh.
 #
@@ -53,7 +53,7 @@ REMOTE_DIR="/Applications/Quake3/baseq3"
 ONLY_PK3=(--include='*.pk3' --include='*.PK3' --exclude='*')
 
 case "$MACHINE" in
-  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-intel|imac-2019|imac-g5|workstation) ;;
+  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-sl|mini-intel|mini-intel2|imac-2019|imac-g5|workstation) ;;
   # Multi-boot G5 aliases (ticketing-workflow.md): three OS partitions on the
   # G5 Dual 2.7 (g5-panther/g5-tiger/g5-desktop), two on the G5 Quad
   # (quad-tiger/quad-leopard). Missing from this list until a fresh boot

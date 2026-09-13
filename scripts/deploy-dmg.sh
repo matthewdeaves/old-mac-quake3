@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Install the release DMG onto a target Mac *approximating* the way an end user
-# would: copy the .dmg to the Desktop (a real user's download location), mount
-# it, copy ioquake3.app into /Applications/Quake3/, then unmount. This is deliberately the
-# DMG path (not deploy.sh's direct rsync) so the test loop exercises the same
-# artifact and the same install steps a human performs (where the Q2 port's
-# corrupt-DMG bug hid).
+# Install the release DMG onto a target Mac, exercising the same artifact and
+# the same install steps a human performs (where the Q2 port's corrupt-DMG bug
+# hid): stage the .dmg, mount it, copy ioquake3.app into /Applications/Quake3/,
+# then unmount. This is deliberately the DMG path, not deploy.sh's direct
+# rsync.
 #
 # INSTALL DIR IS NOT ~/Desktop/quake3 (old-mac-quake3#49, measured 2026-09-04):
 # ~/Desktop is one of macOS's TCC-protected special folders (Desktop/Documents/
@@ -20,8 +19,11 @@
 # game with the source checkout on those same "build, bench, data source"
 # machines would be worse than the bug this fixes. Caught 2026-09-04 by
 # checking mini-intel's actual filesystem before assuming, not by inspection.
-# The .dmg file ITSELF still lands on the real Desktop below (that's Apple's
-# own hdiutil/cp doing the reading, not our ad-hoc binary, and is not gated).
+#
+# The .dmg file itself stages under ~/oldmac/quake3/, NOT ~/Desktop (user rule,
+# retro-agents 5cbbb3d, 2026-09-13): nothing this tooling deploys is left on
+# any Mac's Desktop, fleet-wide. Earlier revisions staged it on Desktop to
+# approximate a real user's download location; that is superseded.
 #
 # usage: scripts/deploy-dmg.sh <machine> [version]
 #   machine: any bench-box ssh alias: yosemite[-tiger] | sawtooth | quicksilver | mini-g4 |
@@ -75,17 +77,16 @@ else
 fi
 DMG_BASE=$(basename "$DMG")
 
-echo "[deploy-dmg $HOST] copy $DMG_BASE to ~/Desktop/"
-ssh "$HOST" 'mkdir -p ~/Desktop'
-scp -q "$DMG" "$HOST:Desktop/$DMG_BASE"
+echo "[deploy-dmg $HOST] copy $DMG_BASE to ~/oldmac/quake3/"
+ssh "$HOST" 'mkdir -p ~/oldmac/quake3'
+scp -q "$DMG" "$HOST:oldmac/quake3/$DMG_BASE"
 
 # Verify the .dmg arrived intact (md5 local vs remote) — defence in depth on top
 # of make-dmg.sh's own end-to-end content check.
 LCL_MD5=$(md5sum "$DMG" | cut -d' ' -f1)
-RMT_MD5=$(ssh "$HOST" "md5 'Desktop/$DMG_BASE' | awk '{print \$NF}'")
+RMT_MD5=$(ssh "$HOST" "md5 'oldmac/quake3/$DMG_BASE' | awk '{print \$NF}'")
 [ "$LCL_MD5" = "$RMT_MD5" ] || { echo "[deploy-dmg $HOST] FATAL: scp corrupted the DMG ($LCL_MD5 != $RMT_MD5)" >&2; exit 1; }
-echo "[deploy-dmg $HOST] DMG on Desktop verified intact ($RMT_MD5)"
-ssh "$HOST" 'mkdir -p ~/oldmac/quake3'
+echo "[deploy-dmg $HOST] DMG verified intact ($RMT_MD5)"
 scp -q "$REPO_ROOT/scripts/deploy-promotion.sh" "$HOST:oldmac/quake3/deploy-promotion.sh"
 
 echo "[deploy-dmg $HOST] mount + install ioquake3.app into /Applications/Quake3 (preserving game data)"
@@ -105,7 +106,7 @@ mkdir -p "$ROOT"
 hdiutil detach "$MNT" >/dev/null 2>&1 || hdiutil detach -force "$MNT" >/dev/null 2>&1 || true
 rmdir "$MNT" 2>/dev/null || true
 mkdir -p "$MNT"
-hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$HOME/Desktop/$DMG_BASE" >/dev/null
+hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$ROOT/$DMG_BASE" >/dev/null
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE/baseq3"
@@ -187,7 +188,17 @@ if ! promote_staged_install "$ROOT" "$DEST" "$STAGE" "$ROLLBACK"; then
   exit 8
 fi
 
-# Existing Desktop DMGs are user-owned artifacts and are deliberately preserved.
+# Clear stale ioquake3-OldMac-*.dmg files this same tooling left on ~/Desktop
+# in earlier revisions (user rule, retro-agents 5cbbb3d): safe on every host in
+# this script's own machine list above, none of which is the user's workstation
+# (deploy-dmg.sh never targets it), so no genuinely user-placed file can match
+# this exact name pattern here. Report what, if anything, gets removed.
+shopt -s nullglob 2>/dev/null || true
+old_desktop_dmgs=("$HOME"/Desktop/ioquake3-OldMac-*.dmg)
+if [ "${#old_desktop_dmgs[@]}" -gt 0 ]; then
+  echo "removing stale Desktop DMG(s): ${old_desktop_dmgs[*]##*/}"
+  rm -f "${old_desktop_dmgs[@]}"
+fi
 
 echo "app binary archs:"
 file "$DEST/ioquake3.app/Contents/MacOS/ioquake3" 2>/dev/null | sed 's/^/  /' || true

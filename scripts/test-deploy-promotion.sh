@@ -18,6 +18,13 @@ printf sentinel > "$old/ioquake3.app/Contents/MacOS/ioquake3"; printf user > "$o
 promote_staged_install "$tmp/existing-run" "$old" "$tmp/new" "$tmp/existing-run/rollback"; grep -qx new "$old/ioquake3.app/Contents/MacOS/ioquake3"
 grep -qx user "$tmp/existing-run/rollback/baseq3/q3config.cfg"; grep -qx sentinel "$tmp/existing-run/rollback/ioquake3.app/Contents/MacOS/ioquake3"
 
+# First migration from legacy-only data into canonical staging.
+mkdir -p "$tmp/legacy/baseq3" "$tmp/migrate/new/ioquake3.app/Contents/MacOS"
+printf legacycfg > "$tmp/legacy/baseq3/q3config.cfg"; printf pk3 > "$tmp/legacy/baseq3/pak0.pk3"; printf new > "$tmp/migrate/new/ioquake3.app/Contents/MacOS/ioquake3"
+ditto "$tmp/legacy/baseq3" "$tmp/migrate/new/baseq3"
+promote_staged_install "$tmp/migrate" "$tmp/migrate/Applications/Quake3" "$tmp/migrate/new" "$tmp/migrate/rollback"
+grep -qx legacycfg "$tmp/migrate/Applications/Quake3/baseq3/q3config.cfg"; grep -qx pk3 "$tmp/migrate/Applications/Quake3/baseq3/pak0.pk3"
+
 # First install.
 mkdir -p "$tmp/first/new/ioquake3.app/Contents/MacOS"; printf first > "$tmp/first/new/ioquake3.app/Contents/MacOS/ioquake3"
 promote_staged_install "$tmp/first" "$tmp/first/Applications/Quake3" "$tmp/first/new" "$tmp/first/rollback"; grep -qx first "$tmp/first/Applications/Quake3/ioquake3.app/Contents/MacOS/ioquake3"

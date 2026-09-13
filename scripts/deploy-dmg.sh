@@ -110,6 +110,11 @@ hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$HOME/Desktop/$DMG_BASE" 
 rm -rf "$STAGE"
 mkdir -p "$STAGE/baseq3"
 if [ -d "$DEST/baseq3" ]; then ditto "$DEST/baseq3" "$STAGE/baseq3"; fi
+# First migration: preserve the legacy user data tree when the canonical
+# destination has no data yet. Never remove or rewrite the legacy location.
+if [ ! -f "$STAGE/baseq3/q3config.cfg" ] && [ -d "$HOME/quake3-play/baseq3" ]; then
+  ditto "$HOME/quake3-play/baseq3" "$STAGE/baseq3"
+fi
 
 # md5 helper (portable Panther->Lion: `md5` prints "MD5 (f) = HASH").
 _md5() { md5 "$1" 2>/dev/null | awk '{print $NF}'; }

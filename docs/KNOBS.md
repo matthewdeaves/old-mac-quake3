@@ -84,6 +84,3 @@ The port ships `0`. See `docs/adr/0008` for what that buys and why it is safe.
   `r_mode -1` plus the machine's native custom resolution).
 - Whether the SDL 1.2-era renderer exposes any of the later `r_ext_*` knobs.
 - `r_smp` on the two-core Intel mini: historically flaky, gate and test.
-
-`r_constantColor` defaults to 0. The experimental GL1 path omits the color array
-for a single white, unfogged shader stage with indexed draws. Hardware A/B pending.

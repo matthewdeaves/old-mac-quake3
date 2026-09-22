@@ -850,7 +850,8 @@ Source review found that the Makefile already builds separate `ioquake3_rend2`
 executables, despite an old build-script comment saying otherwise. This renderer
 was not shipped. A separate M5 test app completed demo four with its GLSL 1.20
 path, HDR and tone mapping. Generated normal maps, enhanced dynamic lighting and
-SSAO were then enabled for the following experiments. These tests are separate
+SSAO were requested for the following experiments. Later log review found the
+SSAO target incomplete; see the correction below. These tests are separate
 from the shipping GL1 renderer and must not be compared as equal-quality FPS.
 
 | M5 shader-renderer experiment | Baseline runs | Candidate runs | Medians 2,3 |
@@ -860,7 +861,7 @@ from the shipping GL1 renderer and must not be compared as equal-quality FPS.
 | gathered uploads, mode 0 versus 2 | 74.7/79.2/77.3 | 135.7/144.8/149.4 | 78.25 / 147.10 |
 
 The single-upload change improves that paired comparison by 88.0%, with all
-three pairs favoring it. Identical settings retain HDR, generated normal maps,
+three pairs favoring it. Identical settings requested HDR, generated normal maps,
 enhanced dynamic lighting and SSAO; both SDL and FBO multisampling were off for
 this comparison. This is an optimization of the experimental shader renderer,
 not an 88% gain over the shipping GL1 renderer. Absolute performance varied
@@ -907,3 +908,56 @@ Next G3 hypothesis: omit the redundant vertex-color stream on single-pass,
 unfogged identity-color stages. The driver allocation profile motivates reducing
 submitted attributes; no FPS gain is assumed. `r_constantColor` defaults to 0.
 Color computation remains intact, and other shader stages retain their arrays.
+
+### Constant-color submission: removed after hardware comparison
+
+Source 0dbbc761 built through the shared Lion host and verified all five slices.
+The experimental GL1 path omitted the color array only on single-pass, white,
+unfogged indexed stages. Its recorded-state test passed 192 combinations, and
+both PowerPC slices compiled. Hardware results did not justify keeping it:
+
+| Machine | Off runs | On runs | Medians 2,3 |
+|---|---|---|---|
+| G3 yosemite | 24.5/21.6/20.8 | 22.8/21.6/20.8 | 21.20 / 21.20 |
+| G4 mini | 76.8/74.0/69.2 | 72.1/73.2/72.8 | 71.60 / 73.00 |
+
+The G3's later pairs tie. On G4, the first two pairs favor the old path and the
+last baseline slows sharply. Do not interpret that median difference as a
+repeatable improvement. Removed the experiment and its test in 5b488953.
+No candidate screenshots were needed for retention because the code was dropped.
+
+The fat app from 0dbbc761 was installed on workstation, yosemite and mini-g4.
+The installed arm64 member was extracted, compared byte-for-byte to the signed
+native build, and passed signature verification. Whole-app verification is a
+different check and fails on the unsigned legacy components. An obsolete
+CodeResources manifest from the prior local installation was removed, and the
+production app was registered with LaunchServices. No new M5 game/timing round
+was run, as requested by the user.
+
+The other G4 hosts were off, modern Intel was unreachable, and the GMA950 host
+was claimed for other projects. These classes were not rebenchmarked.
+
+### SSAO correction: requested does not mean rendering correctly
+
+Saved M5 logs, including the streaming and AA experiments, report
+`R_CheckFBO: (_hdrDepth) Unsupported framebuffer format`. The shader renderer
+created an INTENSITY32F color target and ignored its failed completeness check.
+Therefore SSAO was requested, but those results do not demonstrate working SSAO.
+The streaming FPS comparison remains a comparison of the same settings and code
+paths, not a measurement of performance with this framebuffer bug fixed.
+
+A small offscreen CGL probe on Apple M5 reproduced the rejection: INTENSITY32F
+returned 0x8cdd, while RGBA32F and RGBA16F returned complete, 0x8cd5, with no GL
+errors. A second probe redefined the same attached texture, obtained a complete
+framebuffer, and round-tripped red 0.123456791 unchanged with no GL error.
+These probes do not render a game or measure FPS. The fix retries the
+existing attached texture as RGBA32F, preserving the red channel's 32-bit float
+precision; SSAO and depth-blur shaders read that red channel. If retry or the
+SSAO output target remains incomplete, initialization disables SSAO instead of
+using an invalid framebuffer. Failure-injection tests cover those outcomes.
+The updated native renderer compiles. No post-fix whole-game FPS is claimed.
+
+The locally installed fat binary predates the fix, so its bundled SSAO setting
+is temporarily disabled. The source profile retains SSAO enabled for the fixed
+release. Claude owns the final merged build, push and release at the user's
+request, including the removal of the legacy experiment and this SSAO fix.

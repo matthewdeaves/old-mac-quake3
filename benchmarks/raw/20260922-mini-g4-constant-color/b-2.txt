@@ -1,0 +1,1 @@
+[mini-g4 1024x768] 1260 frames 17.2 seconds 73.2 fps 4.0/13.7/83.0/8.5 ms  (crashlogs=0)

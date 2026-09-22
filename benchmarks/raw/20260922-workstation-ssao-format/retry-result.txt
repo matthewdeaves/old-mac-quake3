@@ -1,0 +1,2 @@
+renderer: Apple M5; initial target: 0x8cdd
+redefined target: 0x8cd5; red 0.123456791 -> 0.123456791; GL error 0x0

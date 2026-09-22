@@ -1,5 +1,77 @@
 [
   {
+    "group": "yosemite-constant-color",
+    "leg": "a",
+    "machine": "yosemite",
+    "resolution": "800x600",
+    "engine_source": "0dbbc761",
+    "runs": [
+      24.5,
+      21.6,
+      20.8
+    ],
+    "median_2_3": 21.2,
+    "evidence": [
+      "benchmarks/raw/20260922-yosemite-constant-color/a-1.txt",
+      "benchmarks/raw/20260922-yosemite-constant-color/a-2.txt",
+      "benchmarks/raw/20260922-yosemite-constant-color/a-3.txt"
+    ]
+  },
+  {
+    "group": "yosemite-constant-color",
+    "leg": "b",
+    "machine": "yosemite",
+    "resolution": "800x600",
+    "engine_source": "0dbbc761",
+    "runs": [
+      22.8,
+      21.6,
+      20.8
+    ],
+    "median_2_3": 21.2,
+    "evidence": [
+      "benchmarks/raw/20260922-yosemite-constant-color/b-1.txt",
+      "benchmarks/raw/20260922-yosemite-constant-color/b-2.txt",
+      "benchmarks/raw/20260922-yosemite-constant-color/b-3.txt"
+    ]
+  },
+  {
+    "group": "mini-g4-constant-color",
+    "leg": "a",
+    "machine": "mini-g4",
+    "resolution": "1024x768",
+    "engine_source": "0dbbc761",
+    "runs": [
+      76.8,
+      74.0,
+      69.2
+    ],
+    "median_2_3": 71.6,
+    "evidence": [
+      "benchmarks/raw/20260922-mini-g4-constant-color/a-1.txt",
+      "benchmarks/raw/20260922-mini-g4-constant-color/a-2.txt",
+      "benchmarks/raw/20260922-mini-g4-constant-color/a-3.txt"
+    ]
+  },
+  {
+    "group": "mini-g4-constant-color",
+    "leg": "b",
+    "machine": "mini-g4",
+    "resolution": "1024x768",
+    "engine_source": "0dbbc761",
+    "runs": [
+      72.1,
+      73.2,
+      72.8
+    ],
+    "median_2_3": 73.0,
+    "evidence": [
+      "benchmarks/raw/20260922-mini-g4-constant-color/b-1.txt",
+      "benchmarks/raw/20260922-mini-g4-constant-color/b-2.txt",
+      "benchmarks/raw/20260922-mini-g4-constant-color/b-3.txt"
+    ]
+  },
+  {
     "group": "mini-g4-direct-texcoords",
     "leg": "a",
     "machine": "mini-g4",

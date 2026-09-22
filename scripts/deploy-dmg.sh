@@ -111,11 +111,6 @@ hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$ROOT/$DMG_BASE" >/dev/nu
 rm -rf "$STAGE"
 mkdir -p "$STAGE/baseq3"
 if [ -d "$DEST/baseq3" ]; then ditto "$DEST/baseq3" "$STAGE/baseq3"; fi
-# First migration: preserve the legacy user data tree when the canonical
-# destination has no data yet. Never remove or rewrite the legacy location.
-if [ ! -f "$STAGE/baseq3/q3config.cfg" ] && [ -d "$HOME/quake3-play/baseq3" ]; then
-  ditto "$HOME/quake3-play/baseq3" "$STAGE/baseq3"
-fi
 
 # md5 helper (portable Panther->Lion: `md5` prints "MD5 (f) = HASH").
 _md5() { md5 "$1" 2>/dev/null | awk '{print $NF}'; }
@@ -187,6 +182,26 @@ if ! promote_staged_install "$ROOT" "$DEST" "$STAGE" "$ROLLBACK"; then
   echo "FATAL: promotion failed; restored rollback" >&2
   exit 8
 fi
+
+# Tidy ~/oldmac/quake3 once the new install is in place (#50, user rule via
+# old-mac-build-host#73): no rollback copies or staged DMGs left behind. A
+# rollback is removed only when every file in its baseq3 is also in the new
+# install, so the player's data is never the copy that goes. Older rollbacks
+# from before this rule are held to the same test.
+for rb in "$ROOT"/rollback-*; do
+  [ -d "$rb" ] || continue
+  kept=no
+  for f in "$rb"/baseq3/*; do
+    [ -e "$f" ] || continue
+    [ -e "$DEST/baseq3/${f##*/}" ] || { kept=yes; break; }
+  done
+  if [ "$kept" = yes ]; then
+    echo "  [tidy] keeping ${rb##*/}: its baseq3 has files the new install lacks" >&2
+  else
+    rm -rf "$rb" && echo "  [tidy] removed ${rb##*/}"
+  fi
+done
+rm -f "$ROOT"/ioquake3-OldMac-*.dmg && echo "  [tidy] removed staged DMG(s)"
 
 # Clear stale ioquake3-OldMac-*.dmg files this same tooling left on ~/Desktop
 # in earlier revisions (user rule, retro-agents 5cbbb3d): safe on every host in

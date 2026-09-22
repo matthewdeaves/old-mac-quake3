@@ -59,9 +59,11 @@ test -f "$RUNNER" || { echo "sweep.sh: missing $RUNNER" >&2; exit 1; }
 
 # Ship the runner every time. It is small, and a sweep measured with a stale
 # runner is worse than no sweep: the rows look fine and mean something else.
+# Under ~/oldmac/quake3, never loose in $HOME (#50, old-mac-build-host#73).
 echo "==> installing host-bin/q3sweep.sh on $HOST"
-scp -q "$RUNNER" "$HOST:~/q3sweep.sh"
-ssh -n "$HOST" "chmod +x ~/q3sweep.sh"
+ssh -n "$HOST" "mkdir -p oldmac/quake3 && rm -f q3sweep.sh"
+scp -q "$RUNNER" "$HOST:oldmac/quake3/q3sweep.sh"
+ssh -n "$HOST" "chmod +x oldmac/quake3/q3sweep.sh"
 
 # The default sweep. Chosen for a fill-limited GL 1.1 part; reorder freely.
 DEFAULT_SWEEP=$(cat <<'ROWS'
@@ -119,7 +121,7 @@ while IFS= read -r line; do
   # ssh -n is not optional here. Without it ssh inherits this loop's stdin and
   # swallows the remaining sweep rows, so the run measures the first row and
   # then silently reports a one-row sweep as if that were the whole thing.
-  raw=$(ssh -n "$HOST" "$env_part ~/q3sweep.sh $cvar_part" 2>/dev/null || echo "NORESULT ssh failed")
+  raw=$(ssh -n "$HOST" "$env_part ~/oldmac/quake3/q3sweep.sh $cvar_part" 2>/dev/null || echo "NORESULT ssh failed")
   fps=$(printf '%s' "$raw" | sed -n 's/.*seconds \([0-9.]*\) fps.*/\1/p')
   [ -n "$fps" ] || fps="NA"
   printf '%-22s %8s\n' "$label" "$fps"

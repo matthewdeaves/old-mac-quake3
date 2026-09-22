@@ -1024,7 +1024,6 @@ extern cvar_t	*r_flareFade;
 #define FLARE_STDCOEFF "150"
 extern cvar_t	*r_flareCoeff;
 extern cvar_t	*r_flareTestInterval;
-extern cvar_t *r_constantColor;
 
 extern cvar_t	*r_railWidth;
 extern cvar_t	*r_railCoreWidth;

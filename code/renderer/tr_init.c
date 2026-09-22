@@ -40,7 +40,6 @@ cvar_t	*r_flareSize;
 cvar_t	*r_flareFade;
 cvar_t	*r_flareCoeff;
 cvar_t	*r_flareTestInterval;
-cvar_t *r_constantColor;
 
 cvar_t	*r_railWidth;
 cvar_t	*r_railCoreWidth;
@@ -1077,7 +1076,6 @@ void R_Register( void )
 	r_drawSun = ri.Cvar_Get( "r_drawSun", "0", CVAR_ARCHIVE );
 	r_dynamiclight = ri.Cvar_Get( "r_dynamiclight", "1", CVAR_ARCHIVE );
 	r_dlightBacks = ri.Cvar_Get( "r_dlightBacks", "1", CVAR_ARCHIVE );
-	r_constantColor = ri.Cvar_Get ("r_constantColor", "0", CVAR_ARCHIVE);
 	r_finish = ri.Cvar_Get ("r_finish", "0", CVAR_ARCHIVE);
 	r_textureMode = ri.Cvar_Get( "r_textureMode", "GL_LINEAR_MIPMAP_NEAREST", CVAR_ARCHIVE );
 	r_swapInterval = ri.Cvar_Get( "r_swapInterval", "0",

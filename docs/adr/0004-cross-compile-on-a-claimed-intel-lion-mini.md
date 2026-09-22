@@ -27,9 +27,9 @@ than hardcoded. The PowerPC machines are bench and test targets only.**
   it for the whole run, three slices plus the `lipo`, rather than re-picking per
   slice: the slices must be lipo'd together on the same box, and a sister
   project must not take it midway.
-- **The rsync target directory is always `<host>:oldmac/quake3/`** - never
+- **The rsync target directory is always `<host>:oldmac/quake3/src/`** - never
   `oldmac/` itself, never a sister port's directory, never `<host>:~/`. The
-  scripts hardcode the directory (`PROJ_REMOTE=oldmac/quake3`, with a guard),
+  scripts hardcode the directory (`PROJ_REMOTE=oldmac/quake3/src`, with a guard),
   not the host. Amended 2026-09-22 (#50, old-mac-build-host#73): it was
   `<host>:quake3/` until then.
 - The claim is a lock directory **on the mini**, `/tmp/.retro-build-lock`, and
@@ -43,7 +43,7 @@ Isolation between the four projects on one host:
 
 | Resource | QuakeSpasm | Quake II | **Quake III** |
 |---|---|---|---|
-| rsync target | `<host>:quakespasm/` | `<host>:oldmac/quake2/` | **`<host>:oldmac/quake3/`** |
+| rsync target | `<host>:quakespasm/` | `<host>:oldmac/quake2/` | **`<host>:oldmac/quake3/src/`** |
 | local flock | `~/quakespasm/build/.build.lock` | `~/quake2/build/.build.lock` | **`~/quake3/build/.build.lock`** |
 | local outputs | `~/quakespasm/build/quakespasm-*` | `~/quake2/build/q2-*` | **`~/quake3/build/ioquake3-*`** |
 

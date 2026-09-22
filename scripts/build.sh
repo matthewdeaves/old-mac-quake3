@@ -19,14 +19,17 @@ set -euo pipefail
 
 TARGET="${1:?usage: build.sh <g3|g4|lion|i386>}"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
-# <build host>:oldmac/quake3/ (old-mac-quake3#50, old-mac-build-host#73: nothing
+# <build host>:oldmac/quake3/src/ (old-mac-quake3#50, old-mac-build-host#73: nothing
 # loose in a fleet Mac's home). Only this one owned child: the rsync below runs
 # --delete, and ~/oldmac itself also holds old-mac-halflife's tree, the SDL trees
 # and oldmac/quake2. Never widen it to oldmac/ or point it at a sister port.
-PROJ_REMOTE="oldmac/quake3"
+# src/, not oldmac/quake3 itself: deploy-dmg.sh stages DMGs and keeps rollback
+# copies in oldmac/quake3 on every host, the minis included, and this --delete
+# would wipe them.
+PROJ_REMOTE="oldmac/quake3/src"
 case "$PROJ_REMOTE" in
-  oldmac/quake3) ;;
-  *) echo "build.sh: PROJ_REMOTE must be oldmac/quake3, got $PROJ_REMOTE" >&2; exit 3 ;;
+  oldmac/quake3/src) ;;
+  *) echo "build.sh: PROJ_REMOTE must be oldmac/quake3/src, got $PROJ_REMOTE" >&2; exit 3 ;;
 esac
 
 # The cross-build host is an Intel Mac mini — there are now TWO interchangeable
@@ -187,7 +190,7 @@ esac
 echo "==> [$TARGET] rsync $PROJ_LOCAL/ -> $BUILD_HOST:$PROJ_REMOTE/"
 rsync -az --delete \
   --exclude='.git' --exclude='build/' --exclude='benchmarks/' \
-  --exclude='.venv/' --exclude='*.o' --exclude='*.d' \
+  --exclude='.venv/' --exclude='.claude/' --exclude='*.o' --exclude='*.d' \
   "$PROJ_LOCAL/" "$BUILD_HOST:$PROJ_REMOTE/"
 
 echo "==> [$TARGET] make on $BUILD_HOST (ARCH=$ARCH CC=$CC min=$VMIN)"

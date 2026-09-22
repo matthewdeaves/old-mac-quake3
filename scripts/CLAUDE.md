@@ -5,10 +5,10 @@ they bite inside these scripts.
 
 ## Hard rules
 
-- **rsync target directory is ALWAYS `oldmac/quake3/`** on whichever build host -
+- **rsync target directory is ALWAYS `oldmac/quake3/src/`** on whichever build host -
   never `oldmac/` itself (Half-Life's tree and the SDL trees live there), a
   sister port's directory or `<host>:~/`. The scripts hardcode the DIRECTORY
-  (`PROJ_REMOTE=oldmac/quake3`, guarded); they do not hardcode the HOST. #50.
+  (`PROJ_REMOTE=oldmac/quake3/src`, guarded); they do not hardcode the HOST. #50.
 - **The build host is chosen at runtime.** `build.sh`, `build-fat.sh` and
   `build-gamedylibs.sh` call `pick-build-host.sh --acquire` and release on exit.
   `BUILD_HOST=<alias>` pins one; `--status` shows both. `build-fat.sh` and

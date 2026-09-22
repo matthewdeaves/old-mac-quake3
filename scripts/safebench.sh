@@ -169,6 +169,16 @@ run_deadline() {
 }
 out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
   cd $RDIR || exit 9
+  # Refuse before opening a display or a missing-data dialog. File names on
+  # the fleet include both pak0.pk3 and PAK0.PK3.
+  have_pak0=0
+  for datafile in baseq3/[pP][aA][kK]0.[pP][kK]3; do
+    [ -r \"\$datafile\" ] && have_pak0=1
+  done
+  if [ \"\$have_pak0\" != 1 ]; then
+    echo 'Missing readable baseq3/pak0.pk3; restore game data before benching.'
+    exit 9
+  fi
   # gentle pre-clean: TERM any stray + clear the stale pid/log. No KILL here — a
   # wedged fullscreen app won't die cleanly to KILL, and the health check reboots
   # if anything is still stuck.
@@ -201,10 +211,13 @@ out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
 
   echo \"FPSLINE:\$(grep -E 'seconds .*fps' baseq3/qconsole.log 2>/dev/null | tail -1)\"
   killall -0 ioquake3 2>/dev/null && echo 'STUCK:1' || echo 'STUCK:0'
-" 2>/dev/null)
+" 2>&1)
 
 fps=$(printf '%s\n' "$out" | sed -n 's/^FPSLINE://p' | tail -1)
 stuck=$(printf '%s\n' "$out" | sed -n 's/^STUCK://p' | tail -1)
+if [ -z "$fps" ]; then
+  printf '[%s] benchmark launch output:\n%s\n' "$M" "$out" >&2
+fi
 sleep 1
 
 # health check; a machine that went unresponsive or left a stuck (driver-wedged)

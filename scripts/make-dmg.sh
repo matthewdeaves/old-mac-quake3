@@ -238,8 +238,9 @@ APPLE WATCH "TACTICAL COMPUTER" COMPANION (optional)
 ----------------------------------------------------
 This build includes watchlink: with the companion iPhone/Apple Watch app on the
 same Wi-Fi, your live health / armor / ammo / weapon / score / powerups stream
-to your wrist (auto-discovered over Bonjour, UDP 27999). It's enabled per machine
-via  seta watch_host "auto"  in baseq3/autoexec.cfg and is otherwise inert.
+to your wrist (auto-discovered over Bonjour, UDP 27999). It is OFF by default.
+Turn it on with  seta watch_enable 1  in baseq3/autoexec.cfg, and off again
+with  seta watch_enable 0 . While off it is inert.
 
 Project: https://github.com/matthewdeaves/old-mac-quake3
 License: GPL-2.0-or-later (see the project repo). Quake III game data is NOT

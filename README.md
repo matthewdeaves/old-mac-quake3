@@ -169,7 +169,8 @@ Panther and Tiger still have not been compared on this hardware; that remains op
 - Self-contained **`ioquake3.app`** with a custom icon that renders correctly
   from Panther's Finder to modern macOS.
 - Optional **Apple Watch "tactical computer" companion** (`watchlink`), off by
-  default; enable with `seta watch_host "auto"`.
+  default; turn it on with `seta watch_enable 1` in `baseq3/autoexec.cfg` and off
+  again with `seta watch_enable 0`.
 
 ## The Linux dedicated server
 

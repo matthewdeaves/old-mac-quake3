@@ -26,7 +26,8 @@
  * pack, so the companion shows a cut-down HUD (vitals + score, no objectives
  * or inventory panels). The feed tags itself "game":"q3" so the app can adapt.
  *
- * Everything here is gated on the `watch_host` cvar: when it is empty the
+ * Everything here is gated on the `watch_enable` cvar (default 0, toggle it
+ * with `seta watch_enable 1` in baseq3/autoexec.cfg): when it is 0 the
  * feature is completely inert -- no sockets touched, no per-frame work, no
  * packets emitted -- so the default fleet build behaves exactly as before.
  * This is a runtime-gated opt-in, NOT a load-time change.
@@ -76,7 +77,7 @@ typedef int		wl_socket_t;
 
 /*
  * Zero-config discovery (macOS only). When watch_host is the literal "auto"
- * we browse Bonjour for the companion's "_q2watch._udp" service instead of
+ * (or empty, with watch_enable 1) we browse Bonjour for the companion's "_q2watch._udp" service instead of
  * resolving a typed IP, so the phone never has to be addressed by hand. This
  * is libSystem/mDNSResponder, present on every Mac the fleet targets (Panther
  * 10.3 .. Leopard 10.5 .. Lion), and is compiled out everywhere else. The
@@ -114,10 +115,25 @@ typedef int		wl_socket_t;
 #endif
 #endif /* __APPLE__ */
 
-static cvar_t	*watch_host;	/* "ip"/"ip:port", "auto", "" => off */
+static cvar_t	*watch_enable;	/* master switch, "0" by default */
+static cvar_t	*watch_host;	/* "ip"/"ip:port", "auto", "" => auto when enabled */
 static cvar_t	*watch_port;	/* default port when host omits one */
 static cvar_t	*watch_rate;	/* vitals heartbeat, Hz */
 static cvar_t	*watch_events;	/* also emit damage/centerprint events */
+
+/*
+ * The destination actually in force. watch_enable is the on/off switch and
+ * defaults to 0, so the feature stays inert even where a bundled per-machine
+ * cfg presets watch_host "auto". Enabled with watch_host left empty means
+ * Bonjour discovery, so `seta watch_enable 1` alone is enough.
+ */
+static const char *
+WatchLink_Host (void)
+{
+	if (!watch_enable || !watch_enable->integer)
+		return "";
+	return watch_host->string[0] ? watch_host->string : "auto";
+}
 
 static wl_socket_t	watch_sock = WL_INVALID_SOCKET;
 static struct sockaddr_in watch_sin;	/* resolved companion destination */
@@ -273,10 +289,10 @@ WatchLink_Resolve (void)
 
 	watch_sin_valid = qfalse;
 
-	if (!watch_host->string[0])
+	if (!WatchLink_Host ()[0])
 		return;
 
-	Q_strncpyz (buf, watch_host->string, sizeof(buf));
+	Q_strncpyz (buf, WatchLink_Host (), sizeof(buf));
 	colon = strrchr (buf, ':');
 	if (colon)
 	{
@@ -294,7 +310,7 @@ WatchLink_Resolve (void)
 static qboolean
 WatchLink_IsAuto (void)
 {
-	return (watch_host->string[0] && !Q_stricmp (watch_host->string, "auto")) ? qtrue : qfalse;
+	return (WatchLink_Host ()[0] && !Q_stricmp (WatchLink_Host (), "auto")) ? qtrue : qfalse;
 }
 
 #ifdef WATCHLINK_BONJOUR
@@ -467,9 +483,9 @@ static char watch_host_seen[128] = "\001"; /* sentinel: forces first reconcile *
 static void
 WatchLink_Sync (void)
 {
-	if (strcmp (watch_host->string, watch_host_seen) != 0)
+	if (strcmp (WatchLink_Host (), watch_host_seen) != 0)
 	{
-		Q_strncpyz (watch_host_seen, watch_host->string, sizeof(watch_host_seen));
+		Q_strncpyz (watch_host_seen, WatchLink_Host (), sizeof(watch_host_seen));
 		watch_sin_valid = qfalse;
 #ifdef WATCHLINK_BONJOUR
 		WatchLink_StopDiscovery ();
@@ -515,7 +531,7 @@ WatchLink_Sync (void)
 static qboolean
 WatchLink_DestReady (void)
 {
-	if (!watch_host->string[0])
+	if (!WatchLink_Host ()[0])
 		return qfalse;
 
 	if (!watch_sin_valid && !WatchLink_IsAuto ())
@@ -605,6 +621,7 @@ WatchLink_EscapeJson (char *dst, int dstsize, const char *src)
 void
 CL_WatchLink_Init (void)
 {
+	watch_enable = Cvar_Get ("watch_enable", "0", CVAR_ARCHIVE);
 	watch_host = Cvar_Get ("watch_host", "", CVAR_ARCHIVE);
 	watch_port = Cvar_Get ("watch_port", "27999", CVAR_ARCHIVE);
 	watch_rate = Cvar_Get ("watch_rate", "10", CVAR_ARCHIVE);
@@ -618,8 +635,9 @@ CL_WatchLink_Init (void)
 	watch_dmg_flash = 0;
 	watch_have_prev = qfalse;
 	/* watch_host_seen's "\001" sentinel forces the first WatchLink_Sync to
-	   reconcile, so an archived watch_host (incl. "auto") is honoured at
-	   launch without needing a console edit. */
+	   reconcile, so an archived watch_enable/watch_host is honoured at
+	   launch without needing a console edit. Toggling watch_enable changes
+	   WatchLink_Host (), which WatchLink_Sync treats like a host edit. */
 }
 
 /*
@@ -634,7 +652,7 @@ WatchLink_Event (const char *kind, const char *detail)
 
 	if (clc.demoplaying)
 		return;
-	if (!watch_host->string[0])
+	if (!WatchLink_Host ()[0])
 		return;
 
 	WatchLink_Sync ();
@@ -685,7 +703,7 @@ CL_WatchLink_ServerCommand (const char *s)
 
 	if (clc.demoplaying || !s || !s[0])
 		return;
-	if (!watch_host->string[0])
+	if (!WatchLink_Host ()[0])
 		return;
 
 	/* Only centerprints. Q3's command verb is "cp". */
@@ -807,7 +825,7 @@ CL_WatchLink_Frame (void)
 	int		i;
 	double		now, interval;
 
-	if (!watch_host->string[0])
+	if (!WatchLink_Host ()[0])
 		return;			/* feature off -- stay fully inert */
 
 	WatchLink_Sync ();

@@ -25,8 +25,8 @@ scripts/install-host-tools.sh <host>     # one-time reboot-recovery setup
 
 ## Facts
 - **Baseline is the last SDL 1.2 commit, `4432a80a`** (2013-01-17), branch `master`, the commit before `f478761e` "Use SDL 2 instead of SDL 1.2". Fallback, never needed: `b003422d` (1.36 era). ioquake3 drives its own env-var top-level `Makefile`, not QuakeSpasm's `Makefile.darwin`. Read `docs/adr/0001`.
-- **`dyld` grades a fat binary by CPU subtype alone**, never the OS, and there is no fallback to a lower slice. **Five slices:** `ppc750` (G3), `ppc7400` (G4 **and G5**), `x86_64`, `i386`, `arm64`. **No `ppc970`** - the G5 takes the `ppc7400` slice. Verify with `lipo -archs`, never from this list. `docs/adr/0002`, `docs/adr/0017`.
-- **Never trust the compiler's cpusubtype stamp.** `-faltivec` defeats it and is mandatory on the g4 slice. Every build re-stamps post-link and **asserts with `lipo`, never `file`**. `docs/adr/0003`.
+- **`dyld` grades a fat binary by CPU subtype alone**, never the OS, and there is no fallback to a lower slice. **Five slices:** `ppc750` (G3), `ppc7400` (G4 **and G5**), `x86_64`, `i386`, `arm64`. **No `ppc970`** - the G5 takes the `ppc7400` slice. Verify with `scripts/macho-archs.sh` (`macho_archs <file>`), never from this list: the workstation's `lipo` drops or blanks PowerPC slices (#57). `docs/adr/0002`, `docs/adr/0017`.
+- **Never trust the compiler's cpusubtype stamp.** `-faltivec` defeats it and is mandatory on the g4 slice. Every build re-stamps post-link and **asserts with the Mach-O headers (`macho_archs`), never `file` or workstation `lipo`**. `docs/adr/0003`.
 - **The g4 slice needs `-isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/include`**.
 - **One `.app` self-tunes**: `Com_AutoConfigForMachine` (`code/qcommon/common.c`). `+set com_archAutoexec 0` turns both off. `docs/adr/0007`.
 - **Game modules ship as native dylibs inside the bundle** at `Contents/MacOS/baseq3/`. Measured **+1.3%** over the QVM. The **`i386` slice has no dylibs built for it**, but ships the x86 JIT, so it runs COMPILED QVM. `docs/adr/0008`, issue #23.

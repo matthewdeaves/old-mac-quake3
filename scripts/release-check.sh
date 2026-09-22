@@ -78,7 +78,10 @@ fi
 # ---- 2. slices ------------------------------------------------------------
 FAT="$REPO_ROOT/build/ioquake3-fat"
 if [ -f "$FAT" ]; then
-  ARCHS=$(lipo -archs "$FAT" 2>/dev/null || echo)
+  # Modern lipo drops PowerPC slices from -archs (#57); read the headers instead.
+  # shellcheck source=scripts/macho-archs.sh
+  . "$HERE/macho-archs.sh"
+  ARCHS=$(macho_archs "$FAT" 2>/dev/null || true)
   for a in ppc750 ppc7400 i386 x86_64; do
     case " $ARCHS " in *" $a "*) ;; *) fail "fat is missing the $a slice (got: $ARCHS)";; esac
   done

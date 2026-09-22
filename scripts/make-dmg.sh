@@ -99,8 +99,11 @@ fi
 # (reads the Mach header directly) but this orchestration host is Linux with NO
 # lipo — build-fat.sh lipo's remotely on mini-intel. So fall back to file(1),
 # normalising its host-varying ppc subtype spelling (ppc_750 / ppc750 / ppc_650).
-if command -v lipo >/dev/null 2>&1; then
-  ARCHS=$(lipo -archs "$FAT" 2>/dev/null || echo)
+# Modern lipo drops PowerPC slices from -archs (#57); read the headers instead.
+if command -v otool >/dev/null 2>&1; then
+  # shellcheck source=scripts/macho-archs.sh
+  . "$REPO_ROOT/scripts/macho-archs.sh"
+  ARCHS=$(macho_archs "$FAT" 2>/dev/null || true)
 else
   ARCHS=$(file "$FAT" 2>/dev/null | tr 'A-Z' 'a-z' | sed 's/ppc_/ppc/g')  # ppc_750->ppc750, keep x86_64
 fi

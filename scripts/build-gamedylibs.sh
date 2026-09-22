@@ -40,6 +40,9 @@ set -euo pipefail
 # break silently there (the release is stderr-suppressed, so the lock would just
 # leak until the stale sweep reclaimed it).
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# Modern lipo prints PowerPC slices as "unknown" (#57); read the headers instead.
+# shellcheck source=scripts/macho-archs.sh
+. "$HERE/macho-archs.sh"
 BUILD_HOST_CLAIMED=0
 if [ -z "${BUILD_HOST:-}" ]; then
   # Export a claim nonce BEFORE the acquire so the EXIT trap below releases with
@@ -112,8 +115,8 @@ build_slice() {
     fi
     # Assert rather than assume. -faltivec defeats -mcpu='s stamping, and a
     # generic `ppc` member here would be graded onto every PowerPC host.
-    if command -v lipo >/dev/null 2>&1; then
-      got=$(lipo -info "$OUT/${m}-${tag}.dylib" | sed 's/.*: //' | tr -d ' ')
+    if command -v otool >/dev/null 2>&1; then
+      got=$(macho_archs "$OUT/${m}-${tag}.dylib" || true)
     else
       got=$(python3 -c "
 import struct
@@ -161,8 +164,8 @@ rm -f "$OUT"/*-g3.dylib "$OUT"/*-g4.dylib "$OUT"/*-x86_64.dylib
 # If lipo silently collapsed them (both stamped the same) a G3 would load the
 # AltiVec module and trap on the first vector instruction.
 for m in $MODS; do
-  if command -v lipo >/dev/null 2>&1; then
-    got=$(lipo -info "$OUT/${m}ppc.dylib" | sed 's/.*: //' | tr -s ' ' | sed 's/ *$//')
+  if command -v otool >/dev/null 2>&1; then
+    got=$(macho_archs "$OUT/${m}ppc.dylib" || true)
   else
     got=$(python3 -c "
 import struct
@@ -178,8 +181,8 @@ done
 echo "==> build/gamedylibs/ (six shipping dylibs):"
 for f in "$OUT"/*.dylib; do
   printf '    %-22s ' "$(basename "$f")"
-  if command -v lipo >/dev/null 2>&1; then
-    lipo -info "$f" | sed 's/.*: //'
+  if command -v otool >/dev/null 2>&1; then
+    macho_archs "$f" || true
   else
     python3 -c "
 import struct

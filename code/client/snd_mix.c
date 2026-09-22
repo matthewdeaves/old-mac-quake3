@@ -405,6 +405,32 @@ static void S_PaintChannelFrom16_altivec( channel_t *ch, const sfx_t *sc, int co
 }
 #endif
 
+/* Mix contiguous runs so the inner loop never tests the chunk boundary.
+ * Preserve the scalar integer multiply/shift exactly; no resampling or
+ * precision change. The existing AltiVec and Doppler paths remain intact. */
+static void S_MixScalarChunks( portable_samplepair_t *samp, sndBuffer *chunk,
+                             int sampleOffset, int count, int leftvol, int rightvol ) {
+	while ( count > 0 ) {
+		int run = SND_CHUNK_SIZE - sampleOffset;
+		int i;
+		const short *samples = chunk->sndChunk + sampleOffset;
+		if ( run > count ) {
+			run = count;
+		}
+		for ( i = 0; i < run; i++ ) {
+			int data = samples[i];
+			samp[i].left += (data * leftvol) >> 8;
+			samp[i].right += (data * rightvol) >> 8;
+		}
+		count -= run;
+		samp += run;
+		if ( count > 0 ) {
+			chunk = chunk->next;
+			sampleOffset = 0;
+		}
+	}
+}
+
 static void S_PaintChannelFrom16_scalar( channel_t *ch, const sfx_t *sc, int count, int sampleOffset, int bufferOffset ) {
 	int						data, aoff, boff;
 	int						leftvol, rightvol;
@@ -432,6 +458,10 @@ static void S_PaintChannelFrom16_scalar( channel_t *ch, const sfx_t *sc, int cou
 	if (!ch->doppler || ch->dopplerScale==1.0f) {
 		leftvol = ch->leftvol*snd_vol;
 		rightvol = ch->rightvol*snd_vol;
+		if ( s_mixScalarChunks->integer ) {
+			S_MixScalarChunks( samp, chunk, sampleOffset, count, leftvol, rightvol );
+			return;
+		}
 		samples = chunk->sndChunk;
 		for ( i=0 ; i<count ; i++ ) {
 			data  = samples[sampleOffset++];

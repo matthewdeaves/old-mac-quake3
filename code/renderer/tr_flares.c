@@ -326,9 +326,13 @@ void RB_TestFlare( flare_t *f ) {
 
 	backEnd.pc.c_flareTests++;
 
-	// doing a readpixels is as good as doing a glFinish(), so
-	// don't bother with another sync
-	glState.finishCalled = qfalse;
+	// The legacy path requests another finish at swap after this readback.
+	// With r_finish 0, preserve BeginDrawingView's suppression of that wait:
+	// the depth read still completes here, and subsequent drawing remains
+	// ordered by GL. Keep explicit r_finish modes and the A/B fallback intact.
+	if ( !r_flareNoFinish->integer || r_finish->integer != 0 ) {
+		glState.finishCalled = qfalse;
+	}
 
 	// read back the z buffer contents
 	qglReadPixels( f->windowX, f->windowY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth );
@@ -605,4 +609,3 @@ void RB_RenderFlares (void) {
 	qglMatrixMode( GL_MODELVIEW );
 	qglPopMatrix();
 }
-

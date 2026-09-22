@@ -1,0 +1,1 @@
+[imac-g5 1440x900] NO-FPS-LINE  (crashlogs=2)

@@ -1,0 +1,1 @@
+[imac-g5 1440x900] 1260 frames 34.2 seconds 36.8 fps 4.0/27.2/127.0/11.0 ms  (crashlogs=2)

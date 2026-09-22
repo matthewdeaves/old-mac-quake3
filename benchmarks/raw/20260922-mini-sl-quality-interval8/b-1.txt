@@ -1,0 +1,1 @@
+[mini-sl 1920x1080] 1260 frames 24.8 seconds 50.7 fps 1.0/19.7/429.0/26.7 ms  (crashlogs=0)

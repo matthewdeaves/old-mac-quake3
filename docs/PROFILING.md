@@ -677,3 +677,157 @@ point here instead of implying an open question.
 - **G4/G5 AltiVec code work is not pursued** - the AltiVec paths in `tr_shade`
   and `snd_mix` are already active on the ppc7400 slice, and no un-vectorized
   hot loop remains (see the quicksilver profile).
+
+## Quality and renderer experiments, 2026-09-22
+
+Native desktop resolutions were read from the machines before testing. These
+results supersede the old 1680x1050 mini-g4 assumptions for its current display.
+Each row below uses three alternating runs, with the median of runs 2 and 3.
+Raw logs and matched-frame screenshots are under `benchmarks/raw/20260922-*`.
+Screenshots run separately from timing and are not FPS samples.
+
+| Machine / resolution | Change | Runs | Median 2,3 |
+|---|---|---|---:|
+| mini-g4 / 1024x768 | bilinear mip filtering | 44.8 / 74.4 / 73.9 | 74.15 |
+| mini-g4 / 1024x768 | trilinear mip filtering | 74.8 / 74.6 / 75.1 | 74.85 |
+| mini-g4 / 1024x768 | post-flare finish, existing behavior | 74.1 / 75.4 / 75.3 | 75.35 |
+| mini-g4 / 1024x768 | suppress post-flare finish | 74.5 / 74.5 / 74.9 | 74.70 |
+| mini-sl / 1920x1080 | existing moderate texture/light settings | 121.3 / 121.1 / 121.5 | 121.30 |
+| mini-sl / 1920x1080 | full textures, dynamic lights, 8x AF, trilinear, 2x AA; flare interval 1 | 20.6 / 20.2 / 20.3 | 20.25 |
+| mini-sl / 1920x1080 | same quality, no AA; flare interval 8 | 123.8 / 116.8 / 121.6 | 119.20 |
+| mini-sl / 1920x1080 | same quality, 2x AA; flare interval 8 | 50.7 / 50.1 / 50.5 | 50.30 |
+| Apple M5 / 2560x1080 | copied texture coordinates | 230.0 / 237.5 / 221.2 | 229.35 |
+| Apple M5 / 2560x1080 | direct texture coordinates | 240.1 / 237.3 / 226.2 | 231.75 |
+
+### Keep: G4 filtering and GeForce 9400 quality
+
+The mini-g4's trilinear change has no measurable FPS cost. Matched screenshots
+show the same geometry and lighting with smoother texture filtering. Keep it
+in `autoexec-mini-g4.cfg`. The anomalous first baseline run is retained in the
+raw data and excluded by the normal warm-up rule.
+
+The Macmini3,1 reports a GeForce 9400 with 256 MB VRAM. Its old generic Intel
+settings left full-resolution textures, dynamic lights and anisotropic filtering
+disabled. The new `autoexec-mini-sl.cfg` uses full-resolution textures, dynamic
+lights, 8x AF and trilinear, retaining S3TC and leaving multisampling off. Its
+119.2 FPS result is above the Intel 60 FPS floor. Flare visibility checks use
+interval 8, already used on PowerPC: this keeps the sprites and their fades,
+but can delay an occlusion update by up to seven frames. This is a deliberate
+latency trade, not identical per-frame flare visibility.
+
+**NEGATIVE:** 2x AA remains below the Intel floor even with interval 8, and its
+worst frames are 384-429 ms. Do not ship that combination on this GeForce 9400.
+The 20.3 FPS final AA sample was recovered from the completed engine log after
+a local harness error; it rendered all 1260 frames and shut down normally.
+
+### Code candidates, disabled unless hardware measurements justify them
+
+The tested `r_flareNoFinish` candidate preserved `r_finish 0`'s suppression of the swap-time finish
+after flare depth readback. The readback and fade remain intact. The mini-g4
+comparison was negative: no separable improvement. The code was reverted after
+the G3 comparison also showed no clear benefit. Its historical unit harness
+exercised visibility, fades, readback and all finish modes.
+
+`r_directTexCoords` submits unmodified mesh texture/lightmap coordinates with
+their original stride, avoiding per-stage copies. Texture modifiers, generated
+coordinates and the discrete primitive path keep the original arrays. This
+changes neither shader selection nor lighting calculations. Pointer/stride
+and fallback tests pass. On the M5 the measured difference is smaller than run
+variation; **no demonstrated speedup there**, so the Apple Silicon default stays
+off. Matched demo frames show intact world textures; moving particles and HUD
+portraits differ between launches, so these captures are not pixel-equality proof.
+
+The old specialized stage iterators are not enabled: source review found that
+their selection does not exclude texture modifiers, while their draw paths use
+unmodified mesh coordinates. The direct-coordinate experiment instead retains
+the general shader path and explicitly checks for modifiers.
+
+### Coverage and operational findings
+
+The iMac G5's initial single run was 38.6 FPS at 1440x900 with its existing
+2x AA. Subsequent benchmark connection attempts timed out even though separate
+SSH health checks answered. A persistent SSH connection subsequently allowed
+the complete quality comparison below. No candidate code speedup is claimed
+on that machine.
+Its reported extension list lacks `GL_EXT_framebuffer_multisample` and
+`GL_EXT_framebuffer_blit`, required by Quake2's resolve-once experiment. That
+code cannot simply be copied to the Radeon 9600 path.
+
+Quake3 already combines depth and stencil clears in `RB_BeginDrawingView`, so
+Quake2's combined-clear change has no equivalent saving here.
+
+The G3's `/Applications/Quake3/baseq3` initially lacked game data. Deployment
+warned, but a benchmark was attempted before that warning was handled. Restored
+the patch archives from its older `quake3-play` folder and the main archive from
+the existing local installation. The repaired G3 completed all 1260 demo frames
+at **26.1 FPS**, with shipped configuration and normal shutdown. This was an
+installation repair, not a rendering regression or an optimization gain.
+
+The build workflow remains owned by `old-mac-build-host`. Modern Apple `lipo`
+failed to identify thin PowerPC files; the numeric Mach-O header verifier from
+Quake2 now checks them through `otool`. Its fixture tests reject missing,
+unknown and malformed members. A local experiment replacing the arm64 member
+with modern `lipo` also dropped both PPC members; that artifact was **not
+deployed**. Continue assembling release fat binaries on the claimed Lion build
+host and verifying every expected member.
+
+### Further quality budget, same day
+
+These are paired experiments, not before/after comparisons between unrelated
+runs. Each result is the median of runs 2 and 3; all timing runs completed 1260
+frames. Expanded weapon effects mean `cg_oldRail 0`, `cg_oldRocket 0` and
+`cg_oldPlasma 0`, enabling existing spiral rails, rocket explosion effects and
+plasma particles. These are configuration changes, not newly written effects.
+
+| Machine | Paired change | Baseline FPS | Candidate FPS | Decision |
+|---|---|---:|---:|---|
+| yosemite | expanded weapon effects | 26.05 | 25.95 | within 20 FPS budget |
+| mini-g4 | expanded weapon effects | 77.85 | 77.25 | keep |
+| mini-g4 | curves 8/250 to 4/1000, expanded effects on | 77.15 | 76.90 | keep |
+| mini-sl | expanded weapon effects | 118.45 | 122.80 | keep effects, do not claim speedup |
+| mini-sl | curves 4/250 to 1/10000, expanded effects on | 120.45 | 120.40 | keep |
+| Apple M5 | expanded weapon effects | 380.95 | 378.05 | keep |
+| imac-g5 | expanded effects, curves 1/10000, AF16, retaining 2x AA | 38.25 | 36.95 | within quality budget |
+
+Curve pairs are `r_subdivisions/r_lodCurveError`. The G3, G4, G5 and GeForce 9400
+final-quality captures retain textured world geometry and lighting. Weapon
+particles vary between demo launches, so captures are visual checks rather than
+pixel-equality tests. The M5 weapon experiment and earlier direct-coordinate
+experiment ran in different performance bands; their absolute FPS must not be
+used as evidence of a code speedup.
+
+G3 flare finish suppression also failed to show a separable benefit: 25.75 FPS
+off versus 25.95 on. The G5 single-sample comparison was 38.6 off versus 38.3 on,
+insufficient for a speedup conclusion. The flare candidate was reverted; the direct-coordinate candidate remains default 0.
+The direct-coordinate candidate compiled and ran on arm64; its PPC measurement
+is pending a free centralized build host. The first five-slice build contains
+the flare experiment only. The other G4 GPUs, GMA950 and modern Intel were not
+remeasured in this round; these machine-specific results do not establish their
+performance. This round has demonstrated quality gains within the measured
+budgets, not a reliable new CPU-code FPS gain or a global maximum.
+
+### Current G3 profile and scalar mixer candidate
+
+A fresh Panther profile was captured after a bot obituary and a further three
+seconds of gameplay. The earlier capture caught load-time pixel conversion and
+was discarded as frame-time evidence. The usable call tree contains 559 samples
+under `Com_Frame`: 71 leaf samples in `gldAllocVertexBuffer`, 20 in
+`gldFreeVertexBuffer`, and 31 in `S_PaintChannelFrom16_scalar`. These are sampled
+attributions, not precise subsystem timings; unresolved driver frames limit
+interpretation. The larger lead is driver geometry submission, while scalar
+sound is a smaller opportunity. The profiled timedemo's 22.2 FPS is instrumented
+and must not be compared against ordinary benchmark results.
+
+`s_mixScalarChunks` adds an opt-in scalar PCM loop that processes contiguous
+runs between sound-chunk boundaries. Arithmetic and sample rate stay identical;
+the Doppler and AltiVec paths are unchanged. The extracted actual functions pass
+600 exact-output comparisons with address/undefined-behavior sanitizers,
+including boundary crossings, signed sample extremes, channel volumes, destination
+offsets and Doppler fallback. The arm64 engine compiles. The cvar defaults to 0;
+this is a candidate, not a measured G3 speedup. PPC build/measurement awaits the
+shared Lion build host.
+
+The scalar mixer M5 comparison completed three alternating runs: off
+201.0/195.8/191.0, on 169.2/191.7/191.6. Medians 193.40 versus 191.65 FPS show
+no useful gain on this machine, so it remains disabled. The G3-specific result
+is still pending; no G3 benefit is inferred from a native arm64 compile or test.

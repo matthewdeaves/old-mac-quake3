@@ -35,8 +35,12 @@ in `docs/PROFILING.md`.
 | `r_subdivisions` | curved-surface tessellation; higher = coarser/faster |
 | `r_lodbias` / `r_lodscale` | model LOD aggressiveness |
 | `cg_shadows` | blob/stencil shadows |
+| `r_lodCurveError` | Higher values retain finer curved-surface detail at distance. |
+| `cg_oldRail` / `cg_oldRocket` / `cg_oldPlasma` | Set 0 for spiral rail trails, additional rocket explosion effects and plasma trail particles; 1 selects simpler effects. |
 | `r_flares` / `r_fastsky` | flare sprites / cheap sky |
 | `r_detailtextures` | detail texture pass |
+| `r_flareTestInterval` | Frames between flare depth checks. 1 checks every frame; larger values trade occlusion-response latency for fewer GPU readbacks. |
+| `r_directTexCoords` | Experimental, default 0. Submit unmodified mesh texture coordinates directly; modifiers and generated coordinates retain the original path. |
 
 ## Framerate / HUD / present
 
@@ -53,6 +57,7 @@ in `docs/PROFILING.md`.
 | cvar | meaning |
 |---|---|
 | `s_sdlSpeed` | SDL backend mix rate. **This is the knob, not `s_khz`**, which is a no-op on this backend (`code/sdl/sdl_snd.c`). `11025` roughly halves the scalar mix work; the biggest single G3 CPU lever. |
+| `s_mixScalarChunks` | Experimental, default 0. Process contiguous scalar PCM runs without a per-sample chunk-boundary branch. Doppler and AltiVec paths unchanged. |
 | `com_altivec` | 1 on the ppc7400 slice, which selects `S_PaintChannelFrom16_altivec` in `snd_mix.c` |
 
 ## Game modules

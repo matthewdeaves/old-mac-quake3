@@ -40,7 +40,6 @@ cvar_t	*r_flareSize;
 cvar_t	*r_flareFade;
 cvar_t	*r_flareCoeff;
 cvar_t	*r_flareTestInterval;
-cvar_t	*r_flareNoFinish;
 
 cvar_t	*r_railWidth;
 cvar_t	*r_railCoreWidth;
@@ -1119,7 +1118,6 @@ void R_Register( void )
 	// changes only HOW OFTEN a flare's occlusion is re-tested, never whether an
 	// occluded flare is drawn. See RB_RenderFlares.
 	r_flareTestInterval = ri.Cvar_Get ("r_flareTestInterval", "1", CVAR_ARCHIVE);
-	r_flareNoFinish = ri.Cvar_Get ("r_flareNoFinish", "0", CVAR_ARCHIVE);
 
 	r_showSmp = ri.Cvar_Get ("r_showSmp", "0", CVAR_CHEAT);
 	r_skipBackEnd = ri.Cvar_Get ("r_skipBackEnd", "0", CVAR_CHEAT);

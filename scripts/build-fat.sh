@@ -159,7 +159,7 @@ ssh "$BUILD_HOST" "cd /tmp && rm -f $SLICES ioquake3-fat"
 
 # Lion's lipo WRITES an arm64 member correctly but cannot NAME it, so the
 # remote lipo -info above prints "cputype (16777228)" for that slice. That is
-# cosmetic. The gate below runs HERE, where lipo knows the name.
+# cosmetic. The gate below decodes numeric headers on this workstation.
 #
 # Compared as a SET, not as a string. lipo lists members in the order they were
 # fused, not in any canonical order, so an ordered compare asserts the argument
@@ -167,8 +167,9 @@ ssh "$BUILD_HOST" "cd /tmp && rm -f $SLICES ioquake3-fat"
 # how this gate broke when the i386 slice was added: the slice was fused
 # correctly and the build still failed, on 'ppc750 ppc7400 x86_64 i386' not
 # matching a hardcoded 'ppc750 ppc7400 x86_64'.
-if command -v lipo >/dev/null 2>&1; then
-  GOT=$(lipo -info "$OUT/ioquake3-fat" | sed 's/.*: //' | tr -s ' ' | sed 's/ *$//')
+if command -v otool >/dev/null 2>&1; then
+  . "$HERE/macho-archs.sh"
+  GOT=$(macho_archs "$OUT/ioquake3-fat")
 else
   GOT=$(python3 -c "
 import struct

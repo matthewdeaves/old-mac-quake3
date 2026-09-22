@@ -8,7 +8,8 @@
 #
 # NEVER touches the read-only install at mini-intel:/Users/mini/Games/ioquake3.
 # Source is mini-intel's own canonical install, /Applications/Quake3/baseq3/
-# (old-mac-quake3#50: no loose ~/quake3-play). SRC_HOST=<alias> picks any other
+# (old-mac-quake3#50: no loose ~/quake3-play). pak0 is PAK0.PK3 on some hosts,
+# hence the *.PK3 include. SRC_HOST=<alias> picks any other
 # fleet Mac whose install holds all 9 pk3s.
 #
 set -euo pipefail

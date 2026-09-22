@@ -62,10 +62,10 @@ fi
 trap '[ "$BUILD_HOST_CLAIMED" = 1 ] && "$HERE/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 # Same owned child as build.sh; see the note there before changing it.
-PROJ_REMOTE="oldmac/quake3"
+PROJ_REMOTE="oldmac/quake3/src"
 case "$PROJ_REMOTE" in
-  oldmac/quake3) ;;
-  *) echo "build-gamedylibs: PROJ_REMOTE must be oldmac/quake3, got $PROJ_REMOTE" >&2; exit 3 ;;
+  oldmac/quake3/src) ;;
+  *) echo "build-gamedylibs: PROJ_REMOTE must be oldmac/quake3/src, got $PROJ_REMOTE" >&2; exit 3 ;;
 esac
 LOCK="$PROJ_LOCAL/build/.build.lock"
 OUT="$PROJ_LOCAL/build/gamedylibs"
@@ -78,7 +78,7 @@ flock -w 900 9 || { echo "build-gamedylibs: lock timeout"; exit 1; }
 rsync_tree() {
   ssh "$BUILD_HOST" "mkdir -p $PROJ_REMOTE"
   rsync -az --delete --exclude='.git' --exclude='build/' --exclude='benchmarks/' \
-    --exclude='.venv/' --exclude='*.o' --exclude='*.d' "$PROJ_LOCAL/" "$BUILD_HOST:$PROJ_REMOTE/"
+    --exclude='.venv/' --exclude='.claude/' --exclude='*.o' --exclude='*.d' "$PROJ_LOCAL/" "$BUILD_HOST:$PROJ_REMOTE/"
 }
 
 # $1=target(g3|g4|lion) — build the three game dylibs for one slice on mini-intel,

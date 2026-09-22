@@ -274,6 +274,8 @@ ifeq ($(wildcard .git),.git)
   ifneq ($(GIT_REV),)
     VERSION:=$(VERSION)_GIT_$(GIT_REV)
     USE_GIT=1
+    # .git is a file in a git worktree, so ask git where the index is (#58).
+    GIT_INDEX:=$(shell git rev-parse --git-path index)
   endif
 endif
 
@@ -2470,9 +2472,9 @@ $(B)/ded/%.o: $(NDIR)/%.c
 
 # Extra dependencies to ensure the git version is incorporated
 ifeq ($(USE_GIT),1)
-  $(B)/client/cl_console.o : .git/index
-  $(B)/client/common.o : .git/index
-  $(B)/ded/common.o : .git/index
+  $(B)/client/cl_console.o : $(GIT_INDEX)
+  $(B)/client/common.o : $(GIT_INDEX)
+  $(B)/ded/common.o : $(GIT_INDEX)
 endif
 
 

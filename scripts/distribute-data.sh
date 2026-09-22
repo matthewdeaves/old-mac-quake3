@@ -7,8 +7,9 @@
 # reach the whole fleet. Idempotent: rsync only ships missing/changed pk3s.
 #
 # NEVER touches the read-only install at mini-intel:/Users/mini/Games/ioquake3.
-# Source is explicitly mini-intel:~/quake3-play/baseq3/ (NOT plain
-# ~/quake3 — that's the build-tree checkout on this same host).
+# Source is mini-intel's own canonical install, /Applications/Quake3/baseq3/
+# (old-mac-quake3#50: no loose ~/quake3-play). SRC_HOST=<alias> picks any other
+# fleet Mac whose install holds all 9 pk3s.
 #
 set -euo pipefail
 
@@ -43,7 +44,7 @@ SRC_HOST="${SRC_HOST:-mini-intel}"
 # shellcheck disable=SC2088
 # both tildes stay unexpanded on purpose: they
 # must resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-SRC_DIR="~/quake3-play/baseq3"
+SRC_DIR="/Applications/Quake3/baseq3"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 CACHE="$PROJ_LOCAL/build/baseq3-cache"        # gitignored (under build/)
 # shellcheck disable=SC2088
@@ -76,7 +77,7 @@ rsync -av --partial "${ONLY_PK3[@]}" "$SRC_HOST:$SRC_DIR/" "$CACHE/"
 # LOCAL_ALIASES) - no sshd, no hostkey, so ship via a local copy instead of
 # ssh+rsync-over-network, into THIS host's own home, not a remote tilde.
 if [ "$MACHINE" = workstation ]; then
-	LOCAL_DIR="$HOME/Desktop/quake3/baseq3"
+	LOCAL_DIR="$REMOTE_DIR"
 	echo "==> ship pk3s -> workstation:$LOCAL_DIR (local copy)"
 	mkdir -p "$LOCAL_DIR"
 	rsync -av --partial "${ONLY_PK3[@]}" "$CACHE/" "$LOCAL_DIR/"

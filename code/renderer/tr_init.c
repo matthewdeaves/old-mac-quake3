@@ -47,6 +47,7 @@ cvar_t	*r_railCoreWidth;
 cvar_t	*r_railSegmentLength;
 
 cvar_t	*r_ignoreFastPath;
+cvar_t	*r_directTexCoords;
 
 cvar_t	*r_verbose;
 cvar_t	*r_ignore;
@@ -1050,6 +1051,7 @@ void R_Register( void )
 	r_smp = ri.Cvar_Get( "r_smp", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	r_stereoEnabled = ri.Cvar_Get( "r_stereoEnabled", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	r_ignoreFastPath = ri.Cvar_Get( "r_ignoreFastPath", "1", CVAR_ARCHIVE | CVAR_LATCH );
+	r_directTexCoords = ri.Cvar_Get( "r_directTexCoords", "0", CVAR_ARCHIVE );
 	r_greyscale = ri.Cvar_Get("r_greyscale", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(r_greyscale, 0, 1, qfalse);
 

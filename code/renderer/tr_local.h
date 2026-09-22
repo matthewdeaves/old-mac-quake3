@@ -1025,6 +1025,7 @@ extern cvar_t	*r_flareFade;
 extern cvar_t	*r_flareCoeff;
 extern cvar_t	*r_flareTestInterval;
 extern cvar_t	*r_flareNoFinish;
+extern cvar_t	*r_directTexCoords;
 
 extern cvar_t	*r_railWidth;
 extern cvar_t	*r_railCoreWidth;

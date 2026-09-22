@@ -350,6 +350,32 @@ t0 = most upstream according to spec
 t1 = most downstream according to spec
 ===================
 */
+// Unmodified mesh coordinates can be submitted directly. The discrete
+// conformance path reads svars itself, so it must keep the generated arrays.
+static int RB_DirectTexCoordSource( const textureBundle_t *bundle ) {
+	if ( !r_directTexCoords->integer || r_primitives->integer == 3 ||
+		bundle->numTexMods ) {
+		return -1;
+	}
+	if ( bundle->tcGen == TCGEN_TEXTURE ) {
+		return 0;
+	}
+	if ( bundle->tcGen == TCGEN_LIGHTMAP ) {
+		return 1;
+	}
+	return -1;
+}
+
+static void RB_StageTexCoordPointer( shaderStage_t *stage, int bundle ) {
+	int source = RB_DirectTexCoordSource( &stage->bundle[bundle] );
+	if ( source >= 0 ) {
+		qglTexCoordPointer( 2, GL_FLOAT, sizeof( tess.texCoords[0] ),
+			tess.texCoords[0][source] );
+	} else {
+		qglTexCoordPointer( 2, GL_FLOAT, 0, tess.svars.texcoords[bundle] );
+	}
+}
+
 static void DrawMultitextured( shaderCommands_t *input, int stage ) {
 	shaderStage_t	*pStage;
 
@@ -367,7 +393,7 @@ static void DrawMultitextured( shaderCommands_t *input, int stage ) {
 	// base
 	//
 	GL_SelectTexture( 0 );
-	qglTexCoordPointer( 2, GL_FLOAT, 0, input->svars.texcoords[0] );
+	RB_StageTexCoordPointer( pStage, 0 );
 	R_BindAnimatedImage( &pStage->bundle[0] );
 
 	//
@@ -383,7 +409,7 @@ static void DrawMultitextured( shaderCommands_t *input, int stage ) {
 		GL_TexEnv( tess.shader->multitextureEnv );
 	}
 
-	qglTexCoordPointer( 2, GL_FLOAT, 0, input->svars.texcoords[1] );
+	RB_StageTexCoordPointer( pStage, 1 );
 
 	R_BindAnimatedImage( &pStage->bundle[1] );
 
@@ -1018,6 +1044,9 @@ static void ComputeTexCoords( shaderStage_t *pStage ) {
 
 	for ( b = 0; b < NUM_TEXTURE_BUNDLES; b++ ) {
 		int tm;
+		if ( RB_DirectTexCoordSource( &pStage->bundle[b] ) >= 0 ) {
+			continue;
+		}
 
 		//
 		// generate the texture coordinates
@@ -1144,7 +1173,7 @@ static void RB_IterateStagesGeneric( shaderCommands_t *input )
 		{
 			if ( !setArraysOnce )
 			{
-				qglTexCoordPointer( 2, GL_FLOAT, 0, input->svars.texcoords[0] );
+				RB_StageTexCoordPointer( pStage, 0 );
 			}
 
 			//
@@ -1228,7 +1257,7 @@ void RB_StageIteratorGeneric( void )
 		qglColorPointer( 4, GL_UNSIGNED_BYTE, 0, tess.svars.colors );
 
 		qglEnableClientState( GL_TEXTURE_COORD_ARRAY);
-		qglTexCoordPointer( 2, GL_FLOAT, 0, tess.svars.texcoords[0] );
+		RB_StageTexCoordPointer( tess.xstages[0], 0 );
 	}
 
 	//
@@ -1529,4 +1558,3 @@ void RB_EndSurface( void ) {
 
 	GLimp_LogComment( "----------\n" );
 }
-

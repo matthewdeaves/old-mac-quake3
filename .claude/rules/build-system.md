@@ -28,6 +28,7 @@ scripts/install-host-tools.sh <host>     # one-time reboot-recovery setup
 - **`dyld` grades a fat binary by CPU subtype alone**, never the OS, and there is no fallback to a lower slice. **Five slices:** `ppc750` (G3), `ppc7400` (G4 **and G5**), `x86_64`, `i386`, `arm64`. **No `ppc970`** - the G5 takes the `ppc7400` slice. Verify with `lipo -archs`, never from this list. `docs/adr/0002`, `docs/adr/0017`.
 - **Never trust the compiler's cpusubtype stamp.** `-faltivec` defeats it and is mandatory on the g4 slice. Every build re-stamps post-link and **asserts with `lipo`, never `file`**. `docs/adr/0003`.
 - **The g4 slice needs `-isystem /usr/lib/gcc/powerpc-apple-darwin10/4.0.1/include`**.
+- **Renderer selection:** Apple Silicon uses built-in rend2; the four legacy slices use built-in GL1. `old-mac-build-host` remains the build/CI authority, with the arm64 slice built locally by `scripts/build-arm64.sh`.
 - **One `.app` self-tunes**: `Com_AutoConfigForMachine` (`code/qcommon/common.c`). `+set com_archAutoexec 0` turns both off. `docs/adr/0007`.
 - **Game modules ship as native dylibs inside the bundle** at `Contents/MacOS/baseq3/`. Measured **+1.3%** over the QVM. The **`i386` slice has no dylibs built for it**, but ships the x86 JIT, so it runs COMPILED QVM. `docs/adr/0008`, issue #23.
 - **The user's `baseq3` stays outside the bundle.** We ship no game data. `docs/adr/0011`.

@@ -143,7 +143,8 @@ echo "==> [2/3] building ioquake3 (arm64, macOS $VMIN)"
     USE_LOCAL_HEADERS=1 \
     make -j"$(sysctl -n hw.ncpu)" HAVE_VM_COMPILED= NOTSHLIBCFLAGS= )
 
-BIN="$PROJ/build/release-darwin-arm64/ioquake3.arm64"
+# Apple Silicon uses the shader renderer. The four legacy slices remain GL1.
+BIN="$PROJ/build/release-darwin-arm64/ioquake3_rend2.arm64"
 test -f "$BIN" || { echo "build-arm64.sh: make produced no $BIN" >&2; exit 1; }
 
 rm -f "$OUT/ioquake3-arm64"

@@ -187,8 +187,8 @@ echo "==> [$TARGET] make on $BUILD_HOST (ARCH=$ARCH CC=$CC min=$VMIN)"
 # (QVMs already ship inside baseq3/pak8.pk3), optional deps off to shrink the
 # dependency surface against the old SDKs. USE_RENDERER_DLOPEN=0 links the
 # opengl1 renderer straight into the binary -> a single Mach-O to deploy (no
-# separate renderer_*.dylib), and skips rend2 (GL2/GLSL — useless on Rage 128 /
-# GeForce2). Re-enable bits as the build stabilises.
+# separate renderer_*.dylib). Make also builds rend2 executables; this script
+# selects GL1 for legacy GPUs. build-arm64.sh selects rend2 for Apple Silicon.
 ssh "$BUILD_HOST" "cd $PROJ_REMOTE
   PLATFORM=darwin ARCH=$ARCH make clean >/dev/null 2>&1 || true
   PLATFORM=darwin ARCH=$ARCH CC='$CC' \\

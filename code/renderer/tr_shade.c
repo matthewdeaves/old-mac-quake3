@@ -1108,6 +1108,17 @@ static void ComputeTexCoords( shaderStage_t *pStage ) {
 	}
 }
 
+/* A single white stage needs no per-vertex color stream. Keep ComputeColors
+ * for downstream consumers, and restrict this to the indexed draw path. */
+static qboolean RB_ConstantWhiteStage( void )
+{
+	shaderStage_t *stage = tess.xstages[0];
+	return r_constantColor->integer && r_primitives->integer == 2 &&
+		tess.numPasses == 1 && !tess.fogNum && stage &&
+		stage->rgbGen == CGEN_IDENTITY &&
+		(stage->alphaGen == AGEN_IDENTITY || stage->alphaGen == AGEN_SKIP);
+}
+
 /*
 ** RB_IterateStagesGeneric
 */
@@ -1127,7 +1138,12 @@ static void RB_IterateStagesGeneric( shaderCommands_t *input )
 		ComputeColors( pStage );
 		ComputeTexCoords( pStage );
 
-		if ( !setArraysOnce )
+		if ( RB_ConstantWhiteStage() )
+		{
+			qglDisableClientState( GL_COLOR_ARRAY );
+			qglColor4f( 1, 1, 1, 1 );
+		}
+		else if ( !setArraysOnce )
 		{
 			qglEnableClientState( GL_COLOR_ARRAY );
 			qglColorPointer( 4, GL_UNSIGNED_BYTE, 0, input->svars.colors );
@@ -1224,8 +1240,12 @@ void RB_StageIteratorGeneric( void )
 	{
 		setArraysOnce = qtrue;
 
-		qglEnableClientState( GL_COLOR_ARRAY);
-		qglColorPointer( 4, GL_UNSIGNED_BYTE, 0, tess.svars.colors );
+		if ( RB_ConstantWhiteStage() )
+			qglDisableClientState( GL_COLOR_ARRAY );
+		else {
+			qglEnableClientState( GL_COLOR_ARRAY);
+			qglColorPointer( 4, GL_UNSIGNED_BYTE, 0, tess.svars.colors );
+		}
 
 		qglEnableClientState( GL_TEXTURE_COORD_ARRAY);
 		qglTexCoordPointer( 2, GL_FLOAT, 0, tess.svars.texcoords[0] );

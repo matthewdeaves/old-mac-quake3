@@ -233,6 +233,14 @@ case "$(ssh -o ConnectTimeout=10 "$HOST" 'sw_vers -productVersion' 2>/dev/null)"
   *) OPEN_ARGS_OK=0 ;;   # unknown/empty answer: assume the conservative (older) path
 esac
 
+# Refuse to launch into a locked console (old-mac-build-host#88): a smoke into
+# loginwindow's shield renders nothing anyone sees. Locked or unprobeable means
+# UNTESTED, not a pass. Shared script; edit it in old-mac-build-host.
+"$(dirname "$0")/gui-precondition.sh" "$HOST" || {
+  echo "[smoke $HOST] UNTESTED: display precondition failed (screen locked or unprobeable)" >&2
+  exit 1
+}
+
 if [ "$OPEN_ARGS_OK" = 1 ]; then
   echo "[smoke $HOST] launching DMG-installed ioquake3.app via LaunchServices (open -n --args, the Finder double-click path), demo=$DEMO"
 else

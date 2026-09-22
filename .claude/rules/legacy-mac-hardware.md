@@ -14,7 +14,7 @@
 | imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | Sequoia 15.7 | x86_64 | modern reference |
 
 Build TARGET names (`g3`/`g4`/`lion`) are chip family plus SDK, not machines.
-The two Intel minis are interchangeable Macmini2,1 / 10.7.5 boxes. The read-only Q3 install lives at `mini-intel:/Users/mini/Games/ioquake3/`; staged copy is `mini-intel:~/quake3-play/baseq3/` (moved off `~/Desktop/` 2026-09-04, old-mac-quake3#49 — TCC blocks headless reads there; NOT plain `~/quake3`, which is the build-tree rsync target on this same host).
+The two Intel minis are interchangeable Macmini2,1 / 10.7.5 boxes. The read-only Q3 install lives at `mini-intel:/Users/mini/Games/ioquake3/`; the data source for `distribute-data.sh` is mini-intel's own install, `/Applications/Quake3/baseq3/` (#50; it was `~/quake3-play/baseq3/`, and before that `~/Desktop/`, where TCC blocks headless reads, #49). The build tree on the minis is `~/oldmac/quake3/`.
 
 ## Hardware that can be wedged or damaged
 Read `docs/adr/0009` before benching anything.

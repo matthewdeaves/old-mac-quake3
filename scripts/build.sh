@@ -19,7 +19,15 @@ set -euo pipefail
 
 TARGET="${1:?usage: build.sh <g3|g4|lion|i386>}"
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
-PROJ_REMOTE="quake3"   # <build host>:quake3/  — NEVER quakespasm/ or quake2/
+# <build host>:oldmac/quake3/ (old-mac-quake3#50, old-mac-build-host#73: nothing
+# loose in a fleet Mac's home). Only this one owned child: the rsync below runs
+# --delete, and ~/oldmac itself also holds old-mac-halflife's tree, the SDL trees
+# and oldmac/quake2. Never widen it to oldmac/ or point it at a sister port.
+PROJ_REMOTE="oldmac/quake3"
+case "$PROJ_REMOTE" in
+  oldmac/quake3) ;;
+  *) echo "build.sh: PROJ_REMOTE must be oldmac/quake3, got $PROJ_REMOTE" >&2; exit 3 ;;
+esac
 
 # The cross-build host is an Intel Mac mini — there are now TWO interchangeable
 # ones (mini-intel, mini-intel2: same Macmini2,1 / 10.7.5 / identical toolchain).

@@ -61,7 +61,12 @@ if [ -z "${BUILD_HOST:-}" ]; then
 fi
 trap '[ "$BUILD_HOST_CLAIMED" = 1 ] && "$HERE/pick-build-host.sh" --release "$BUILD_HOST" >/dev/null 2>&1; true' EXIT
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
-PROJ_REMOTE="quake3"
+# Same owned child as build.sh; see the note there before changing it.
+PROJ_REMOTE="oldmac/quake3"
+case "$PROJ_REMOTE" in
+  oldmac/quake3) ;;
+  *) echo "build-gamedylibs: PROJ_REMOTE must be oldmac/quake3, got $PROJ_REMOTE" >&2; exit 3 ;;
+esac
 LOCK="$PROJ_LOCAL/build/.build.lock"
 OUT="$PROJ_LOCAL/build/gamedylibs"
 MODS="cgame qagame ui"
@@ -71,6 +76,7 @@ exec 9>"$LOCK"
 flock -w 900 9 || { echo "build-gamedylibs: lock timeout"; exit 1; }
 
 rsync_tree() {
+  ssh "$BUILD_HOST" "mkdir -p $PROJ_REMOTE"
   rsync -az --delete --exclude='.git' --exclude='build/' --exclude='benchmarks/' \
     --exclude='.venv/' --exclude='*.o' --exclude='*.d' "$PROJ_LOCAL/" "$BUILD_HOST:$PROJ_REMOTE/"
 }

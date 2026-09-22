@@ -80,7 +80,6 @@ cvar_t		*s_testsound;
 cvar_t		*s_show;
 cvar_t		*s_mixahead;
 cvar_t		*s_mixPreStep;
-cvar_t		*s_mixScalarChunks;
 
 static loopSound_t		loopSounds[MAX_GENTITIES];
 static	channel_t		*freelist = NULL;
@@ -1565,7 +1564,6 @@ qboolean S_Base_Init( soundInterface_t *si ) {
 
 	s_mixahead = Cvar_Get ("s_mixahead", "0.2", CVAR_ARCHIVE);
 	s_mixPreStep = Cvar_Get ("s_mixPreStep", "0.05", CVAR_ARCHIVE);
-	s_mixScalarChunks = Cvar_Get ("s_mixScalarChunks", "0", CVAR_ARCHIVE);
 	s_show = Cvar_Get ("s_show", "0", CVAR_CHEAT);
 	s_testsound = Cvar_Get ("s_testsound", "0", CVAR_CHEAT);
 

@@ -573,14 +573,36 @@ void FBO_Init(void)
 
 		FBO_AttachTextureImage(tr.hdrDepthImage, 0);
 
-		R_CheckFBO(tr.hdrDepthFbo);
+		if (!R_CheckFBO(tr.hdrDepthFbo))
+		{
+			/* Some drivers sample INTENSITY32F but cannot render to it.
+			 * SSAO reads only red; RGBA32F retains the same depth precision. */
+			ri.Printf(PRINT_ALL, "SSAO: retrying depth color target as RGBA32F\n");
+			GL_BindToTMU(tr.hdrDepthImage, 0);
+			qglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB,
+				tr.hdrDepthImage->width, tr.hdrDepthImage->height,
+				0, GL_RGBA, GL_FLOAT, NULL);
+			tr.hdrDepthImage->internalFormat = GL_RGBA32F_ARB;
+			if (!R_CheckFBO(tr.hdrDepthFbo))
+			{
+				ri.Printf(PRINT_WARNING, "SSAO disabled: no renderable depth color target\n");
+				ri.Cvar_Set("r_ssao", "0");
+			}
+		}
+	}
 
+	if (r_ssao->integer)
+	{
 		tr.screenSsaoFbo = FBO_Create("_screenssao", tr.screenSsaoImage->width, tr.screenSsaoImage->height);
 		FBO_Bind(tr.screenSsaoFbo);
 		
 		FBO_AttachTextureImage(tr.screenSsaoImage, 0);
 
-		R_CheckFBO(tr.screenSsaoFbo);
+		if (!R_CheckFBO(tr.screenSsaoFbo))
+		{
+			ri.Printf(PRINT_WARNING, "SSAO disabled: incomplete output framebuffer\n");
+			ri.Cvar_Set("r_ssao", "0");
+		}
 	}
 
 	GL_CheckErrors();

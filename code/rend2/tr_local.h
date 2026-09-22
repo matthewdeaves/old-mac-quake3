@@ -2095,6 +2095,7 @@ extern  cvar_t  *r_mergeLeafSurfaces;
 extern  cvar_t  *r_softOverbright;
 
 extern  cvar_t  *r_hdr;
+extern cvar_t *r_orphanBuffers;
 extern  cvar_t  *r_postProcess;
 
 extern  cvar_t  *r_toneMap;

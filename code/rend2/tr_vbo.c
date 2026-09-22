@@ -849,6 +849,25 @@ Adapted from Tess_UpdateVBOs from xreal
 Tr3B: update the default VBO to replace the client side vertex arrays
 ==============
 */
+// Keep the existing attribute offsets so draw setup and shader inputs do not
+// change. Mode 2 gathers the active ranges for one complete storage upload.
+static byte rb_streamScratch[
+	(sizeof(tess.xyz[0]) + sizeof(tess.normal[0]) +
+#ifdef USE_VERT_TANGENT_SPACE
+	 sizeof(tess.tangent[0]) + sizeof(tess.bitangent[0]) +
+#endif
+	 sizeof(tess.texCoords[0][0]) * 2 + sizeof(tess.vertexColors[0]) +
+	 sizeof(tess.lightdir[0])) * SHADER_MAX_VERTEXES];
+
+static void RB_UploadStreamData(int offset, int size, const void *data)
+{
+	if ( r_orphanBuffers->integer == 2 ) {
+		Com_Memcpy(rb_streamScratch + offset, data, size);
+	} else {
+		qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, offset, size, data);
+	}
+}
+
 void RB_UpdateVBOs(unsigned int attribBits)
 {
 	GLimp_LogComment("--- RB_UpdateVBOs ---\n");
@@ -860,73 +879,88 @@ void RB_UpdateVBOs(unsigned int attribBits)
 	{
 		R_BindVBO(tess.vbo);
 
+		// These scratch arrays are replaced for each batch. Give in-flight
+		// draws their old storage instead of synchronizing every SubData.
+		if ( r_orphanBuffers->integer == 1 ) {
+			qglBufferDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->vertexesSize, NULL, GL_STREAM_DRAW_ARB);
+		}
+
 		if(attribBits & ATTR_BITS)
 		{
 			if(attribBits & ATTR_POSITION)
 			{
 				//ri.Printf(PRINT_ALL, "offset %d, size %d\n", tess.vbo->ofs_xyz, tess.numVertexes * sizeof(tess.xyz[0]));
-				qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_xyz,         tess.numVertexes * sizeof(tess.xyz[0]),              tess.xyz);
+				RB_UploadStreamData(tess.vbo->ofs_xyz,         tess.numVertexes * sizeof(tess.xyz[0]),              tess.xyz);
 			}
 
 			if(attribBits & ATTR_TEXCOORD || attribBits & ATTR_LIGHTCOORD)
 			{
 				// these are interleaved, so we update both if either need it
 				//ri.Printf(PRINT_ALL, "offset %d, size %d\n", tess.vbo->ofs_st, tess.numVertexes * sizeof(tess.texCoords[0][0]) * 2);
-				qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_st,          tess.numVertexes * sizeof(tess.texCoords[0][0]) * 2, tess.texCoords);
+				RB_UploadStreamData(tess.vbo->ofs_st,          tess.numVertexes * sizeof(tess.texCoords[0][0]) * 2, tess.texCoords);
 			}
 
 			if(attribBits & ATTR_NORMAL)
 			{
 				//ri.Printf(PRINT_ALL, "offset %d, size %d\n", tess.vbo->ofs_normal, tess.numVertexes * sizeof(tess.normal[0]));
-				qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_normal,      tess.numVertexes * sizeof(tess.normal[0]),           tess.normal);
+				RB_UploadStreamData(tess.vbo->ofs_normal,      tess.numVertexes * sizeof(tess.normal[0]),           tess.normal);
 			}
 
 #ifdef USE_VERT_TANGENT_SPACE
 			if(attribBits & ATTR_TANGENT)
 			{
 				//ri.Printf(PRINT_ALL, "offset %d, size %d\n", tess.vbo->ofs_tangent, tess.numVertexes * sizeof(tess.tangent[0]));
-				qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_tangent,     tess.numVertexes * sizeof(tess.tangent[0]),          tess.tangent);
+				RB_UploadStreamData(tess.vbo->ofs_tangent,     tess.numVertexes * sizeof(tess.tangent[0]),          tess.tangent);
 			}
 
 			if(attribBits & ATTR_BITANGENT)
 			{
 				//ri.Printf(PRINT_ALL, "offset %d, size %d\n", tess.vbo->ofs_bitangent, tess.numVertexes * sizeof(tess.bitangent[0]));
-				qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_bitangent,   tess.numVertexes * sizeof(tess.bitangent[0]),        tess.bitangent);
+				RB_UploadStreamData(tess.vbo->ofs_bitangent,   tess.numVertexes * sizeof(tess.bitangent[0]),        tess.bitangent);
 			}
 #endif
 
 			if(attribBits & ATTR_COLOR)
 			{
 				//ri.Printf(PRINT_ALL, "offset %d, size %d\n", tess.vbo->ofs_vertexcolor, tess.numVertexes * sizeof(tess.vertexColors[0]));
-				qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_vertexcolor, tess.numVertexes * sizeof(tess.vertexColors[0]),     tess.vertexColors);
+				RB_UploadStreamData(tess.vbo->ofs_vertexcolor, tess.numVertexes * sizeof(tess.vertexColors[0]),     tess.vertexColors);
 			}
 
 			if(attribBits & ATTR_LIGHTDIRECTION)
 			{
 				//ri.Printf(PRINT_ALL, "offset %d, size %d\n", tess.vbo->ofs_lightdir, tess.numVertexes * sizeof(tess.lightdir[0]));
-				qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_lightdir,    tess.numVertexes * sizeof(tess.lightdir[0]),         tess.lightdir);
+				RB_UploadStreamData(tess.vbo->ofs_lightdir,    tess.numVertexes * sizeof(tess.lightdir[0]),         tess.lightdir);
 			}
 		}
 		else
 		{
-			qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_xyz,         tess.numVertexes * sizeof(tess.xyz[0]),              tess.xyz);
-			qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_st,          tess.numVertexes * sizeof(tess.texCoords[0][0]) * 2, tess.texCoords);
-			qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_normal,      tess.numVertexes * sizeof(tess.normal[0]),           tess.normal);
+			RB_UploadStreamData(tess.vbo->ofs_xyz,         tess.numVertexes * sizeof(tess.xyz[0]),              tess.xyz);
+			RB_UploadStreamData(tess.vbo->ofs_st,          tess.numVertexes * sizeof(tess.texCoords[0][0]) * 2, tess.texCoords);
+			RB_UploadStreamData(tess.vbo->ofs_normal,      tess.numVertexes * sizeof(tess.normal[0]),           tess.normal);
 #ifdef USE_VERT_TANGENT_SPACE
-			qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_tangent,     tess.numVertexes * sizeof(tess.tangent[0]),          tess.tangent);
-			qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_bitangent,   tess.numVertexes * sizeof(tess.bitangent[0]),        tess.bitangent);
+			RB_UploadStreamData(tess.vbo->ofs_tangent,     tess.numVertexes * sizeof(tess.tangent[0]),          tess.tangent);
+			RB_UploadStreamData(tess.vbo->ofs_bitangent,   tess.numVertexes * sizeof(tess.bitangent[0]),        tess.bitangent);
 #endif
-			qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_vertexcolor, tess.numVertexes * sizeof(tess.vertexColors[0]),     tess.vertexColors);
-			qglBufferSubDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->ofs_lightdir,    tess.numVertexes * sizeof(tess.lightdir[0]),         tess.lightdir);
+			RB_UploadStreamData(tess.vbo->ofs_vertexcolor, tess.numVertexes * sizeof(tess.vertexColors[0]),     tess.vertexColors);
+			RB_UploadStreamData(tess.vbo->ofs_lightdir,    tess.numVertexes * sizeof(tess.lightdir[0]),         tess.lightdir);
 		}
 
+		if ( r_orphanBuffers->integer == 2 ) {
+			qglBufferDataARB(GL_ARRAY_BUFFER_ARB, tess.vbo->vertexesSize, rb_streamScratch, GL_STREAM_DRAW_ARB);
+		}
 	}
 
 	// update the default IBO
 	if(tess.numIndexes > 0 && tess.numIndexes <= SHADER_MAX_INDEXES)
 	{
 		R_BindIBO(tess.ibo);
-
-		qglBufferSubDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, 0, tess.numIndexes * sizeof(tess.indexes[0]), tess.indexes);
+		if ( r_orphanBuffers->integer == 2 ) {
+			qglBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, tess.ibo->indexesSize, tess.indexes, GL_STREAM_DRAW_ARB);
+		} else {
+			if ( r_orphanBuffers->integer == 1 ) {
+				qglBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, tess.ibo->indexesSize, NULL, GL_STREAM_DRAW_ARB);
+			}
+			qglBufferSubDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, 0, tess.numIndexes * sizeof(tess.indexes[0]), tess.indexes);
+		}
 	}
 }

@@ -42,7 +42,11 @@ set.**
   the feature on by default on every known model, and a `q3config.cfg` setting
   could not turn it off because those cfgs run after it. `watch_host` now only
   says where to send; empty means Bonjour. On: `seta watch_enable 1` in
-  `baseq3/autoexec.cfg`. Off: `seta watch_enable 0`.
+  `baseq3/autoexec.cfg`. Off: `seta watch_enable 0`. **No bundled cfg may set
+  `watch_enable`**: they run after `q3config.cfg` and would override the player's
+  choice every launch. Switching it off mid-game disarms at once (destination
+  dropped, any Bonjour browse stopped); switching it back on starts clean.
+  Matches old-mac-quakespasm (a8d3d532) and old-mac-quake2.
 - **Zero-config discovery is macOS only** and compiled out elsewhere: `"auto"`
   browses Bonjour through libSystem/mDNSResponder, present on every OS the fleet
   targets, 10.3 through Lion.

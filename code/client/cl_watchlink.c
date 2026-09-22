@@ -826,7 +826,19 @@ CL_WatchLink_Frame (void)
 	double		now, interval;
 
 	if (!WatchLink_Host ()[0])
-		return;			/* feature off -- stay fully inert */
+	{
+		/* Feature off. Once, on the first frame after switching off (or at
+		   launch), disarm: drop the destination and stop any Bonjour browse
+		   still in flight, and forget the map so re-enabling starts clean.
+		   After that, fully inert. */
+		if (watch_host_seen[0])
+		{
+			WatchLink_Sync ();
+			watch_lastmap[0] = '\0';
+			watch_have_prev = qfalse;
+		}
+		return;
+	}
 
 	WatchLink_Sync ();
 

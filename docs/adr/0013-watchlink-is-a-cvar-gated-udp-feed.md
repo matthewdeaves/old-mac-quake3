@@ -37,6 +37,12 @@ set.**
 - **Runtime-gated opt-in, not a load-time change.** With `watch_host` empty: no
   sockets touched, no per-frame work, no packets. The default fleet build behaves
   exactly as before. Enable with `seta watch_host "auto"`, or an `ip` / `ip:port`.
+  **Amended 2026-09-22:** the switch is now `watch_enable` (default `0`). The
+  bundled per-machine cfgs had been presetting `watch_host "auto"`, which made
+  the feature on by default on every known model, and a `q3config.cfg` setting
+  could not turn it off because those cfgs run after it. `watch_host` now only
+  says where to send; empty means Bonjour. On: `seta watch_enable 1` in
+  `baseq3/autoexec.cfg`. Off: `seta watch_enable 0`.
 - **Zero-config discovery is macOS only** and compiled out elsewhere: `"auto"`
   browses Bonjour through libSystem/mDNSResponder, present on every OS the fleet
   targets, 10.3 through Lion.

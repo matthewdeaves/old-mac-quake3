@@ -1,5 +1,221 @@
 [
   {
+    "group": "mini-g4-direct-texcoords",
+    "leg": "a",
+    "machine": "mini-g4",
+    "resolution": "1024x768",
+    "engine_source": "e478d815",
+    "runs": [
+      76.6,
+      76.7,
+      76.9
+    ],
+    "median_2_3": 76.8,
+    "evidence": [
+      "benchmarks/raw/20260922-mini-g4-direct-texcoords/a-1.txt",
+      "benchmarks/raw/20260922-mini-g4-direct-texcoords/a-2.txt",
+      "benchmarks/raw/20260922-mini-g4-direct-texcoords/a-3.txt"
+    ]
+  },
+  {
+    "group": "mini-g4-direct-texcoords",
+    "leg": "b",
+    "machine": "mini-g4",
+    "resolution": "1024x768",
+    "engine_source": "e478d815",
+    "runs": [
+      77.3,
+      76.8,
+      77.0
+    ],
+    "median_2_3": 76.9,
+    "evidence": [
+      "benchmarks/raw/20260922-mini-g4-direct-texcoords/b-1.txt",
+      "benchmarks/raw/20260922-mini-g4-direct-texcoords/b-2.txt",
+      "benchmarks/raw/20260922-mini-g4-direct-texcoords/b-3.txt"
+    ]
+  },
+  {
+    "group": "yosemite-direct-texcoords",
+    "leg": "a",
+    "machine": "yosemite",
+    "resolution": "800x600",
+    "engine_source": "e478d815",
+    "runs": [
+      26.0,
+      25.9,
+      20.3
+    ],
+    "median_2_3": 23.1,
+    "evidence": [
+      "benchmarks/raw/20260922-yosemite-direct-texcoords/a-1.txt",
+      "benchmarks/raw/20260922-yosemite-direct-texcoords/a-2.txt",
+      "benchmarks/raw/20260922-yosemite-direct-texcoords/a-3.txt"
+    ]
+  },
+  {
+    "group": "yosemite-direct-texcoords",
+    "leg": "b",
+    "machine": "yosemite",
+    "resolution": "800x600",
+    "engine_source": "e478d815",
+    "runs": [
+      24.4,
+      25.4,
+      19.0
+    ],
+    "median_2_3": 22.2,
+    "evidence": [
+      "benchmarks/raw/20260922-yosemite-direct-texcoords/b-1.txt",
+      "benchmarks/raw/20260922-yosemite-direct-texcoords/b-2.txt",
+      "benchmarks/raw/20260922-yosemite-direct-texcoords/b-3.txt"
+    ]
+  },
+  {
+    "group": "yosemite-scalar-mixer",
+    "leg": "a",
+    "machine": "yosemite",
+    "resolution": "800x600",
+    "engine_source": "e478d815",
+    "runs": [
+      26.1,
+      24.7,
+      26.0
+    ],
+    "median_2_3": 25.35,
+    "evidence": [
+      "benchmarks/raw/20260922-yosemite-scalar-mixer/a-1.txt",
+      "benchmarks/raw/20260922-yosemite-scalar-mixer/a-2.txt",
+      "benchmarks/raw/20260922-yosemite-scalar-mixer/a-3.txt"
+    ]
+  },
+  {
+    "group": "yosemite-scalar-mixer",
+    "leg": "b",
+    "machine": "yosemite",
+    "resolution": "800x600",
+    "engine_source": "e478d815",
+    "runs": [
+      24.4,
+      26.0,
+      26.0
+    ],
+    "median_2_3": 26.0,
+    "evidence": [
+      "benchmarks/raw/20260922-yosemite-scalar-mixer/b-1.txt",
+      "benchmarks/raw/20260922-yosemite-scalar-mixer/b-2.txt",
+      "benchmarks/raw/20260922-yosemite-scalar-mixer/b-3.txt"
+    ]
+  },
+  {
+    "group": "workstation-rend2-flares",
+    "leg": "0",
+    "machine": "workstation",
+    "resolution": "2560x1080",
+    "engine_source": "e478d815-rend2",
+    "runs": [
+      82.9,
+      86.1,
+      84.0
+    ],
+    "median_2_3": 85.05,
+    "evidence": [
+      "benchmarks/raw/20260922-workstation-rend2-flares/0-1-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-flares/0-2-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-flares/0-3-qconsole.log"
+    ]
+  },
+  {
+    "group": "workstation-rend2-flares",
+    "leg": "1",
+    "machine": "workstation",
+    "resolution": "2560x1080",
+    "engine_source": "e478d815-rend2",
+    "runs": [
+      84.7,
+      86.3,
+      82.0
+    ],
+    "median_2_3": 84.15,
+    "evidence": [
+      "benchmarks/raw/20260922-workstation-rend2-flares/1-1-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-flares/1-2-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-flares/1-3-qconsole.log"
+    ]
+  },
+  {
+    "group": "workstation-rend2-orphan",
+    "leg": "0",
+    "machine": "workstation",
+    "resolution": "2560x1080",
+    "engine_source": "e478d815-orphan-v1",
+    "runs": [
+      106.7,
+      103.0,
+      88.1
+    ],
+    "median_2_3": 95.55,
+    "evidence": [
+      "benchmarks/raw/20260922-workstation-rend2-orphan/0-1-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-orphan/0-2-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-orphan/0-3-qconsole.log"
+    ]
+  },
+  {
+    "group": "workstation-rend2-orphan",
+    "leg": "1",
+    "machine": "workstation",
+    "resolution": "2560x1080",
+    "engine_source": "e478d815-orphan-v1",
+    "runs": [
+      123.2,
+      107.9,
+      102.2
+    ],
+    "median_2_3": 105.05,
+    "evidence": [
+      "benchmarks/raw/20260922-workstation-rend2-orphan/1-1-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-orphan/1-2-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-orphan/1-3-qconsole.log"
+    ]
+  },
+  {
+    "group": "workstation-rend2-stream",
+    "leg": "0",
+    "machine": "workstation",
+    "resolution": "2560x1080",
+    "engine_source": "553ba9f4-rend2",
+    "runs": [
+      74.7,
+      79.2,
+      77.3
+    ],
+    "median_2_3": 78.25,
+    "evidence": [
+      "benchmarks/raw/20260922-workstation-rend2-stream/0-1-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-stream/0-2-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-stream/0-3-qconsole.log"
+    ]
+  },
+  {
+    "group": "workstation-rend2-stream",
+    "leg": "2",
+    "machine": "workstation",
+    "resolution": "2560x1080",
+    "engine_source": "553ba9f4-rend2",
+    "runs": [
+      135.7,
+      144.8,
+      149.4
+    ],
+    "median_2_3": 147.1,
+    "evidence": [
+      "benchmarks/raw/20260922-workstation-rend2-stream/2-1-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-stream/2-2-qconsole.log",
+      "benchmarks/raw/20260922-workstation-rend2-stream/2-3-qconsole.log"
+    ]
+  },
+  {
     "group": "workstation-scalar-mixer",
     "leg": "0",
     "machine": "workstation",

@@ -92,3 +92,15 @@ timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps
 2026-09-22T17:32:24Z,67761e63-imac-g5-quality-effects-mux-b,imac-g5,four,1440x900,37.2,36.8,37.1,36.95
 2026-09-22T17:45:02Z,504b1ac4-workstation-scalar-mixer-0,workstation,four,2560x1080,201.0,195.8,191.0,193.40
 2026-09-22T17:45:14Z,504b1ac4-workstation-scalar-mixer-1,workstation,four,2560x1080,169.2,191.7,191.6,191.65
+2026-09-22T17:55:34Z,e478d815-mini-g4-direct-texcoords-a,mini-g4,four,1024x768,76.6,76.7,76.9,76.80
+2026-09-22T17:56:12Z,e478d815-mini-g4-direct-texcoords-b,mini-g4,four,1024x768,77.3,76.8,77.0,76.90
+2026-09-22T18:00:30Z,e478d815-yosemite-direct-texcoords-a,yosemite,four,800x600,26.0,25.9,20.3,23.10
+2026-09-22T18:02:19Z,e478d815-yosemite-direct-texcoords-b,yosemite,four,800x600,24.4,25.4,19.0,22.20
+2026-09-22T17:55:31Z,e478d815-rend2-workstation-rend2-flares-0,workstation,four,2560x1080,82.9,86.1,84.0,85.05
+2026-09-22T17:55:53Z,e478d815-rend2-workstation-rend2-flares-1,workstation,four,2560x1080,84.7,86.3,82.0,84.15
+2026-09-22T18:00:31Z,e478d815-orphan-v1-workstation-rend2-orphan-0,workstation,four,2560x1080,106.7,103.0,88.1,95.55
+2026-09-22T18:00:50Z,e478d815-orphan-v1-workstation-rend2-orphan-1,workstation,four,2560x1080,123.2,107.9,102.2,105.05
+2026-09-22T18:11:20Z,553ba9f4-rend2-workstation-rend2-stream-0,workstation,four,2560x1080,74.7,79.2,77.3,78.25
+2026-09-22T18:11:35Z,553ba9f4-rend2-workstation-rend2-stream-2,workstation,four,2560x1080,135.7,144.8,149.4,147.10
+2026-09-22T18:14:44Z,e478d815-yosemite-scalar-mixer-a,yosemite,four,800x600,26.1,24.7,26.0,25.35
+2026-09-22T18:16:08Z,e478d815-yosemite-scalar-mixer-b,yosemite,four,800x600,24.4,26.0,26.0,26.00

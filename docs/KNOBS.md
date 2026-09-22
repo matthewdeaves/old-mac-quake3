@@ -39,8 +39,8 @@ in `docs/PROFILING.md`.
 | `cg_oldRail` / `cg_oldRocket` / `cg_oldPlasma` | Set 0 for spiral rail trails, additional rocket explosion effects and plasma trail particles; 1 selects simpler effects. |
 | `r_flares` / `r_fastsky` | flare sprites / cheap sky |
 | `r_detailtextures` | detail texture pass |
+| `r_orphanBuffers` | Shader renderer experiment: 0 existing partial uploads, 1 fresh storage then partial uploads, 2 gathered single vertex/index uploads. |
 | `r_flareTestInterval` | Frames between flare depth checks. 1 checks every frame; larger values trade occlusion-response latency for fewer GPU readbacks. |
-| `r_directTexCoords` | Experimental, default 0. Submit unmodified mesh texture coordinates directly; modifiers and generated coordinates retain the original path. |
 
 ## Framerate / HUD / present
 
@@ -57,7 +57,6 @@ in `docs/PROFILING.md`.
 | cvar | meaning |
 |---|---|
 | `s_sdlSpeed` | SDL backend mix rate. **This is the knob, not `s_khz`**, which is a no-op on this backend (`code/sdl/sdl_snd.c`). `11025` roughly halves the scalar mix work; the biggest single G3 CPU lever. |
-| `s_mixScalarChunks` | Experimental, default 0. Process contiguous scalar PCM runs without a per-sample chunk-boundary branch. Doppler and AltiVec paths unchanged. |
 | `com_altivec` | 1 on the ppc7400 slice, which selects `S_PaintChannelFrom16_altivec` in `snd_mix.c` |
 
 ## Game modules
@@ -85,3 +84,6 @@ The port ships `0`. See `docs/adr/0008` for what that buys and why it is safe.
   `r_mode -1` plus the machine's native custom resolution).
 - Whether the SDL 1.2-era renderer exposes any of the later `r_ext_*` knobs.
 - `r_smp` on the two-core Intel mini: historically flaky, gate and test.
+
+`r_constantColor` defaults to 0. The experimental GL1 path omits the color array
+for a single white, unfogged shader stage with indexed draws. Hardware A/B pending.

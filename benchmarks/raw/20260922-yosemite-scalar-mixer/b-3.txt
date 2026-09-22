@@ -1,0 +1,1 @@
+[yosemite 800x600] 1260 frames 48.4 seconds 26.0 fps 8.0/38.4/179.0/21.1 ms  (crashlogs=0)

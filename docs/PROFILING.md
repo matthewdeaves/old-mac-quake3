@@ -728,7 +728,7 @@ comparison was negative: no separable improvement. The code was reverted after
 the G3 comparison also showed no clear benefit. Its historical unit harness
 exercised visibility, fades, readback and all finish modes.
 
-`r_directTexCoords` submits unmodified mesh texture/lightmap coordinates with
+The subsequently reverted `r_directTexCoords` candidate submitted unmodified mesh texture/lightmap coordinates with
 their original stride, avoiding per-stage copies. Texture modifiers, generated
 coordinates and the discrete primitive path keep the original arrays. This
 changes neither shader selection nor lighting calculations. Pointer/stride
@@ -798,9 +798,9 @@ used as evidence of a code speedup.
 
 G3 flare finish suppression also failed to show a separable benefit: 25.75 FPS
 off versus 25.95 on. The G5 single-sample comparison was 38.6 off versus 38.3 on,
-insufficient for a speedup conclusion. The flare candidate was reverted; the direct-coordinate candidate remains default 0.
-The direct-coordinate candidate compiled and ran on arm64; its PPC measurement
-is pending a free centralized build host. The first five-slice build contains
+insufficient for a speedup conclusion. Both renderer experiments were subsequently reverted after measurement.
+The direct-coordinate candidate compiled and ran on arm64 and PPC; the
+subsequent comparison below did not justify keeping it. The first five-slice build contains
 the flare experiment only. The other G4 GPUs, GMA950 and modern Intel were not
 remeasured in this round; these machine-specific results do not establish their
 performance. This round has demonstrated quality gains within the measured
@@ -824,10 +824,86 @@ the Doppler and AltiVec paths are unchanged. The extracted actual functions pass
 600 exact-output comparisons with address/undefined-behavior sanitizers,
 including boundary crossings, signed sample extremes, channel volumes, destination
 offsets and Doppler fallback. The arm64 engine compiles. The cvar defaults to 0;
-this is a candidate, not a measured G3 speedup. PPC build/measurement awaits the
-shared Lion build host.
+this is a candidate, not a measured G3 speedup. The subsequent PPC build and measurement are recorded below.
 
 The scalar mixer M5 comparison completed three alternating runs: off
 201.0/195.8/191.0, on 169.2/191.7/191.6. Medians 193.40 versus 191.65 FPS show
-no useful gain on this machine, so it remains disabled. The G3-specific result
-is still pending; no G3 benefit is inferred from a native arm64 compile or test.
+no useful gain on this machine, so it remains disabled. The G3-specific result and removal decision are recorded below; no G3 benefit
+is inferred from a native arm64 compile or test.
+
+### Completed legacy code comparisons and shader-renderer work
+
+The final five-slice candidate build completed through `old-mac-build-host`'s
+claimed Lion mini and verified ppc750, ppc7400, x86_64, i386 and arm64. The G3
+and G4 were deployed from that candidate, source `e478d815`.
+
+Direct texture coordinates on the G4 gave 76.80 FPS off and 76.90 on, with
+runs 76.6/76.7/76.9 versus 77.3/76.8/77.0. On G3, off gave
+26.0/25.9/20.3 and on 24.4/25.4/19.0. Both final legs slowed markedly, so the
+23.10 versus 22.20 medians must not be treated as a precise regression estimate.
+None of the individual G3 pairs favored the candidate. Reverted the code rather
+than shipping an unproven optimization. Later idle G3 inspection showed heavy
+SSH activity; that is a measurement concern, not a proven explanation for the
+prior slow samples. Avoid repeated fleet-wide status polling during timing.
+
+Source review found that the Makefile already builds separate `ioquake3_rend2`
+executables, despite an old build-script comment saying otherwise. This renderer
+was not shipped. A separate M5 test app completed demo four with its GLSL 1.20
+path, HDR and tone mapping. Generated normal maps, enhanced dynamic lighting and
+SSAO were then enabled for the following experiments. These tests are separate
+from the shipping GL1 renderer and must not be compared as equal-quality FPS.
+
+| M5 shader-renderer experiment | Baseline runs | Candidate runs | Medians 2,3 |
+|---|---|---|---|
+| flares off versus on | 82.9/86.1/84.0 | 84.7/86.3/82.0 | 85.05 / 84.15 |
+| fresh dynamic storage, mode 0 versus 1 | 106.7/103.0/88.1 | 123.2/107.9/102.2 | 95.55 / 105.05 |
+| gathered uploads, mode 0 versus 2 | 74.7/79.2/77.3 | 135.7/144.8/149.4 | 78.25 / 147.10 |
+
+The single-upload change improves that paired comparison by 88.0%, with all
+three pairs favoring it. Identical settings retain HDR, generated normal maps,
+enhanced dynamic lighting and SSAO; both SDL and FBO multisampling were off for
+this comparison. This is an optimization of the experimental shader renderer,
+not an 88% gain over the shipping GL1 renderer. Absolute performance varied
+between separate rounds; use only within-round pairs.
+
+A local profile captured driver resource flushes under `glBufferSubData`.
+The user interrupted that run before the timedemo completed, so its incomplete
+FPS is excluded; sampled stacks motivated the upload experiment but are not
+used as a quantitative whole-demo breakdown. Mode 1 replaces the dynamic
+scratch-buffer storage before its partial uploads. Mode 2 gathers active vertex
+ranges at their existing offsets and submits one complete vertex-buffer upload,
+plus one index-buffer upload, instead. Static world/model VBOs are unchanged.
+The actual upload functions pass byte-oracle tests across attribute masks,
+vertex counts, mode switches and tangent-space build variants with address and
+undefined-behavior sanitizers. Matched streaming screenshots were subsequently viewed; the incomplete AA results
+and the user-requested validation stop are recorded below.
+
+The first fresh-storage prototype was built from `e478d815` plus the small
+orphaning patch; its CSV tag is `e478d815-orphan-v1`. The full two-mode source
+and tests are retained in `553ba9f4`.
+
+### Follow-through and background-workload caveat
+
+The G3 scalar mixer completed: off 26.1/24.7/26.0, on 24.4/26.0/26.0.
+The final pair ties; the earlier pairs disagree. Removed the candidate rather
+than enabling a CPU optimization without a repeatable gain.
+
+The user reported Dungeon Keeper running alongside Quake3 on the workstation.
+Coordination notes place KeeperFX at 19:14-19:16:05 during shader quality
+validation. The AA round completed only 2x 106.7/130.0 and 4x 89.9 FPS before
+interruption; there is no three-run AA comparison. Keep the earlier streaming
+comparison as measured, with the background-workload caveat. The user explicitly
+requested no additional M5 validation round. Matched streaming screenshots were
+viewed and showed intact world geometry, textures and lighting; portal-specific
+validation remains unperformed.
+
+Apple Silicon now selects the built-in rend2 executable in build-arm64.sh.
+Its profile enables gathered uploads, HDR/tone mapping, generated normal maps,
+dynamic-light mode 1, SSAO and 4x scene-FBO AA. SDL-window AA is disabled because
+it does not antialias the offscreen HDR scene. The other four CPU slices retain
+GL1. M1 through M4 performance is not established by the M5 measurements.
+
+Next G3 hypothesis: omit the redundant vertex-color stream on single-pass,
+unfogged identity-color stages. The driver allocation profile motivates reducing
+submitted attributes; no FPS gain is assumed. `r_constantColor` defaults to 0.
+Color computation remains intact, and other shader stages retain their arrays.

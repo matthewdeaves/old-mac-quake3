@@ -412,7 +412,10 @@ rm -f "$TMP"
 # is still claimed here, so this cannot race another test replacing the app.
 META=$(ssh "$HOST" "b=$REMOTE_DIR/ioquake3.app/Contents/MacOS/ioquake3; \
   printf 'host=%s os=%s host_arch=%s installed_exe_sha256=' '$HOST' \"\$(sw_vers -productVersion 2>/dev/null || echo UNTESTED)\" \"\$(uname -m 2>/dev/null || echo UNTESTED)\"; \
-  (shasum -a 256 \"\$b\" 2>/dev/null || openssl dgst -sha256 \"\$b\" 2>/dev/null) | awk '{print \$NF}'" 2>/dev/null || true)
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256 \"\$b\" 2>/dev/null | awk '{print \$1}'; \
+  else openssl dgst -sha256 \"\$b\" 2>/dev/null | awk '{print \$NF}'; fi" 2>/dev/null || true)
+# shasum prints '<hash>  <path>' (\$1); openssl prints 'SHA256(<path>)= <hash>'
+# (\$NF). One awk over both logged the path, #55.
 
 echo "[smoke $HOST] renderer : ${MODE_LINE:-<none>}"
 echo "[smoke $HOST] result   : ${FPS_LINE:-<NO FPS LINE>}"

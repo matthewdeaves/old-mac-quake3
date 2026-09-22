@@ -226,9 +226,10 @@ echo "==> [$TARGET] verify (expect CPU subtype: $SUBTYPE)"
 # Assert on the decoded subtype, not just the byte we wrote: -faltivec is known
 # to defeat -mcpu='s stamping outright, and a generic `ppc` member is fatal (it
 # matches every PowerPC host, so a G3 can be handed the AltiVec slice). Trust
-# lipo here — `file` misreports subtype 9 as "ppc_650" on a modern host.
-if command -v lipo >/dev/null 2>&1; then
-  got=$(lipo -info "$LOCAL_BIN" | sed 's/.*: //' | tr -d ' ')
+# Decode numeric headers: modern lipo no longer names PowerPC slices.
+if command -v otool >/dev/null 2>&1; then
+  . "$(dirname "$0")/macho-archs.sh"
+  got=$(macho_archs "$LOCAL_BIN")
 else
   got=$(python3 -c "
 import struct, sys

@@ -101,13 +101,12 @@ if [ -f "$SDL2_DYLIB" ]; then
   rsync -av --partial --checksum $RSYNC_EXTRA "$SDL2_DYLIB" "$MACHINE:$REMOTE_DIR/libSDL2-2.0.0.dylib"
 fi
 
-if [ -f "$BUNDLE/autoexec-$MACHINE.cfg" ]; then
-  echo "==> [$MACHINE] stage per-machine autoexec.cfg"
-  rsync -av --checksum $RSYNC_EXTRA "$BUNDLE/autoexec-$MACHINE.cfg" \
-    "$MACHINE:$REMOTE_DIR/baseq3/autoexec.cfg"
-else
-  echo "    (no scripts/bundle/autoexec-$MACHINE.cfg — skipping config)"
-fi
+# No per-machine autoexec.cfg is written into baseq3/ any more (#63, 2026-09-23).
+# The .app applies its bundled per-arch/GPU/machine/OS cfgs itself (ADR 0007),
+# and baseq3/autoexec.cfg is the PLAYER's file, executed after that auto-config,
+# so a copy left here froze the machine on whatever profile was current at the
+# last dev deploy: mini-intel kept a 23 Aug vsync-on profile through two
+# releases that changed it.
 
 # --- ioquake3.app bundle (icon + double-click play) ---------------------------
 # One fat-binary .app per machine. Sits at /Applications/Quake3/ioquake3.app;

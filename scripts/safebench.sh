@@ -45,7 +45,10 @@
 # the host's native WxH as usual; the printed MODE line is what actually ran.
 # hw.model, the GL renderer, the mode and the effective r_/cg_ cvars are
 # printed as "CFG:" lines (the "Applying bundled config" lines print before the
-# logfile opens, so they are not in qconsole.log). timedemo ignores com_maxfps, and no bundled cfg sets vsync.
+# logfile opens, so they are not in qconsole.log). timedemo ignores com_maxfps,
+# but NOT vsync: a cfg that sets r_swapInterval 1 (autoexec-mini-intel does)
+# benches vsync-quantised, which is what its players get. Check the printed
+# r_swapInterval before comparing classes.
 set -uo pipefail
 M="${1:?usage: safebench.sh <machine> <WxH> [demo] [extra +set...]}"
 

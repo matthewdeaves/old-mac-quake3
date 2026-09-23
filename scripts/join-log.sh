@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Pure classifier for join-smoke.sh's captured qconsole.log, split out so it
-# can be unit-tested (scripts/test-join-log.sh) without ssh or real hardware,
-# same split as deploy-promotion.sh/test-deploy-promotion.sh.
+# can be unit-tested (scripts/test-join-log.sh) without ssh or real hardware.
 #
 # This proves the CLIENT actually joined a live game, not just that it sent a
 # connect packet. retro-server-infra#27's pass criterion is a client that

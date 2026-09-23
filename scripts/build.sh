@@ -23,9 +23,9 @@ PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 # loose in a fleet Mac's home). Only this one owned child: the rsync below runs
 # --delete, and ~/oldmac itself also holds old-mac-halflife's tree, the SDL trees
 # and oldmac/quake2. Never widen it to oldmac/ or point it at a sister port.
-# src/, not oldmac/quake3 itself: deploy-dmg.sh stages DMGs and keeps rollback
-# copies in oldmac/quake3 on every host, the minis included, and this --delete
-# would wipe them.
+# src/, not oldmac/quake3 itself: the shared deploy-dmg.sh keeps its state in
+# oldmac/quake3/deploy on every host, the minis included, and this --delete
+# would wipe it mid-deploy.
 PROJ_REMOTE="oldmac/quake3/src"
 case "$PROJ_REMOTE" in
   oldmac/quake3/src) ;;

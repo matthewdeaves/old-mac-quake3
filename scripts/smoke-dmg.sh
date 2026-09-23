@@ -1,532 +1,221 @@
 #!/usr/bin/env bash
-# Smoke-test the DMG-installed copy of ioquake3 on a target Mac the way a human
-# launches it: the per-machine production autoexec (baseq3/autoexec.cfg) drives
-# the renderer — fullscreen, the machine's own resolution, full visual tune. We
-# do NOT override vid/res (that's what bench.sh does for deterministic
-# measurement). The only thing we add is a timedemo so the run AUTO-EXITS
-# instead of sitting fullscreen forever — proof the world actually rendered (an
-# fps line) on the real production path the corrupt-DMG class of bug slips past.
+# smoke-dmg.sh -- launch a port's INSTALLED game on a fleet Mac, the way a
+# player would, and say whether it ran. CANONICAL copy lives in
+# old-mac-build-host (#96), synced byte-identical into each port; never edit a
+# port's copy. Per-port values come from scripts/dmg-port.conf, and a port may
+# post-process the verdict with smoke_verdict() in scripts/dmg-hooks.sh.
 #
-# LAUNCHED VIA LaunchServices (`open -n --args`) on 10.6+, the same path a
-# Finder double-click takes — not a direct exec of the bundle's Mach-O, which
-# every OTHER launcher script here still uses and which cannot see a quarantine
-# flag, App Translocation, a bad signature, or a stale LS record (issue #37).
-# Below 10.6 `open` has no `--args` at all (MEASURED: Panther/Tiger/Leopard's
-# `open` usage lists no such flag), and Gatekeeper/quarantine doesn't exist yet
-# either, so those OSes fall back to the direct-exec path — not a compromise,
-# there is nothing for LaunchServices to catch there that direct exec misses.
+# usage: scripts/smoke-dmg.sh <host> [demo]
+#   host  any fleet alias, or `workstation`
+#   demo  replaces {DEMO} in SMOKE_ARGS (default SMOKE_DEMO)
 #
-# usage: scripts/smoke-dmg.sh <machine> [demo]
-#   machine: yosemite | sawtooth | quicksilver | mini-g4 | imac-g5 | mini-intel | imac-2019
-#   demo:    four (default — the classic Q3 timedemo)
+# How it launches, chosen from the host's OS and users, never from its name:
+#  - 10.6+, console user = ssh user: `open -n <app> --args ...` (LaunchServices)
+#  - before 10.6: first a bounded bare `open` of the app (what a player's double
+#    click does), reported as OPEN_CHECK, then the game is exec'd directly with
+#    its args, because `open` has no --args there. A Tiger first-launch consent
+#    dialog blocks `open` with nobody to click it; after 30 s it is dismissed and
+#    retried, twice (quake3 a581603e). Panther's -10814 after a fresh install is
+#    retried every 15 s for up to 180 s (quake3 5165c5df: 20-89 s measured on the G3).
+#  - console user != ssh user: direct exec (LaunchServices does nothing then)
+#  - SMOKE_ARCH set: direct exec, since `open -n` picks the native slice
+# Direct exec runs SMOKE_EXEC (a port's launcher script, e.g. Half-Life's
+# xash3d, which picks the per-machine profile), under `arch -SMOKE_ARCH` if set.
 #
-# After this passes, start a NEW GAME by hand: the timedemo proves world render
-# + correct res but NOT the live-server/entity spawn path.
+# Pass: PASS_RE appears in the log, or (no PASS_RE) the game is still alive
+# after SMOKE_SECS. Fail: FAIL_RE appears, it exits early, or no pass within
+# SMOKE_TIMEOUT. Both can be set per CPU class, e.g. SMOKE_SECS_ppc750=14
+# (classes: ppc750 ppc7400 ppc7450 ppc970 x86 arm64, from `machine`).
+# Quit: AppleScript quit (bounded), TERM, then KILL only if KILL_OK=yes; it
+# always confirms the process is gone. SMOKE_MUTE=yes mutes and restores audio.
+# SMOKE_PRE_RM: files (relative to ~) removed before launch, e.g. a stale pid
+# file that makes the game open a modal dialog (quake3's ioq3.pid).
+#
+# Exit: 0 pass, 1 fail, 2 usage/config, 9 untested (game already running,
+#       screen locked, no install), others as a port's smoke_verdict returns
+set -uo pipefail
 
-set -euo pipefail
-HOST="${1:?usage: $0 <machine> [demo]}"
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOST="${1:-}"; [ -n "$HOST" ] && [ "$HOST" != -h ] || { sed -n '8,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+ENV_TIMEOUT="${SMOKE_TIMEOUT:-}"; ENV_SECS="${SMOKE_SECS:-}"
 
-# Claim this machine for the whole run. See scripts/pick-bench-host.sh.
-#
-# Re-exec under the picker rather than acquire-here-and-trap: bash traps REPLACE
-# rather than compose, so a release trap installed at the top of a script that
-# later sets its own trap is silently discarded, and the machine stays claimed
-# until the stale reclaim. `--run` makes the lock a property of the INVOCATION,
-# so it is released however this exits, and no caller has to remember to do it.
-#
-# The lock lives on the target, so it serialises across repos, agents and
-# workstations, not just this checkout. It also refuses a host booted into an OS
-# its alias does not name, which the multi-boot machines otherwise allow.
-#
-# RETRO_BENCH_LOCK guards against the re-exec recursing.
-# BENCH_NO_LOCK=1 skips the lock, for when the picker itself is what you are
-# debugging. It is not a way to get past a machine someone else is using.
-_PICK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pick-bench-host.sh"
-# Compare RETRO_BENCH_LOCK to THIS script's target rather than merely testing
-# that it is set. pick-bench-host.sh --run now exports it naming the claimed
-# host, so a bare -z test would make this script skip its own claim whenever it
-# runs inside any other claim, including one on a DIFFERENT machine. Same-host
-# still skips, which is the reentrancy this guard is for.
+CONF="${DMG_PORT_CONF:-$SELF_DIR/dmg-port.conf}"
+[ -r "$CONF" ] || { echo "smoke-dmg: no port config at $CONF (see old-mac-build-host#96)" >&2; exit 2; }
+OWNED=(); SMOKE_ARGS=(); SMOKE_PRE_RM=(); PROC=; SMOKE_APP=; SMOKE_EXEC=; SMOKE_ARCH=; SMOKE_LOG=; SMOKE_DEMO=
+PASS_RE=; FAIL_RE=; KILL_OK=yes; SMOKE_MUTE=no; SMOKE_SECS=10; SMOKE_TIMEOUT=60
+# shellcheck source=/dev/null
+. "$CONF"
+[ -r "$SELF_DIR/dmg-hooks.sh" ] && . "$SELF_DIR/dmg-hooks.sh"
+for v in PORT INSTALL_DIR PROC; do
+	[ -n "${!v:-}" ] || { echo "smoke-dmg: $CONF must set $v" >&2; exit 2; }
+done
+INSTALL_DIR="${DEST_DIR:-$INSTALL_DIR}"
+if [ -z "$SMOKE_APP" ]; then
+	for p in "${OWNED[@]}"; do case "$p" in *.app|*.app\?) SMOKE_APP="${p%\?}"; break ;; esac; done
+fi
+[ -n "$SMOKE_APP" ] || { echo "smoke-dmg: set SMOKE_APP (no .app in OWNED)" >&2; exit 2; }
+[ -n "$SMOKE_EXEC" ] || SMOKE_EXEC="$SMOKE_APP/Contents/MacOS/$PROC"
+DEMO="${2:-$SMOKE_DEMO}"
+
+_PICK="$SELF_DIR/pick-bench-host.sh"
 if [ "${RETRO_BENCH_LOCK:-}" != "$HOST" ] && [ "${BENCH_NO_LOCK:-0}" != 1 ] && [ -x "$_PICK" ]; then
 	export RETRO_BENCH_LOCK="$HOST"
-	exec "$_PICK" --run "$HOST" "smoke-dmg" -- "$0" "$@"
+	exec "$_PICK" --run "$HOST" "$PORT smoke-dmg" -- "$0" "$@"
 fi
-DEMO="${2:-four}"
-# shellcheck disable=SC2088
-# tilde stays unexpanded on purpose: it must
-# resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-REMOTE_DIR="/Applications/Quake3"
 
-case "$HOST" in
-  yosemite|yosemite-tiger) TIMEOUT=300; COOLDOWN=5 ;;
-  sawtooth)    TIMEOUT=240; COOLDOWN=3 ;;
-  quicksilver) TIMEOUT=180; COOLDOWN=2 ;;
-  mini-g4)     TIMEOUT=180; COOLDOWN=2 ;;
-  imac-g5)     TIMEOUT=90;  COOLDOWN=2 ;;
-  mini-intel)  TIMEOUT=300; COOLDOWN=1 ;;
-  imac-2019)   TIMEOUT=60;  COOLDOWN=1 ;;
-  g5-desktop|g5-tiger|g5-panther|quad-leopard|quad-tiger)
-               TIMEOUT=120; COOLDOWN=2 ;;
-  mini-intel2) TIMEOUT=300; COOLDOWN=1 ;;
-  # 300, and the history matters because this line has been 90, then 180, then
-  # 90 again.
-  #
-  # It went back to 90 on the reasoning that raising a timeout does not fix a
-  # slow machine and only hides the fault. That was right about the FAULT and
-  # wrong about what the timeout is FOR. mini-sl has no display attached, so its
-  # GeForce 9400M gives no accelerated context and the engine binds the Apple
-  # Software Renderer (#28). That is the fault, and no timeout fixes it.
-  #
-  # But the timeout's job is to tell a HUNG run from a SLOW one, and at 90 it
-  # could not: measured today, mini-sl completes demo four in 170.9 seconds and
-  # renders the world to the end. At 90 that machine reports a crash. It is
-  # healthy and slow.
-  #
-  # This is the fault that put "mini-intel never completes a timedemo" into two
-  # repos and a user-facing document. The allowance must sit above the machine's
-  # real runtime, and a slow run stays visible because the result line carries
-  # the seconds: 1260 frames 170.9 seconds 7.4 fps.
-  mini-sl)     TIMEOUT=300; COOLDOWN=1 ;;
-  *) echo "smoke-dmg: unknown machine: $HOST" >&2; exit 2 ;;
-esac
+say() { echo "[smoke $HOST] $*"; }
+if [ "$HOST" = workstation ]; then run_host() { bash -s; }
+else run_host() { ssh -o BatchMode=yes -o ConnectTimeout=15 "$HOST" bash -s; }; fi
 
-# Both are overridable. The per-machine defaults are tuned for the demo each
-# port uses at that machine's production settings, and a slower demo, a
-# heavier config or a busy box can exceed them. When that happens the run is
-# reported as a crash or hang, which is a much more alarming thing than the
-# truth, and it leaves the engine still running for the NEXT run to trip over.
-TIMEOUT="${SMOKE_TIMEOUT:-$TIMEOUT}"
-COOLDOWN="${SMOKE_COOLDOWN:-$COOLDOWN}"
+# A locked or display-dimmed console captures nothing (#88): untested, not failed.
+if [ "$HOST" != workstation ] && [ -x "$SELF_DIR/gui-precondition.sh" ]; then
+	"$SELF_DIR/gui-precondition.sh" "$HOST"; g=$?
+	[ $g -eq 3 ] && { say "UNTESTED: the console is locked"; exit 9; }
+	[ $g -ne 0 ] && say "WARN: could not probe the console (gui-precondition rc=$g); going ahead"
+fi
 
-# HEADLESS CHECK. A Mac with no display attached cannot be smoke-tested
-# meaningfully, and the way it fails is deeply misleading: this script reported
-# "the production launch did not render a demo (crash or hang)" for two machines
-# that were doing nothing of the kind.
-#
-# Measured 2026-08-23 (#28, #30). With no monitor:
-#   mini-sl    GeForce 9400M present and driver loaded, but no accelerated
-#              context, so the engine binds GL_RENDERER: Apple Software Renderer
-#              and cannot finish a timedemo at any timeout.
-#   mini-intel binds hardware GL but has no real display mode, so a 1920x1080
-#              fullscreen request falls back to 640 x 480 and never completes.
-# Two presentations, one cause, and neither is a crash.
-#
-# KEYED ON IODisplayConnect, NOT ON EDID, and that distinction is the whole
-# check. The first version of this counted IODisplayEDID, which looked right
-# because a real monitor supplies EDID. It is wrong on PowerPC: measured across
-# the fleet on 2026-08-23,
-#
-#     machine      EDID  connect   renders?
-#     yosemite       0      6      YES, benched and screenshotted all night
-#     mini-g4        1      5      yes
-#     g5-desktop     1      6      yes
-#     mini-sl        0      1      no, software renderer
-#     mini-intel     0      1      no, 640x480 fallback
-#
-# so EDID=0 would have warned "no display attached" on the G3 every single run,
-# on the oldest and most awkward machine in the fleet, which is exactly where a
-# spurious warning does most damage. Confirmed by running it: it did.
-# INFERRED, not measured: the G3 probably drives an analog display, or its
-# driver never publishes EDID.
-#
-# WHAT THIS TEST IS AND IS NOT. It is measured to separate two headless Intel
-# minis from three working machines (one G3, one G4, one G5). connect<=1 has
-# only ever been observed on those two, both the same class, so treat it as a
-# useful signal rather than a law and do not apply it to untested hardware and
-# believe the answer.
-#
-# WARN, do not refuse. mini-intel does bind hardware GL while headless, and a
-# gate that refused a machine somebody had just plugged a monitor into would be
-# worse than the confusion it prevents.
-#
-# `|| true` is load-bearing: grep -c EXITS 1 WHEN THE COUNT IS ZERO, which is
-# precisely the headless case this check exists to catch. Without it, under
-# set -euo pipefail, the assignment fails and the script dies silently with no
-# output at all. The first version did exactly that, on the two machines it was
-# written to diagnose.
-# IODisplayConnect is confirmed present on 10.3.9: yosemite reports 6. That
-# matters because the key this check ORIGINALLY used does not exist there at all
-# -- Panther's ioreg has no IODisplayEDID key, so the count was 0 for a reason
-# that had nothing to do with displays. Before reading a count as a measurement,
-# prove the key exists on that OS version; this fleet spans 10.3 to 10.7 and a
-# probe written against Lion returns confident zeros from Panther.
-#
-# An empty result means the probe could not run, which is NOT the same as zero,
-# and must never be reported as "headless".
-#
-# BOUNDED, on the LOCAL side. Root-caused 2026-08-23 on mini-sl: this ioreg
-# call went into uninterruptible kernel sleep on the remote end, unkillable by
-# TERM/KILL there, and ssh has no built-in bound on a remote command that is
-# already running - ConnectTimeout only covers connection setup, and
-# ServerAlive keepalives are answered by sshd itself, not by the stuck child
-# command. That hung this script (and the bench lock it holds) for over an
-# hour with nothing to show for it; only a reboot of the target cleared it.
-# Same run_deadline pattern as safebench.sh: killing the LOCAL ssh client is
-# always safe, whatever is stuck on the far end is a separate problem this
-# script cannot fix, and at least the caller and the lock are freed.
-TIMEOUT_BIN="$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)"
-run_deadline() {
-  _secs="$1"; shift
-  if [ -n "$TIMEOUT_BIN" ]; then "$TIMEOUT_BIN" "$_secs" "$@"; return $?; fi
-  "$@" &
-  _p=$!; _t=0
-  while [ "$_t" -lt "$_secs" ]; do
-    kill -0 "$_p" 2>/dev/null || break
-    sleep 1; _t=$((_t+1))
+ARGS=()
+for a in ${SMOKE_ARGS[@]+"${SMOKE_ARGS[@]}"}; do
+	a="${a//\{DEMO\}/$DEMO}"; ARGS[${#ARGS[@]}]="${a//\{DEST\}/$INSTALL_DIR}"
+done
+qarr() { local n="$1"; shift; printf '%s=(' "$n"; [ $# -gt 0 ] && printf ' %q' "$@"; printf ' )\n'; }
+
+OUT="$(mktemp "${TMPDIR:-/tmp}/buildhost-smoke.XXXXXX")" || exit 1
+LOG="$(mktemp "${TMPDIR:-/tmp}/buildhost-smokelog.XXXXXX")" || exit 1
+trap 'rm -f "$OUT" "$LOG"' EXIT
+
+{ printf 'PORT=%q DEST=%q APP=%q EXE=%q ARCH=%q PROC=%q SLOG=%q PASS_RE=%q FAIL_RE=%q KILL_OK=%q MUTE=%q FORCE=%q ENV_SECS=%q ENV_TIMEOUT=%q\n' \
+	"$PORT" "$INSTALL_DIR" "$SMOKE_APP" "$SMOKE_EXEC" "$SMOKE_ARCH" "$PROC" "$SMOKE_LOG" "$PASS_RE" "$FAIL_RE" \
+	"$KILL_OK" "$SMOKE_MUTE" "${FORCE:-0}" "$ENV_SECS" "$ENV_TIMEOUT"
+  qarr ARGS ${ARGS[@]+"${ARGS[@]}"}
+  qarr PRE_RM ${SMOKE_PRE_RM[@]+"${SMOKE_PRE_RM[@]}"}
+  # Per-class timings travel as plain assignments; the host picks its own.
+  for c in ppc750 ppc7400 ppc7450 ppc970 x86 arm64; do
+	for k in SMOKE_SECS SMOKE_TIMEOUT; do
+		vn="${k}_$c"; [ -n "${!vn:-}" ] && printf '%s=%q\n' "$vn" "${!vn}"
+	done
   done
-  if kill -0 "$_p" 2>/dev/null; then
-    kill -TERM "$_p" 2>/dev/null; sleep 2; kill -KILL "$_p" 2>/dev/null
-  fi
-  wait "$_p" 2>/dev/null
-}
-DCONNECT="$(run_deadline 15 ssh "$HOST" 'ioreg -lw0 2>/dev/null | grep -c IODisplayConnect || true' 2>/dev/null | tr -dc '0-9' || true)"
-if [ -z "$DCONNECT" ]; then
-  HEADLESS=0
-  echo "[smoke $HOST] note: display probe did not answer; headless state NOT DETERMINED." >&2
-elif [ "$DCONNECT" -le 1 ] 2>/dev/null; then
-  HEADLESS=1
-  echo "[smoke $HOST] WARNING: looks headless (IODisplayConnect=$DCONNECT)." >&2
-  echo "  A Mac with no display cannot give a real fullscreen mode and may bind" >&2
-  echo "  the software renderer. If this run fails, suspect that before the" >&2
-  echo "  build. See issues #28 and #30." >&2
-else
-  HEADLESS=0
-fi
+  printf 'SMOKE_SECS=%q SMOKE_TIMEOUT=%q\n' "$SMOKE_SECS" "$SMOKE_TIMEOUT"
+  cat <<'REMOTE'
+set -u
+case "$DEST" in "~/"*) DEST="$HOME/${DEST#"~/"}" ;; esac
+case "$SLOG" in "") ;; "~/"*) SLOG="$HOME/${SLOG#"~/"}" ;; /*) ;; *) SLOG="$DEST/$SLOG" ;; esac
+ROOT="$HOME/oldmac/$PORT/deploy"; mkdir -p "$ROOT"
+OUTLOG="$ROOT/smoke-stdout.log"
+[ -n "$SLOG" ] || SLOG="$OUTLOG"
+[ -d "$DEST/$APP" ] || { echo "VERDICT UNTESTED no $DEST/$APP installed"; exit 0; }
 
-# The bench fleet is SHARED. Launching a second fullscreen game on a box already
-# running one wedges both. Bail if anything Quake-ish is live; FORCE=1 overrides.
-# `ps ax`, NOT `ps -axo comm,pid`: the latter returns EMPTY on Tiger (unsupported
-# option combination), so this guard silently never fired on the machines that
-# needed it most — it would happily start a second fullscreen engine.
-BUSY="$(ssh "$HOST" "ps ax 2>/dev/null | grep -iE 'ioquake3|quakespasm|quake2|/quake' | grep -v grep || true")"
-if [ -n "$BUSY" ] && [ "${FORCE:-0}" != "1" ]; then
-  echo "[smoke $HOST] ABORT — $HOST is already running a game (shared bench):" >&2
-  echo "$BUSY" | sed 's/^/    /' >&2
-  echo "[smoke $HOST] wait for it to finish, or re-run with FORCE=1 if it is stale." >&2
-  exit 2
-fi
+# Not `pid=,command=`: with -c, Tiger prints an empty command column for that.
+pids() { ps -axco pid,command 2>/dev/null | awk -v p="$1" 'NR>1{pid=$1; sub(/^ *[0-9]+ +/,""); if ($0==p) print pid}'; }
+alive() { [ -n "$(pids "$PROC")" ]; }
+# ucomm of every port's game, so a smoke never lands on top of another game.
+busy=
+for g in xash3d.bin quake2 yquake2 q2ded ioquake3 quakespasm "Aleph One" "$PROC"; do [ -n "$(pids "$g")" ] && busy="$g"; done
+if [ -n "$busy" ] && [ "$FORCE" != 1 ]; then echo "VERDICT UNTESTED '$busy' is already running (FORCE=1 overrides)"; exit 0; fi
 
-# `open --args` (pass command-line args through LaunchServices) does not exist
-# before Snow Leopard: MEASURED across the fleet just now, `open` with no
-# arguments prints its own usage line, and only 10.6+ lists `[--args
-# arguments]` in it — Panther/Tiger/Leopard's `open` has no way to hand the
-# engine +set overrides at all (Leopard has -n; Tiger/Panther do not even have
-# that). Below 10.6, `open -n --args ...` doesn't fail loudly — Tiger's parser
-# reads "-n" as a FILENAME and tries to open "quake3/-n", which is worse than
-# a clean failure. So this is a real per-OS branch, not a nicety.
-#
-# Below 10.6 there is also no Gatekeeper/quarantine/App Translocation to catch
-# in the first place (that machinery starts at 10.7.3/10.12), BUT direct exec
-# still skips LaunchServices bundle resolution entirely on every OS — a bad
-# Info.plist, a missing CFBundleExecutable, a stale LS record, or the bundle
-# bit not being set (ADR 0014) would all break a real double-click while a
-# direct exec of the Mach-O keeps working, on 10.3 exactly as on 10.15. That
-# gap is closed below with a bare `open` pre-check on pre-10.6 hosts (issue
-# #37, flagged by a peer review of the launch matrix): it proves LaunchServices
-# can actually resolve and start the bundle, which direct exec can never prove
-# regardless of OS era. `open --args` on 10.6+ already proves the same thing
-# AND drives the timedemo in one launch, so it needs no separate pre-check.
-OPEN_ARGS_OK=0
-case "$(ssh -o ConnectTimeout=10 "$HOST" 'sw_vers -productVersion' 2>/dev/null)" in
-  10.[0-5].*|10.[0-5]) OPEN_ARGS_OK=0 ;;
-  10.*|11.*|12.*|13.*|14.*|15.*|16.*|26.*) OPEN_ARGS_OK=1 ;;
-  *) OPEN_ARGS_OK=0 ;;   # unknown/empty answer: assume the conservative (older) path
+OS="$(sw_vers -productVersion 2>/dev/null)"; min="${OS#10.}"; min="${min%%.*}"
+case "$OS" in 10.*) old=$([ "$min" -lt 6 ] && echo yes || echo no) ;; *) old=no ;; esac
+case "$(machine 2>/dev/null || uname -m)" in
+	ppc750) CLASS=ppc750 ;; ppc7400) CLASS=ppc7400 ;; ppc7450) CLASS=ppc7450 ;; ppc970) CLASS=ppc970 ;;
+	arm64*) CLASS=arm64 ;; *) CLASS=x86 ;;
 esac
+v="SMOKE_SECS_$CLASS"; SECS="${ENV_SECS:-${!v:-$SMOKE_SECS}}"
+v="SMOKE_TIMEOUT_$CLASS"; TMO="${ENV_TIMEOUT:-${!v:-$SMOKE_TIMEOUT}}"
+CUSER="$(ls -l /dev/console 2>/dev/null | awk '{print $3}')"; ME="$(id -un)"   # no stat on 10.3
+echo "INFO os=$OS class=$CLASS console=$CUSER ssh=$ME secs=$SECS timeout=$TMO"
 
-# Refuse to launch into a locked console (old-mac-build-host#88): a smoke into
-# loginwindow's shield renders nothing anyone sees. Locked or unprobeable means
-# UNTESTED, not a pass. Shared script; edit it in old-mac-build-host.
-"$(dirname "$0")/gui-precondition.sh" "$HOST" || {
-  echo "[smoke $HOST] UNTESTED: display precondition failed (screen locked or unprobeable)" >&2
-  exit 1
+VOL=
+if [ "$MUTE" = yes ]; then
+	VOL="$(osascript -e 'output volume of (get volume settings)' 2>/dev/null)"
+	case "$VOL" in ''|*[!0-9]*) VOL=; echo "INFO cannot read the volume here, so not muting" ;; *) osascript -e 'set volume output volume 0' >/dev/null 2>&1 ;; esac
+fi
+restore() { [ -n "$VOL" ] && osascript -e "set volume output volume $VOL" >/dev/null 2>&1; }
+trap restore EXIT
+
+quit_game() {
+	local n t
+	[ -n "$(pids "$PROC")" ] || { echo "QUIT none-running"; return 0; }
+	n="$(basename "$APP" .app)"
+	osascript -e "tell application \"$n\" to quit" >/dev/null 2>&1 & t=$!
+	for _ in 1 2 3 4 5 6; do [ -n "$(pids "$PROC")" ] || break; sleep 1; done
+	kill "$t" 2>/dev/null
+	[ -n "$(pids "$PROC")" ] || { echo "QUIT clean"; return 0; }
+	kill -TERM $(pids "$PROC") 2>/dev/null
+	for _ in 1 2 3 4 5 6 7 8 9 10; do [ -n "$(pids "$PROC")" ] || break; sleep 1; done
+	[ -n "$(pids "$PROC")" ] || { echo "QUIT term"; return 0; }
+	if [ "$KILL_OK" = yes ]; then
+		kill -KILL $(pids "$PROC") 2>/dev/null; sleep 2
+		[ -n "$(pids "$PROC")" ] || { echo "QUIT kill"; return 0; }
+	fi
+	echo "QUIT STILL_RUNNING pid $(pids "$PROC")"; return 1
 }
 
-if [ "$OPEN_ARGS_OK" = 1 ]; then
-  echo "[smoke $HOST] launching DMG-installed ioquake3.app via LaunchServices (open -n --args, the Finder double-click path), demo=$DEMO"
+# Pre-10.6: does a LaunchServices open start the game at all?
+open_check() {
+	local round=0 tries=0 k op err
+	while :; do
+		open "$DEST/$APP" > "$ROOT/open.err" 2>&1 & op=$!
+		k=0; while [ $k -lt 30 ]; do alive && break; kill -0 $op 2>/dev/null || break; sleep 1; k=$((k+1)); done
+		alive && { echo "OPEN_CHECK ok"; return 0; }
+		if ! kill -0 $op 2>/dev/null; then
+			wait $op && { sleep 5; alive && { echo "OPEN_CHECK ok"; return 0; }; echo "OPEN_CHECK no-process"; return 1; }
+			err="$(sed -n 's/.*returned \(-[0-9]*\).*/\1/p' "$ROOT/open.err" | head -1)"
+			if [ "$err" = -10814 ] && [ $tries -lt 12 ]; then
+				tries=$((tries+1)); echo "NOTE open -10814, retry $tries in 15s"; sleep 15; continue
+			fi
+			echo "OPEN_CHECK failed ${err:-no-LS-code}"; return 1
+		fi
+		round=$((round+1)); why=blocked
+		sample $op 2 -file "$ROOT/open.sample" >/dev/null 2>&1 && grep -q LSConsentToLaunch "$ROOT/open.sample" && why=consent-dialog
+		rm -f "$ROOT/open.sample"
+		echo "NOTE open $why for 30s with no game (round $round); dismissing"
+		killall -TERM UserNotificationCenter 2>/dev/null; sleep 3; kill -TERM $op 2>/dev/null
+		[ $round -ge 2 ] && { echo "OPEN_CHECK timeout-$why"; return 1; }
+	done
+}
+
+[ -f "$SLOG" ] && mv -f "$SLOG" "$SLOG.prev"
+for p in ${PRE_RM[@]+"${PRE_RM[@]}"}; do rm -f "$HOME/$p"; done
+if [ "$old" = no ] && [ "$CUSER" = "$ME" ] && [ -z "$ARCH" ]; then
+	MODE=open
+	if [ ${#ARGS[@]} -gt 0 ]; then open -n "$DEST/$APP" --args "${ARGS[@]}" > "$OUTLOG" 2>&1
+	else open -n "$DEST/$APP" > "$OUTLOG" 2>&1; fi
 else
-  echo "[smoke $HOST] launching DMG-installed ioquake3.app with PRODUCTION config (direct exec — this OS predates Gatekeeper/open --args), demo=$DEMO"
+	if [ "$old" = yes ] && [ "$CUSER" = "$ME" ]; then open_check; quit_game >/dev/null; fi
+	MODE=exec
+	[ -x "$DEST/$EXE" ] || { echo "VERDICT UNTESTED $DEST/$EXE is not executable"; exit 0; }
+	( cd "$DEST" && if [ -n "$ARCH" ]; then exec arch "-$ARCH" "$DEST/$EXE" ${ARGS[@]+"${ARGS[@]}"}
+	  else exec "$DEST/$EXE" ${ARGS[@]+"${ARGS[@]}"}; fi ) > "$OUTLOG" 2>&1 < /dev/null &
 fi
-# Finder-equivalent launch, not direct exec, ON 10.6+. Issue #37: every OTHER
-# script here (bench.sh, safebench.sh, screenshot.sh, and this script until
-# now) execs the bundle's Mach-O directly over ssh, which never goes through
-# LaunchServices at all — so a build that CANNOT be double-clicked (quarantine,
-# App Translocation, a bad code signature, a stale LS record) could still
-# smoke-test PASS. That gap is exactly how a real user's "major problems
-# reliably manually opening" report went uncaught: CLI/ssh exec passing while
-# double-click fails is a bug, not a pass. `open -n` is what Finder itself
-# does on a double-click.
-#
-# fs_basepath is DELIBERATELY NOT overridden on the open path (the direct-exec
-# path still forces it to $PWD, same as always — there is no reason to change
-# a mechanism that was never broken). Forcing it on the open path would mask
-# exactly the class of bug this change exists to catch — the engine must find
-# its own install directory from Sys_BinaryPath()/argv[0], the same as a real
-# double-click, not be told where it lives. fs_homepath IS still set
-# explicitly on both paths: that only controls where qconsole.log/q3config.cfg
-# land, unrelated to basepath detection, and this script needs to know where
-# to read the log back from.
-#
-# CRITICAL — make the engine QUIT ITSELF; never KILL a fullscreen app. We add
-# +set nextdemo quit so CL_DemoCompleted runs 'quit' after the timedemo and the
-# engine exits the NORMAL way (SDL restores the captured display, pid removed).
-# A hard KILL on a still-fullscreen ioquake3 wedges the GPU driver / WindowServer
-# until a reboot (this bit the fleet repeatedly — R300 G4 + GMA950 Lion). So the
-# only backstop here is a gentle TERM if it somehow never self-quits; NEVER KILL.
-# A stale pid file pops an "Abnormal Exit" modal that hangs headless — rm it first.
-PIDF='$HOME/Library/Application Support/Quake3/ioq3.pid'
+echo "INFO mode=$MODE${ARCH:+ arch=$ARCH}"
 
-# PRE-CHECK, pre-10.6 hosts only: a bare `open` with NO ARGS AT ALL — the
-# actual mechanism a Finder double-click uses, more literally than `open
-# --args` even is (a real double-click never passes arguments either). This
-# is the only way on these OSes to prove LaunchServices can resolve and start
-# the bundle at all (Info.plist, CFBundleExecutable, the bundle bit, a stale
-# LS record) — the thing direct exec can never test, on any OS, Gatekeeper or
-# not. It launches into the production main menu (no demo — `open` has no way
-# to pass one here), so it is quit with a plain TERM once confirmed running,
-# same backstop pattern as everywhere else in this script, and the actual
-# timedemo/fps measurement still comes from the direct-exec pass below.
-PRECHECK_STATUS=""
-if [ "$OPEN_ARGS_OK" = 0 ]; then
-  echo "[smoke $HOST] pre-check: bare 'open' (no args — true double-click) proves LaunchServices can start this bundle"
-  # NO `-n`: MEASURED on quicksilver (Tiger) — `-n` does not exist on Tiger's
-  # `open` either, same trap as `--args` (the comment above this block already
-  # documented `-n` for Leopard+, not for Tiger/Panther). Unrecognized, it is
-  # read as a FILENAME ("No such file: .../-n") and the launch never happens,
-  # exit 1, silently — exactly the failure mode already known from `--args`.
-  # Plain `open ./ioquake3.app` launches correctly on both 10.3 and 10.4
-  # (verified on quicksilver). `|| true` on the whole substitution: this must
-  # not trip `set -e` and abort the script before the result is even read —
-  # a real OPEN_FAILED/timeout needs to be reported and gated on below, not
-  # crash the script into a bare non-zero exit with no explanation.
-  #
-  # TIGER FIRST-LAUNCH CONSENT DIALOG (#60, measured 2026-09-23 on yosemite-tiger
-  # and mini-g4): after a fresh install or a reboot, Tiger's `open` can block
-  # in LSConsentToLaunch -> CFUserNotificationDisplayAlert, i.e. an "are you
-  # sure you want to open this application" dialog waiting for a click. `open`
-  # never returns and no engine starts, at 32 bpp as well as 16 bpp. A human
-  # clicks Open once; ssh has nobody to. So `open` is backgrounded and bounded:
-  # if it is still blocked after 30s with no engine, it is sampled, labelled,
-  # the dialog is dismissed (TERM UserNotificationCenter, which is not a
-  # rendering process) and the open is retried. Dismissing has let the next
-  # open launch on mini-g4 after one round and on the G3 after two, so up to
-  # two rounds. The launch that counts is still a real LaunchServices launch.
-  # Before this, a consent dialog held the bench claim until someone killed it.
-  # PANTHER -10814: right after deploy-dmg.sh, Panther's first `open` fails
-  # with LSOpenFromURLSpec() -10814 (application not found): 10 of 15 first
-  # opens on g5-panther, 10 of 10 on yosemite (2026-09-23). It clears by
-  # itself: with `open` retried every ~15s, yosemite launched after 20-89s
-  # (median 53s). `lsregister -f` does not shorten it. So -10814 alone is
-  # retried every 15s for up to 180s (twice the worst seen); any other failure,
-  # or -10814 past 180s, fails with the LS code. Whether a Finder double-click
-  # sees the same delay is still unmeasured (#60).
-  PRECHECK_OUT="$(ssh "$HOST" "
-    cd $REMOTE_DIR || { echo NO_INSTALL; exit 9; }
-    rm -f \"$PIDF\"
-    round=0
-    t0=\$(date +%s)
-    while :; do
-      open ./ioquake3.app >/tmp/q3-open-err.txt 2>&1 &
-      op=\$!
-      k=0
-      while [ \$k -lt 30 ]; do
-        killall -0 ioquake3 2>/dev/null && break
-        kill -0 \$op 2>/dev/null || break
-        sleep 1; k=\$((k+1))
-      done
-      killall -0 ioquake3 2>/dev/null && break
-      if ! kill -0 \$op 2>/dev/null; then
-        wait \$op && break
-        err=\$(sed -n 's/.*returned \\(-[0-9]*\\).*/\\1/p' /tmp/q3-open-err.txt | head -1)
-        rm -f /tmp/q3-open-err.txt
-        waited=\$(( \$(date +%s) - t0 ))
-        if [ \"\$err\" = -10814 ] && [ \$waited -lt 180 ]; then
-          echo \"NOTE OPEN_FAILED -10814 at \${waited}s: LaunchServices has not picked up the new install yet; retrying\"
-          sleep 15; continue
-        fi
-        echo \"OPEN_FAILED \${err:-no-LS-code}\"; exit 9
-      fi
-      round=\$((round+1))
-      why=OPEN_BLOCKED
-      if sample \$op 2 -file /tmp/q3-open-sample.txt >/dev/null 2>&1 &&
-         grep -q LSConsentToLaunch /tmp/q3-open-sample.txt; then
-        why=CONSENT_DIALOG
-      fi
-      rm -f /tmp/q3-open-sample.txt
-      echo \"NOTE \$why round \$round: open blocked 30s with no engine; dismissing\"
-      killall -TERM UserNotificationCenter 2>/dev/null
-      sleep 3
-      kill -TERM \$op 2>/dev/null
-      if [ \$round -ge 2 ]; then echo \"OPEN_LAUNCH_TIMEOUT_\$why\"; exit 0; fi
-    done
-    rm -f /tmp/q3-open-err.txt
-    k=0
-    while [ \$k -lt 20 ]; do
-      killall -0 ioquake3 2>/dev/null && break
-      sleep 1; k=\$((k+1))
-    done
-    if killall -0 ioquake3 2>/dev/null; then
-      echo OPEN_LAUNCH_OK
-      killall -TERM ioquake3 2>/dev/null
-      g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
-    else
-      echo OPEN_LAUNCH_TIMEOUT
-    fi
-    rm -f \"$PIDF\"" 2>/dev/null)" || true
-  # The last line is the verdict; any NOTE lines before it are consent rounds.
-  PRECHECK_STATUS="$(printf '%s\n' "$PRECHECK_OUT" | tail -1)"
-  printf '%s\n' "$PRECHECK_OUT" | grep '^NOTE ' | sed "s/^/[smoke $HOST] pre-check /" || true
-  echo "[smoke $HOST] pre-check result: ${PRECHECK_STATUS:-<no output>}"
-  # Same reboot backstop as the bottom of this script: if TERM didn't take,
-  # the engine must not be left running for the direct-exec pass below to
-  # collide with (two fullscreen instances wedges both, ADR 0009).
-  if ssh "$HOST" 'killall -0 ioquake3 2>/dev/null'; then
-    echo "[smoke $HOST] pre-check engine SURVIVED TERM and is still running; rebooting so it is" >&2
-    echo "  not left on an unclaimed machine, and so the timedemo pass below has a clean start. See #29." >&2
-    # shellcheck disable=SC2088
-    ssh "$HOST" '~/bin/qsreboot.sh' 2>/dev/null || true
-    t=0; while [ $t -lt 60 ]; do ssh -o ConnectTimeout=5 -o BatchMode=yes "$HOST" true 2>/dev/null || break; sleep 5; t=$((t+5)); done
-    if [ $t -ge 60 ]; then
-      echo "[smoke $HOST] FAIL — pre-check engine did not die and reboot did not take (run 'sudo ~/bin/qsreboot-setup.sh')" >&2
-      exit 1
-    fi
-    t=0; while [ $t -lt 240 ]; do ssh -o ConnectTimeout=5 -o BatchMode=yes "$HOST" true 2>/dev/null && break; sleep 5; t=$((t+5)); done
-    if [ $t -ge 240 ]; then
-      echo "[smoke $HOST] FAIL — pre-check reboot did not come back within 240s" >&2
-      exit 1
-    fi
-    echo "[smoke $HOST] back up after pre-check reboot, engine cleared"
-  fi
+t=0; seen=no; verdict=
+while [ $t -lt "$TMO" ]; do
+	sleep 1; t=$((t+1))
+	alive && seen=yes
+	if [ -n "$FAIL_RE" ] && grep -Eq "$FAIL_RE" "$SLOG" "$OUTLOG" 2>/dev/null; then verdict="FAIL matched FAIL_RE after ${t}s"; break; fi
+	if [ -n "$PASS_RE" ] && grep -Eq "$PASS_RE" "$SLOG" "$OUTLOG" 2>/dev/null; then verdict="PASS matched PASS_RE after ${t}s"; break; fi
+	if [ -z "$PASS_RE" ] && [ $seen = yes ] && [ $t -ge "$SECS" ] && alive; then verdict="PASS alive ${t}s"; break; fi
+	if [ $seen = yes ] && ! alive && [ -z "$PASS_RE" ]; then verdict="FAIL exited after ${t}s"; break; fi
+	if [ $seen = yes ] && ! alive && [ -n "$PASS_RE" ]; then
+		grep -Eq "$PASS_RE" "$SLOG" "$OUTLOG" 2>/dev/null && verdict="PASS matched PASS_RE after ${t}s" || verdict="FAIL exited after ${t}s without PASS_RE"; break
+	fi
+done
+[ -n "$verdict" ] || verdict="FAIL no pass within ${TMO}s (process seen: $seen)"
+quit_game || verdict="FAIL $verdict; game would not quit"
+echo "VERDICT $verdict"
+echo "LOG_BEGIN"; tail -n 300 "$SLOG" 2>/dev/null; [ "$SLOG" != "$OUTLOG" ] && tail -n 50 "$OUTLOG" 2>/dev/null; echo "LOG_END"
+REMOTE
+} | run_host > "$OUT" 2>&1
+sed -n '/^LOG_BEGIN$/,/^LOG_END$/p' "$OUT" | sed '1d;$d' > "$LOG"
+sed '/^LOG_BEGIN$/,/^LOG_END$/d' "$OUT" | sed "s/^/[smoke $HOST] /"
+V="$(sed -n 's/^VERDICT //p' "$OUT" | tail -1)"
+case "$V" in PASS*) rc=0 ;; UNTESTED*) rc=9 ;; '') say "no verdict from $HOST"; rc=1 ;; *) rc=1 ;; esac
+
+# The port has the last word on its own log (quake2's cvar read-back and exit
+# 3, quake3's VALIDATION lines). It gets the log, our rc, and the INFO lines.
+if declare -F smoke_verdict >/dev/null && [ $rc -ne 9 ]; then
+	smoke_verdict "$LOG" "$rc" "$(grep '^INFO ' "$OUT" | tr '\n' ' ')"; rc=$?
 fi
-
-if [ "$OPEN_ARGS_OK" = 1 ]; then
-LAUNCH_CMD='  open -n ./ioquake3.app --args \
-    +set fs_homepath "$PWD" \
-    +set logfile 2 +set nextdemo quit +set timedemo 1 +demo '"$DEMO"' \
-    || { echo '"'"'OPEN_FAILED'"'"'; exit 9; }'
-else
-LAUNCH_CMD='  ./ioquake3.app/Contents/MacOS/ioquake3 \
-    +set fs_basepath "$PWD" +set fs_homepath "$PWD" \
-    +set logfile 2 +set nextdemo quit +set timedemo 1 +demo '"$DEMO"' > /dev/null 2>&1 &'
-fi
-ssh "$HOST" "
-  killall -TERM ioquake3 2>/dev/null && sleep 2
-  cd $REMOTE_DIR || { echo 'NO_INSTALL'; exit 9; }
-  mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null; rm -f \"$PIDF\"
-$LAUNCH_CMD
-  # wait for the engine to self-quit (process gone) or error out; self-bounded
-  j=0
-  while [ \$j -lt $TIMEOUT ]; do
-    killall -0 ioquake3 2>/dev/null || break            # self-quit = clean exit
-    grep -qE 'ERROR:|Error:' baseq3/qconsole.log 2>/dev/null && break
-    sleep 1; j=\$((j+1))
-  done
-  # backstop ONLY if it didn't self-quit: a gentle TERM (handler restores the
-  # display). NEVER KILL a fullscreen ioquake3 — that wedges the GPU driver.
-  if killall -0 ioquake3 2>/dev/null; then
-    killall -TERM ioquake3 2>/dev/null
-    g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
-  fi
-  rm -f \"$PIDF\"
-  sleep $COOLDOWN
-  true"
-
-# REBOOT BACKSTOP. The remote block above sends TERM and waits 12s, and if the
-# engine survives that it simply falls through: the script returns, the bench
-# lock is released with it, and the engine keeps running on an unclaimed machine.
-#
-# Measured 2026-08-23 (#29): a smoke run on mini-sl left this exact state, and it
-# was still there twenty minutes later, found only because another repo refused
-# to take the machine. TERM did not take because that machine renders with the
-# software renderer and never finishes the demo, so `nextdemo quit` never fires.
-#
-# safebench.sh has never produced this state, and the reason is that it REBOOTS
-# when the engine will not die. The backstop is the design, not a nicety, and
-# this script was missing it. Same pattern, deliberately: verify it went down and
-# came back rather than trusting qsreboot.sh's exit code, whose Finder fallback
-# can report a false success.
-#
-# NEVER KILL instead: a hard KILL on a fullscreen ioquake3 wedges the GPU driver
-# and takes the WindowServer with it, which is the thing this whole script is
-# careful about.
-if ssh "$HOST" 'killall -0 ioquake3 2>/dev/null'; then
-  echo "[smoke $HOST] engine SURVIVED TERM and is still running; rebooting so it is" >&2
-  echo "  not left on an unclaimed machine. See #29." >&2
-  # shellcheck disable=SC2088
-  # tilde stays unexpanded on purpose: it must
-  # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
-  ssh "$HOST" '~/bin/qsreboot.sh' 2>/dev/null || true
-  t=0; while [ $t -lt 60 ]; do ssh -o ConnectTimeout=5 -o BatchMode=yes "$HOST" true 2>/dev/null || break; sleep 5; t=$((t+5)); done
-  if [ $t -ge 60 ]; then
-    echo "[smoke $HOST] did NOT go down - reboot FAILED (run 'sudo ~/bin/qsreboot-setup.sh')" >&2
-  else
-    t=0; while [ $t -lt 240 ]; do ssh -o ConnectTimeout=5 -o BatchMode=yes "$HOST" true 2>/dev/null && break; sleep 5; t=$((t+5)); done
-    [ $t -ge 240 ] && echo "[smoke $HOST] did not come back within 240s" >&2 || echo "[smoke $HOST] back up, engine cleared" >&2
-  fi
-fi
-
-# Pull the log and report.
-TMP=$(mktemp)
-scp -q "$HOST:/Applications/Quake3/baseq3/qconsole.log" "$TMP" 2>/dev/null || { echo "[smoke $HOST] FAIL: no qconsole.log (engine never wrote one)"; rm -f "$TMP"; exit 1; }
-
-FPS_LINE=$(grep -E 'frames.*seconds.*fps' "$TMP" 2>/dev/null | tail -1 || true)
-MODE_LINE=$(grep -iE 'GL_RENDERER|Initializing OpenGL|setting mode|MODE:' "$TMP" 2>/dev/null | tail -2 | tr '\n' ' ' || true)
-GL_VENDOR_LINE=$(grep -i '^GL_VENDOR:' "$TMP" 2>/dev/null | tail -1 || true)
-GL_RENDERER_LINE=$(grep -i '^GL_RENDERER:' "$TMP" 2>/dev/null | tail -1 || true)
-GL_VERSION_LINE=$(grep -i '^GL_VERSION:' "$TMP" 2>/dev/null | tail -1 || true)
-EFFECTIVE_LINE=$(grep -iE '^(MODE:|texturemode:|picmip:)' "$TMP" 2>/dev/null | tr '\n' ' ' || true)
-rm -f "$TMP"
-
-# Keep the run's actual bundle identity with its renderer evidence.  The host
-# is still claimed here, so this cannot race another test replacing the app.
-META=$(ssh "$HOST" "b=$REMOTE_DIR/ioquake3.app/Contents/MacOS/ioquake3; \
-  printf 'host=%s os=%s host_arch=%s installed_exe_sha256=' '$HOST' \"\$(sw_vers -productVersion 2>/dev/null || echo UNTESTED)\" \"\$(uname -m 2>/dev/null | tr ' ' '_' || echo UNTESTED)\"; \
-  h=; if command -v shasum >/dev/null 2>&1; then h=\$(shasum -a 256 \"\$b\" 2>/dev/null | awk '{print \$1}'); fi; \
-  [ -n \"\$h\" ] || h=\$(openssl dgst -sha256 \"\$b\" 2>/dev/null | awk '/SHA256/ {print \$NF}'); \
-  if [ -n \"\$h\" ]; then echo \"\$h\"; \
-  else echo \"UNTESTED installed_exe_md5=\$(md5 -q \"\$b\" 2>/dev/null || md5 \"\$b\" | awk '{print \$NF}')\"; fi" 2>/dev/null || true)
-# shasum prints '<hash>  <path>' (\$1); openssl prints 'SHA256(<path>)= <hash>'
-# (\$NF). One awk over both logged the path, #55. Tiger/Panther have neither
-# (OpenSSL 0.9.7 has no -sha256), so record the md5 and mark sha256 UNTESTED.
-
-echo "[smoke $HOST] renderer : ${MODE_LINE:-<none>}"
-echo "[smoke $HOST] result   : ${FPS_LINE:-<NO FPS LINE>}"
-echo "VALIDATION artifact_path=$REMOTE_DIR/ioquake3.app artifact_sha256=UNTESTED ${META:-host=$HOST os=UNTESTED host_arch=UNTESTED installed_exe_sha256=UNTESTED} binary_arches=UNTESTED selected_slice=UNTESTED display=IODisplayConnect:${DCONNECT:-UNTESTED} data_path=$REMOTE_DIR/baseq3 permissions=UNTESTED profile_path=$REMOTE_DIR/baseq3/q3config.cfg"
-echo "VALIDATION ${GL_VENDOR_LINE:-gl_vendor=UNTESTED} ${GL_RENDERER_LINE:-gl_renderer=UNTESTED} ${GL_VERSION_LINE:-gl_version=UNTESTED} ${EFFECTIVE_LINE:-effective_fullscreen=UNTESTED effective_resolution=UNTESTED effective_vsync=UNTESTED effective_msaa=UNTESTED effective_dynamiclight=UNTESTED effective_shadows=UNTESTED}"
-
-# Repair on the way out regardless of pass/fail — a smoke test must not leave
-# the machine less launchable than it found it. Belt and braces: this script
-# now launches via `open` (LaunchServices) rather than a direct exec, which is
-# what used to corrupt the LS record here (MEASURED, one run on Lion flipped a
-# good record to blank — that was direct-exec-specific and should no longer
-# happen from this script, but lsregister-app.sh is cheap and idempotent, and
-# other scripts here still direct-exec, so a stale record from one of THOSE
-# runs is still worth clearing on the way out). See scripts/lsregister-app.sh.
-"$(dirname "$0")/lsregister-app.sh" "$HOST" || true
-
-# On pre-10.6 hosts, a PASS also needs the bare-open pre-check to have proven
-# LaunchServices can actually start this bundle — an fps line from the
-# direct-exec pass alone would not have caught a launch that only works via
-# direct exec, which is exactly the class of bug issue #37 exists to catch.
-if [ "$OPEN_ARGS_OK" = 0 ] && [ "$PRECHECK_STATUS" != "OPEN_LAUNCH_OK" ]; then
-  echo "[smoke $HOST] FAIL — bare 'open' pre-check did not confirm a LaunchServices launch (${PRECHECK_STATUS:-<none>}), even though the direct-exec timedemo pass may have rendered fine." >&2
-  echo "  That is a real double-click failure this script would otherwise have missed. See #37." >&2
-  exit 1
-fi
-
-if [ -n "$FPS_LINE" ]; then
-  echo "[smoke $HOST] PASS — world rendered to completion on the production path, via Finder-equivalent launch"
-  exit 0
-else
-  if [ "${HEADLESS:-0}" = 1 ]; then
-  echo "[smoke $HOST] FAIL — no fps line, and this machine has NO DISPLAY ATTACHED."
-  echo "  That is the likely cause: see #28 and #30. Not necessarily a build fault."
-else
-  echo "[smoke $HOST] FAIL — no fps line; the LaunchServices launch did not render a demo." >&2
-  echo "  Could be a crash/hang (see qconsole.log above), OR the app never actually" >&2
-  echo "  started at all: Gatekeeper/AMFI can kill a quarantined, ad-hoc-signed launch" >&2
-  echo "  outright on 10.12+ with NOTHING written to qconsole.log (issue #37, measured" >&2
-  echo "  on imac-2019 — check 'log show --predicate eventMessage contains \"ioquake3\"'" >&2
-  echo "  on the target for AMFI/ASP denial lines if this machine runs 10.12 or later." >&2
-fi
-  exit 1
-fi
+[ $rc -eq 0 ] && say "PASS" || say "result rc=$rc"
+exit $rc

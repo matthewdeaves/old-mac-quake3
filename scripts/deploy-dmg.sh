@@ -188,22 +188,30 @@ if ! promote_staged_install "$ROOT" "$DEST" "$STAGE" "$ROLLBACK"; then
   exit 8
 fi
 
-# Tidy ~/oldmac/quake3 once the new install is in place (#50, user rule via
-# old-mac-build-host#73): no rollback copies or staged DMGs left behind. A
-# rollback is removed only when every file in its baseq3 is also in the new
-# install, so the player's data is never the copy that goes. Older rollbacks
-# from before this rule are held to the same test.
+# Tidy ~/oldmac/quake3 once the new install is in place. Fix forward, no
+# rollback copies anywhere (user rule 2026-09-23; #50, old-mac-build-host#73):
+# the old install is only held for the swap above, then deleted. Any file in
+# its baseq3 that the new install lacks is copied FORWARD into the live
+# baseq3 first, so the player's data is never the copy that goes. Rollbacks
+# left by older revisions of this script get the same treatment.
 for rb in "$ROOT"/rollback-*; do
   [ -d "$rb" ] || continue
-  kept=no
-  for f in "$rb"/baseq3/*; do
-    [ -e "$f" ] || continue
-    [ -e "$DEST/baseq3/${f##*/}" ] || { kept=yes; break; }
-  done
-  if [ "$kept" = yes ]; then
-    echo "  [tidy] keeping ${rb##*/}: its baseq3 has files the new install lacks" >&2
-  else
+  carried=yes
+  if [ -d "$rb/baseq3" ]; then
+    for f in "$rb"/baseq3/*; do
+      [ -e "$f" ] || continue
+      [ -e "$DEST/baseq3/${f##*/}" ] && continue
+      if ditto "$f" "$DEST/baseq3/${f##*/}"; then
+        echo "  [tidy] carried ${f##*/} forward into baseq3"
+      else
+        carried=no
+      fi
+    done
+  fi
+  if [ "$carried" = yes ]; then
     rm -rf "$rb" && echo "  [tidy] removed ${rb##*/}"
+  else
+    echo "  [tidy] WARNING: could not carry all of ${rb##*/}/baseq3 forward; left it in place" >&2
   fi
 done
 rm -f "$ROOT"/ioquake3-OldMac-*.dmg && echo "  [tidy] removed staged DMG(s)"

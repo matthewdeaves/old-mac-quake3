@@ -217,7 +217,9 @@ enforces it there) -- just drag `ioquake3.app` into a folder anywhere (e.g.
 (`Fix Launch Problems.command` checks the OS version itself and says so if
 you run it anyway). Panther/Tiger (10.3/10.4) can skip it too, but running
 it there still sets the Finder bundle icon -- a separate old-Finder fix,
-unrelated to quarantine.
+unrelated to quarantine. Tiger can put up a dialog asking you to confirm the
+first launch of a newly installed app; confirm it and the game starts. The
+game does not start until that dialog is answered.
 
 ## Sister projects
 

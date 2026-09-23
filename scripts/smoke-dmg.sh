@@ -298,10 +298,51 @@ if [ "$OPEN_ARGS_OK" = 0 ]; then
   # not trip `set -e` and abort the script before the result is even read —
   # a real OPEN_FAILED/timeout needs to be reported and gated on below, not
   # crash the script into a bare non-zero exit with no explanation.
-  PRECHECK_STATUS="$(ssh "$HOST" "
+  #
+  # TIGER FIRST-LAUNCH CONSENT DIALOG (#60, measured 2026-09-23 on yosemite-tiger
+  # and mini-g4): after a fresh install or a reboot, Tiger's `open` can block
+  # in LSConsentToLaunch -> CFUserNotificationDisplayAlert, i.e. an "are you
+  # sure you want to open this application" dialog waiting for a click. `open`
+  # never returns and no engine starts, at 32 bpp as well as 16 bpp. A human
+  # clicks Open once; ssh has nobody to. So `open` is backgrounded and bounded:
+  # if it is still blocked after 30s with no engine, it is sampled, labelled,
+  # the dialog is dismissed (TERM UserNotificationCenter, which is not a
+  # rendering process) and the open is retried. Dismissing has let the next
+  # open launch on mini-g4 after one round and on the G3 after two, so up to
+  # two rounds. The launch that counts is still a real LaunchServices launch.
+  # Before this, a consent dialog held the bench claim until someone killed it.
+  PRECHECK_OUT="$(ssh "$HOST" "
     cd $REMOTE_DIR || { echo NO_INSTALL; exit 9; }
     rm -f \"$PIDF\"
-    open ./ioquake3.app || { echo OPEN_FAILED; exit 9; }
+    round=0
+    while :; do
+      open ./ioquake3.app >/dev/null 2>&1 &
+      op=\$!
+      k=0
+      while [ \$k -lt 30 ]; do
+        killall -0 ioquake3 2>/dev/null && break
+        kill -0 \$op 2>/dev/null || break
+        sleep 1; k=\$((k+1))
+      done
+      if killall -0 ioquake3 2>/dev/null || ! kill -0 \$op 2>/dev/null; then
+        break
+      fi
+      round=\$((round+1))
+      why=OPEN_BLOCKED
+      if sample \$op 2 -file /tmp/q3-open-sample.txt >/dev/null 2>&1 &&
+         grep -q LSConsentToLaunch /tmp/q3-open-sample.txt; then
+        why=CONSENT_DIALOG
+      fi
+      rm -f /tmp/q3-open-sample.txt
+      echo \"NOTE \$why round \$round: open blocked 30s with no engine; dismissing\"
+      killall -TERM UserNotificationCenter 2>/dev/null
+      sleep 3
+      kill -TERM \$op 2>/dev/null
+      if [ \$round -ge 2 ]; then echo \"OPEN_LAUNCH_TIMEOUT_\$why\"; exit 0; fi
+    done
+    if ! killall -0 ioquake3 2>/dev/null; then
+      wait \$op || { echo OPEN_FAILED; exit 9; }
+    fi
     k=0
     while [ \$k -lt 20 ]; do
       killall -0 ioquake3 2>/dev/null && break
@@ -315,6 +356,9 @@ if [ "$OPEN_ARGS_OK" = 0 ]; then
       echo OPEN_LAUNCH_TIMEOUT
     fi
     rm -f \"$PIDF\"" 2>/dev/null)" || true
+  # The last line is the verdict; any NOTE lines before it are consent rounds.
+  PRECHECK_STATUS="$(printf '%s\n' "$PRECHECK_OUT" | tail -1)"
+  printf '%s\n' "$PRECHECK_OUT" | grep '^NOTE ' | sed "s/^/[smoke $HOST] pre-check /" || true
   echo "[smoke $HOST] pre-check result: ${PRECHECK_STATUS:-<no output>}"
   # Same reboot backstop as the bottom of this script: if TERM didn't take,
   # the engine must not be left running for the direct-exec pass below to

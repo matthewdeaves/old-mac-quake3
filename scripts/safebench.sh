@@ -36,6 +36,16 @@
 #     can't orphan a remote shell even if the host-side `timeout` backstop fires.
 #
 # Prints: "[machine WxH] <N> frames <S> seconds <F> fps ...".
+#
+# AUTOCONFIG=1 benches the SHIPPED DEFAULT PROFILE instead of a pinned one: the
+# bundled per-arch/per-machine/per-OS cfgs stay ON (no com_archAutoexec 0, and
+# no res/vsync overrides: the cfg picks them), with the player's q3config.cfg
+# and autoexec.cfg set aside for the run so it sees a fresh install's defaults.
+# Both are restored in the same ssh session once the engine has exited. Pass
+# the host's native WxH as usual; the printed MODE line is what actually ran.
+# hw.model, the GL renderer, the mode and the effective r_/cg_ cvars are
+# printed as "CFG:" lines (the "Applying bundled config" lines print before the
+# logfile opens, so they are not in qconsole.log). timedemo ignores com_maxfps, and no bundled cfg sets vsync.
 set -uo pipefail
 M="${1:?usage: safebench.sh <machine> <WxH> [demo] [extra +set...]}"
 
@@ -69,6 +79,7 @@ fi
 RES="${2:?need WxH}"; W=${RES%x*}; H=${RES#*x}
 DEMO="${3:-four}"
 EXTRA="${4:-}"
+AUTOCFG="${AUTOCONFIG:-0}"; [ "$AUTOCFG" = 1 ] || AUTOCFG=0
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must
 # resolve on the REMOTE host's home, not this workstation's. See ci.yml.
@@ -188,10 +199,19 @@ out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
   # nextdemo=quit → when the timedemo finishes, CL_DemoCompleted prints the fps
   # line and runs 'quit', so the engine exits the NORMAL way (SDL restores the
   # display, pid removed). No signal is ever sent to a rendering fullscreen app.
+  if [ $AUTOCFG = 1 ]; then
+    for c in q3config autoexec; do
+      if [ -f baseq3/\$c.cfg ]; then mv -f baseq3/\$c.cfg baseq3/\$c.cfg.safebench-aside; else touch baseq3/.safebench-no-\$c; fi
+    done
+    ./ioquake3.app/Contents/MacOS/ioquake3 \
+      +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" +set logfile 2 \
+      $EXTRA +set nextdemo quit +set timedemo 1 +cvarlist +demo $DEMO >/dev/null 2>&1 &
+  else
   ./ioquake3.app/Contents/MacOS/ioquake3 +set com_archAutoexec 0 \
     +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" +set logfile 2 \
     +set r_swapInterval 0 +set r_mode -1 +set r_customwidth $W +set r_customheight $H +set r_fullscreen 1 \
     $EXTRA +set nextdemo quit +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &
+  fi
 
   # wait for the engine to self-quit (process gone) or error out; self-bounded
   budget=\$(( $DEADLINE - 25 )); j=0
@@ -209,11 +229,26 @@ out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
   fi
   rm -f \"$PIDF\"
 
+  if [ $AUTOCFG = 1 ]; then
+    echo \"CFG:hw.model \$(sysctl -n hw.model 2>/dev/null)\"
+    grep -E 'GL_RENDERER|MODE: | (r|cg)_(mode|custom[a-z]*|fullscreen|picmip|texturebits|colorbits|depthbits|ext_multisample|ext_texture_filter_anisotropic|textureMode|dynamiclight|flares|fastsky|subdivisions|lodbias|vertexLight|swapInterval|detailtextures|drawSun|marks|shadows|simpleItems|gibs|brass) ' baseq3/qconsole.log 2>/dev/null | sed 's/^/CFG:/'
+    # Restore only once the engine is gone: it writes q3config.cfg as it quits,
+    # which would otherwise land on top of the player's restored file.
+    if killall -0 ioquake3 2>/dev/null; then
+      echo 'CFG:WARNING engine still running; player cfgs left in baseq3/*.safebench-aside'
+    else
+      for c in q3config autoexec; do
+        if [ -f baseq3/\$c.cfg.safebench-aside ]; then mv -f baseq3/\$c.cfg.safebench-aside baseq3/\$c.cfg; fi
+        if [ -f baseq3/.safebench-no-\$c ]; then rm -f baseq3/\$c.cfg baseq3/.safebench-no-\$c; fi
+      done
+    fi
+  fi
   echo \"FPSLINE:\$(grep -E 'seconds .*fps' baseq3/qconsole.log 2>/dev/null | tail -1)\"
   killall -0 ioquake3 2>/dev/null && echo 'STUCK:1' || echo 'STUCK:0'
 " 2>&1)
 
 fps=$(printf '%s\n' "$out" | sed -n 's/^FPSLINE://p' | tail -1)
+[ "$AUTOCFG" = 1 ] && printf '%s\n' "$out" | sed -n 's/^CFG:/  cfg: /p'
 stuck=$(printf '%s\n' "$out" | sed -n 's/^STUCK://p' | tail -1)
 if [ -z "$fps" ]; then
   printf '[%s] benchmark launch output:\n%s\n' "$M" "$out" >&2

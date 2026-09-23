@@ -82,8 +82,8 @@ genuine SDL 1.2. See `docs/adr/0017`.
 
 Each Mac gets the settings its class can carry, at its own desktop resolution. These
 are the shipped defaults on a fresh install, `four` timedemo, median of three warm
-runs (2026-09-23; v0.6.17, except the G5 row (v0.6.18) and the GMA 950 and
-imac-2019 rows (v0.6.19-rc1 settings, pinned bench legs)):
+runs (2026-09-23; v0.6.17, except the G5 row (v0.6.18) and the imac-2019 row
+(v0.6.19 settings, pinned bench legs)):
 
 | Class | Machine, resolution | fps |
 |---|---|---:|
@@ -91,7 +91,7 @@ imac-2019 rows (v0.6.19-rc1 settings, pinned bench legs)):
 | G3, Tiger | yosemite, 800×600 | 32.9 |
 | G4 | mini-g4, 1024×768 | 71.7 |
 | G5 Dual 2.7 | g5 tower, 1680×1050, 2x FSAA, full textures | 47.2 |
-| Intel GMA 950 | mini-intel, 1920×1080, vsync off (driver-paced) | 57.4 |
+| Intel GMA 950 | mini-intel, 1920×1080, vsync on | 40.9 |
 | modern Intel | imac-2019, 2560×1440, 4x FSAA, trilinear | 537.5 |
 
 Floors: G3 20 fps, G4 and Lion 60 fps; G5 and newer are uncapped, and above the floor
@@ -100,8 +100,9 @@ the frames are spent on effects. Measurement history is in
 
 ## Known issues
 
-- **GMA 950 Macs at 1920×1080** run at ~57-59 fps with vsync off; the driver paces
-  frames to the 60 Hz display, so this class sits just under its 60 fps floor (#63).
+- **GMA 950 Macs at 1920×1080** run ~41 fps, under the 60 fps floor, by choice: the
+  driver paces frames to about 60 Hz on its own (55-59 fps with vsync off, whatever
+  the settings), and vsync on was kept over the risk of tearing (#63).
 - **Tiger** can ask you to confirm the first launch of a newly installed app; the game
   does not start until you answer that dialog.
 - **The `i386` slice** has not been run on a Core Solo/Duo Mac.

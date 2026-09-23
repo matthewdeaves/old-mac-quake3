@@ -312,14 +312,18 @@ if [ "$OPEN_ARGS_OK" = 0 ]; then
   # two rounds. The launch that counts is still a real LaunchServices launch.
   # Before this, a consent dialog held the bench claim until someone killed it.
   # PANTHER -10814: right after deploy-dmg.sh, Panther's first `open` fails
-  # with LSOpenFromURLSpec() -10814 (application not found) in 10 of 15 first
-  # opens (g5-panther 10.3.9, 2026-09-23). A retry 5s later, and `lsregister -f`
-  # on the installed app, both still got -10814; minutes later it opened. Cause
-  # not found (#60), so it is not retried away: the verdict carries the LS code.
+  # with LSOpenFromURLSpec() -10814 (application not found): 10 of 15 first
+  # opens on g5-panther, 10 of 10 on yosemite (2026-09-23). It clears by
+  # itself: with `open` retried every ~15s, yosemite launched after 20-89s
+  # (median 53s). `lsregister -f` does not shorten it. So -10814 alone is
+  # retried every 15s for up to 180s (twice the worst seen); any other failure,
+  # or -10814 past 180s, fails with the LS code. Whether a Finder double-click
+  # sees the same delay is still unmeasured (#60).
   PRECHECK_OUT="$(ssh "$HOST" "
     cd $REMOTE_DIR || { echo NO_INSTALL; exit 9; }
     rm -f \"$PIDF\"
     round=0
+    t0=\$(date +%s)
     while :; do
       open ./ioquake3.app >/tmp/q3-open-err.txt 2>&1 &
       op=\$!
@@ -334,6 +338,11 @@ if [ "$OPEN_ARGS_OK" = 0 ]; then
         wait \$op && break
         err=\$(sed -n 's/.*returned \\(-[0-9]*\\).*/\\1/p' /tmp/q3-open-err.txt | head -1)
         rm -f /tmp/q3-open-err.txt
+        waited=\$(( \$(date +%s) - t0 ))
+        if [ \"\$err\" = -10814 ] && [ \$waited -lt 180 ]; then
+          echo \"NOTE OPEN_FAILED -10814 at \${waited}s: LaunchServices has not picked up the new install yet; retrying\"
+          sleep 15; continue
+        fi
         echo \"OPEN_FAILED \${err:-no-LS-code}\"; exit 9
       fi
       round=\$((round+1))

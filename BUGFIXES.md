@@ -3,6 +3,15 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-09-23** `deploy-dmg.sh` never detached the DMG on Panther: it
+  detached by mountpoint, and Panther's `hdiutil detach` takes only a device
+  name, so it failed silently (`-force` too). g5-panther had 10 images
+  attached and `ditto` failed with "Cannot allocate memory". Fix: keep the
+  device from `hdiutil attach` and detach that. 3 deploys after: 0 attached. #60
+- **2026-09-23** `smoke-dmg.sh`'s bare-`open` pre-check could hang forever on
+  Tiger's first-launch consent dialog (`open` blocked in `LSConsentToLaunch`),
+  holding the bench claim. Fix: 30s bound, sample and label the stall,
+  dismiss and retry up to twice. #60
 - **2026-09-02** `Fix Launch Problems.command`'s local-disk-copy fix (below)
   was not actually sufficient for `set-bundle-bit`. Caught before shipping
   by re-testing the fix-in-place rework against a copy carrying real

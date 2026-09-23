@@ -311,12 +311,17 @@ if [ "$OPEN_ARGS_OK" = 0 ]; then
   # open launch on mini-g4 after one round and on the G3 after two, so up to
   # two rounds. The launch that counts is still a real LaunchServices launch.
   # Before this, a consent dialog held the bench claim until someone killed it.
+  # PANTHER -10814: right after deploy-dmg.sh, Panther's first `open` fails
+  # with LSOpenFromURLSpec() -10814 (application not found) in 10 of 15 first
+  # opens (g5-panther 10.3.9, 2026-09-23). A retry 5s later, and `lsregister -f`
+  # on the installed app, both still got -10814; minutes later it opened. Cause
+  # not found (#60), so it is not retried away: the verdict carries the LS code.
   PRECHECK_OUT="$(ssh "$HOST" "
     cd $REMOTE_DIR || { echo NO_INSTALL; exit 9; }
     rm -f \"$PIDF\"
     round=0
     while :; do
-      open ./ioquake3.app >/dev/null 2>&1 &
+      open ./ioquake3.app >/tmp/q3-open-err.txt 2>&1 &
       op=\$!
       k=0
       while [ \$k -lt 30 ]; do
@@ -324,8 +329,12 @@ if [ "$OPEN_ARGS_OK" = 0 ]; then
         kill -0 \$op 2>/dev/null || break
         sleep 1; k=\$((k+1))
       done
-      if killall -0 ioquake3 2>/dev/null || ! kill -0 \$op 2>/dev/null; then
-        break
+      killall -0 ioquake3 2>/dev/null && break
+      if ! kill -0 \$op 2>/dev/null; then
+        wait \$op && break
+        err=\$(sed -n 's/.*returned \\(-[0-9]*\\).*/\\1/p' /tmp/q3-open-err.txt | head -1)
+        rm -f /tmp/q3-open-err.txt
+        echo \"OPEN_FAILED \${err:-no-LS-code}\"; exit 9
       fi
       round=\$((round+1))
       why=OPEN_BLOCKED
@@ -340,9 +349,7 @@ if [ "$OPEN_ARGS_OK" = 0 ]; then
       kill -TERM \$op 2>/dev/null
       if [ \$round -ge 2 ]; then echo \"OPEN_LAUNCH_TIMEOUT_\$why\"; exit 0; fi
     done
-    if ! killall -0 ioquake3 2>/dev/null; then
-      wait \$op || { echo OPEN_FAILED; exit 9; }
-    fi
+    rm -f /tmp/q3-open-err.txt
     k=0
     while [ \$k -lt 20 ]; do
       killall -0 ioquake3 2>/dev/null && break

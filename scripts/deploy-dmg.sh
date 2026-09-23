@@ -106,7 +106,12 @@ mkdir -p "$ROOT"
 hdiutil detach "$MNT" >/dev/null 2>&1 || hdiutil detach -force "$MNT" >/dev/null 2>&1 || true
 rmdir "$MNT" 2>/dev/null || true
 mkdir -p "$MNT"
-hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$ROOT/$DMG_BASE" >/dev/null
+# Keep the device node: Panther's `hdiutil detach` takes ONLY a device name,
+# not a mountpoint (measured 2026-09-23 on g5-panther 10.3.9, #60). Detaching
+# "$MNT" failed silently there on every run, -force too, and ten deploys left
+# ten images attached until ditto hit "Cannot allocate memory".
+DEV="$(hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$ROOT/$DMG_BASE" | awk '/^\/dev\//{print $1; exit}')"
+[ -n "$DEV" ] || { echo "  FATAL: hdiutil attach gave no device" >&2; rmdir "$MNT" 2>/dev/null; exit 6; }
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE/baseq3"
@@ -172,10 +177,10 @@ done
 # empty mountpoint.
 detached=no
 for k in 1 2 3 4 5; do
-  if hdiutil detach "$MNT" >/dev/null 2>&1; then detached=yes; break; fi
+  if hdiutil detach "$DEV" >/dev/null 2>&1; then detached=yes; break; fi
   sleep 2
 done
-[ "$detached" = yes ] || hdiutil detach -force "$MNT" >/dev/null 2>&1 || true
+[ "$detached" = yes ] || hdiutil detach -force "$DEV" >/dev/null 2>&1 || true
 rmdir "$MNT" 2>/dev/null || true
 
 if ! promote_staged_install "$ROOT" "$DEST" "$STAGE" "$ROLLBACK"; then

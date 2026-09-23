@@ -4,25 +4,15 @@
 
 # ioquake3: old-Mac port
 
-**Quake III Arena running again on vintage Macs**, Panther on a G3, Tiger on a
-G4, Leopard on a G5, Lion on Intel, and natively on Apple Silicon, all from a
-single fat binary.
+Quake III Arena (ioquake3) for Mac OS X 10.3.9 through current macOS: one fat
+binary for PowerPC G3/G4/G5, Intel and Apple Silicon.
 
 </div>
 
-A port of [ioquake3](https://ioquake3.org/) built as one fat binary spanning
-**twenty-six years of Macs**, tested on a range of real hardware. One Mach-O
-bundle carries **five slices** (`ppc750` + `ppc7400` + `i386` + `x86_64` +
-`arm64`) and `dyld` picks the right one at runtime, from a 449 MHz Power Mac G3
-with a 16 MB Rage 128, right at the minimum spec when Q3 shipped in 1999, up to an
-M-series Mac where it runs native rather than under Rosetta.
-
-> **About this project.** A personal project, I love Quake and I collect and
-> tinker with old Macs. My part is the setup and testing: the build, deploy and
-> benchmark scripts, and the per-machine settings. The engine and config changes
-> were made mostly **with AI (Claude), which I directed and checked against real
-> benchmarks on the machines**, most of the work here is tooling and config, not
-> changes to the engine itself.
+A port of [ioquake3](https://ioquake3.org/). One Mach-O carries five slices
+(`ppc750`, `ppc7400`, `i386`, `x86_64`, `arm64`) and `dyld` picks one at launch,
+from a 449 MHz Power Mac G3 with a 16 MB Rage 128 to Apple Silicon (native, not
+Rosetta).
 
 <div align="center">
 
@@ -139,8 +129,8 @@ one of the old Macs. It builds from the same tree and ships as its own release
 Read [`server/README.md`](server/README.md) before putting one on the internet.
 The firewall rules there are not optional: the engine answers unauthenticated
 status queries with about 32 times what it was asked for, so an open server can
-be used to reflect traffic at someone else. Quake III at least rate limits this
-itself, which the other three engines in this family do not.
+be used to reflect traffic at someone else.
+The engine rate-limits these replies itself.
 
 Hosting and running a dedicated server long-term (deployment, firewall setup,
 webadmin) is covered in a separate repo,

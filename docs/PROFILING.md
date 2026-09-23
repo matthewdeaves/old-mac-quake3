@@ -956,8 +956,3 @@ precision; SSAO and depth-blur shaders read that red channel. If retry or the
 SSAO output target remains incomplete, initialization disables SSAO instead of
 using an invalid framebuffer. Failure-injection tests cover those outcomes.
 The updated native renderer compiles. No post-fix whole-game FPS is claimed.
-
-The locally installed fat binary predates the fix, so its bundled SSAO setting
-is temporarily disabled. The source profile retains SSAO enabled for the fixed
-release. Claude owns the final merged build, push and release at the user's
-request, including the removal of the legacy experiment and this SSAO fix.

@@ -38,6 +38,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <sys/sysctl.h>
 #include <errno.h>
 #include <CoreFoundation/CoreFoundation.h>
+#ifndef DEDICATED
+// GPU tier (#62): CGL can describe the display's renderer before any GL
+// context exists, which is when the auto-config has to run.
+#include <OpenGL/OpenGL.h>
+#include <ApplicationServices/ApplicationServices.h>
+#endif
 #endif
 
 int demo_protocols[] =
@@ -2442,6 +2448,88 @@ static const struct { const char *model; const char *cfg; } com_machineMap[] = {
 	// would be a byte-for-byte copy of the baseline. See docs/CONFIG.md.
 };
 
+#ifndef DEDICATED
+/*
+==================
+Com_GpuTierConfig
+
+Identify the main display's accelerated renderer through CGL, before any GL
+context exists, and return the bundled GPU-tier config for it, or NULL. The
+tier sits between the per-arch baseline and the hw.model overlay, so a Mac
+with its own machine config is unchanged, while one the model map does not
+know (a G5 tower, say) still gets settings for the GPU it actually has, which
+is also the only honest answer for AGP towers whose card was swapped (#33).
+
+The old SDKs declare the CGL out-parameters as long, the newer ones as GLint.
+Each value is read into a zeroed long through a void pointer: the same size on
+the 32-bit slices, and on the little-endian 64-bit ones a 4-byte write fills
+the low half, so both spellings read back correctly.
+==================
+*/
+// hw.cpusubtype is CPU_SUBTYPE_POWERPC_970 (100) on every G5, whichever slice
+// runs (the G5 executes the ppc7400 slice).
+static qboolean Com_CpuIs970( void )
+{
+	int	sub = 0;
+	size_t	len = sizeof( sub );
+
+	if ( sysctlbyname( "hw.cpusubtype", &sub, &len, NULL, 0 ) != 0 )
+		return qfalse;
+	return sub == 100 ? qtrue : qfalse;
+}
+
+static const char *Com_GpuTierConfig( void )
+{
+	CGLRendererInfoObj	info = NULL;
+	long			count = 0, i;
+	long			rendererID = 0, vramBytes = 0;
+	const char		*tier = NULL;
+	char			desc[96];
+
+	if ( CGLQueryRendererInfo( CGDisplayIDToOpenGLDisplayMask( CGMainDisplayID() ),
+			&info, (void *)&count ) != kCGLNoError || !info )
+	{
+		Cvar_Get( "com_gpu", "unknown", CVAR_ROM );
+		return NULL;
+	}
+	for ( i = 0; i < count; i++ )
+	{
+		long	accel = 0;
+
+		CGLDescribeRenderer( info, i, kCGLRPAccelerated, (void *)&accel );
+		if ( !accel )
+			continue;
+		CGLDescribeRenderer( info, i, kCGLRPRendererID, (void *)&rendererID );
+		CGLDescribeRenderer( info, i, kCGLRPVideoMemory, (void *)&vramBytes );
+		break;
+	}
+	CGLDestroyRendererInfo( info );
+
+	// Family IDs from CGLRenderers.h; kCGLRendererIDMatchingMask drops the
+	// per-board bits. 0x00021800 is ATI's R300 family (Radeon 9500-9800 and
+	// X300-X850, incl. the Radeon 9600 in the G5s). 128 MB is the least the
+	// full-resolution textures in its tier were measured with.
+	switch ( rendererID & 0x00FE7F00 )
+	{
+	case 0x00021800:
+		// Measured only behind a G5 (970) so far: g5-tiger, 2x FSAA 47 fps at
+		// 1680x1050. A G4 laptop with a Mobility R300 has the 60 fps floor
+		// and has not been measured, so it keeps the G4 baseline until it is.
+		if ( vramBytes >= 128L * 1024 * 1024 && Com_CpuIs970() )
+			tier = "autoexec-gpu-r300";
+		break;
+	default:
+		break;
+	}
+
+	Com_sprintf( desc, sizeof( desc ), "0x%08lx %ldMB %s", (unsigned long)rendererID,
+		vramBytes / ( 1024 * 1024 ), tier ? tier : "none" );
+	Cvar_Get( "com_gpu", desc, CVAR_ROM );
+	Com_Printf( "Auto-config: GPU renderer %s\n", desc );
+	return tier;
+}
+#endif
+
 /*
 ==================
 Com_AutoConfigForMachine
@@ -2481,6 +2569,16 @@ static void Com_AutoConfigForMachine( void )
 	// Mac actually executes. It is also the only slice with no bytecode JIT,
 	// which is why the config below leaves com_hunkMegs high.
 	Com_ExecConfigFromBundle( "autoexec-arm64" );
+#endif
+
+#ifndef DEDICATED
+	// GPU tier, between the baseline and the hw.model overlay (#62)
+	{
+		const char	*gpuCfg = Com_GpuTierConfig();
+
+		if ( gpuCfg )
+			Com_ExecConfigFromBundle( gpuCfg );
+	}
 #endif
 
 	// per-machine overlay (hw.model lookup); unknown models keep the baseline

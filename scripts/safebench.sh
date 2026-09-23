@@ -234,7 +234,7 @@ out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
 
   if [ $AUTOCFG = 1 ]; then
     echo \"CFG:hw.model \$(sysctl -n hw.model 2>/dev/null)\"
-    grep -E 'GL_RENDERER|MODE: | (r|cg)_(mode|custom[a-z]*|fullscreen|picmip|texturebits|colorbits|depthbits|ext_multisample|ext_texture_filter_anisotropic|textureMode|dynamiclight|flares|fastsky|subdivisions|lodbias|vertexLight|swapInterval|detailtextures|drawSun|marks|shadows|simpleItems|gibs|brass) ' baseq3/qconsole.log 2>/dev/null | sed 's/^/CFG:/'
+    grep -E 'GL_RENDERER|MODE: | com_gpu | (r|cg)_(mode|custom[a-z]*|fullscreen|picmip|texturebits|colorbits|depthbits|ext_multisample|ext_texture_filter_anisotropic|textureMode|dynamiclight|flares|fastsky|subdivisions|lodbias|vertexLight|swapInterval|detailtextures|drawSun|marks|shadows|simpleItems|gibs|brass) ' baseq3/qconsole.log 2>/dev/null | sed 's/^/CFG:/'
     # Restore only once the engine is gone: it writes q3config.cfg as it quits,
     # which would otherwise land on top of the player's restored file.
     if killall -0 ioquake3 2>/dev/null; then

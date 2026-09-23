@@ -38,7 +38,17 @@ top. A miss keeps the baseline. Mapped today: `PowerMac1,1` (yosemite),
 `PowerMac8,1` / `8,2` / `12,1` (iMac G5), `Macmini2,1` (mini-intel), `iMac19,1`
 (imac-2019). All ten cfgs are bundled into `Resources/` by `make-app.sh`.
 
-**`+set com_archAutoexec 0` switches both layers off.** The bench and screenshot
+**Amendment 2026-09-23 (#62), GPU tier between the two layers.**
+`Com_GpuTierConfig()` asks CGL for the main display's accelerated renderer
+(family ID, VRAM) before any GL context exists, plus `hw.cpusubtype`, and
+applies `autoexec-gpu-<family>.cfg` after the baseline and before the
+`hw.model` overlay. So a Mac the model map does not know still gets settings for
+the GPU it has, and a mapped Mac is unchanged (a tier cfg only sets cvars its
+machine cfgs also set). First tier: ATI R300 family, 128 MB+, on a G5 ->
+`autoexec-gpu-r300.cfg`. The result is the read-only cvar `com_gpu`. A per-OS
+overlay (`autoexec-<machine>-darwin<N>.cfg`) is applied last.
+
+**`+set com_archAutoexec 0` switches all layers off.** The bench and screenshot
 scripts pass it, so their own `+set` overrides own the run outright - that is
 what makes bench rows comparable across commits.
 

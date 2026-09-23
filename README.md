@@ -49,7 +49,7 @@ M-series Mac where it runs native rather than under Rosetta.
 | mini-intel | Core 2 Duo 2.33 GHz | GMA 950 | 10.7.5 | x86_64 |
 | mini-sl | Core 2 Duo 2.26 GHz | GeForce 9400 | 10.6.8 | x86_64 |
 | imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | 15.7 | x86_64 |
-| (desk Mac) | Apple M5 | - | 26 | arm64 |
+| (desk Mac) | Apple M5 | - | 26 (dev build) | arm64 |
 
 ### Which OS each CPU needs
 
@@ -63,7 +63,7 @@ Each is built against the **oldest** OS its CPU can run:
 | G5 (970) | `ppc7400` | 10.3.9 Panther or later | 10.3.9, 10.4.11, 10.5.8 |
 | Intel, 32-bit only | `i386` | 10.4 Tiger through 10.6.8 | **not run on hardware** |
 | Intel, 64-bit | `x86_64` | 10.6 Snow Leopard or later | 10.6.8, 10.7.5, 15.7 |
-| Apple Silicon | `arm64` | 11.0 Big Sur or later | 26 |
+| Apple Silicon | `arm64` | 11.0 Big Sur or later | 26 (dev build) |
 
 `dyld` picks a slice by **CPU subtype alone**, never by OS, and does not fall back to a
 lower slice. So the `ppc7400` slice is built for 10.3 even though no G4 here runs
@@ -81,15 +81,15 @@ genuine SDL 1.2. See `docs/adr/0017`.
 ## Framerate
 
 Each Mac gets the settings its class can carry, at its own desktop resolution. These
-are the shipped defaults of v0.6.17 on a fresh install, `four` timedemo, median of
-three warm runs (2026-09-23):
+are the shipped defaults on a fresh install, `four` timedemo, median of three warm
+runs (2026-09-23; v0.6.17, except the G5 row, which is v0.6.18-rc1):
 
 | Class | Machine, resolution | fps |
 |---|---|---:|
 | G3, Panther | yosemite, 800×600 | 25.8 |
 | G3, Tiger | yosemite, 800×600 | 32.9 |
 | G4 | mini-g4, 1024×768 | 71.7 |
-| G5 Dual 2.7 | g5 tower, 1680×1050 | 118.1 |
+| G5 Dual 2.7 | g5 tower, 1680×1050, 2x FSAA, full textures | 47.2 |
 | Intel GMA 950 | mini-intel, 1920×1080, vsync on | 40.9 |
 | modern Intel | imac-2019, 2560×1440 | 715.1 |
 
@@ -111,11 +111,12 @@ the frames are spent on effects. Measurement history is in
   a single Mach-O.
 - Runs on **Mac OS X 10.3.9 Panther through current macOS**, natively on every one,
   including Apple Silicon rather than under Rosetta.
-- **SDL 1.2**, the last SDL line that supports Panther and Tiger, with a
-  monolithic OpenGL1 renderer.
+- **SDL 1.2** (the last SDL line that supports Panther and Tiger) and the GL1
+  renderer on the four PowerPC/Intel slices; arm64 runs rend2 over
+  sdl12-compat/SDL2 (ADR 0017).
 - **Per-machine auto-config**: at launch it picks a tuned `autoexec` baked into
-  the `.app` for the CPU slice, the Mac model and the OS (resolution, FSAA,
-  anisotropic + trilinear filtering, texture/colour depth).
+  the `.app` for the CPU slice, the GPU it finds, the Mac model and the OS
+  (resolution, FSAA, anisotropic + trilinear filtering, texture/colour depth).
 - **Native game modules**, `cgame`/`qagame`/`ui` ship as fat native dylibs
   built from stock source, replacing the bundled bytecode; a small measured win,
   with automatic fallback to the bytecode.

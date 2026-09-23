@@ -21,7 +21,7 @@ their evidence live in [`adr/`](adr/).
 | [0012](adr/0012-the-linux-dedicated-server-is-one-container-built-elf.md) | The Linux dedicated server is one container-built ELF |
 | [0013](adr/0013-watchlink-is-a-cvar-gated-udp-feed.md) | watchlink is a cvar-gated UDP feed, inert by default |
 | [0014](adr/0014-one-legacy-only-icns-and-the-finder-bundle-bit.md) | One legacy-only `.icns`, plus a Finder bundle bit setter we ship ourselves |
-| [0015](adr/0015-no-arm64-slice-and-adding-one-does-not-require-leaving-sdl-1-2.md) | No arm64 slice, and adding one would not require leaving SDL 1.2 |
+| [0015](adr/0015-no-arm64-slice-and-adding-one-does-not-require-leaving-sdl-1-2.md) | No arm64 slice, and adding one would not require leaving SDL 1.2 (superseded by 0017) |
 | [0016](adr/0016-current-ioquake3-still-builds-for-powerpc-but-the-makefile-is-gone.md) | Current ioquake3 still builds for PowerPC, but the Makefile is gone |
 | [0017](adr/0017-the-arm64-slice-ships-sdl12-compat-over-an-sdl2-we-build.md) | The arm64 slice ships sdl12-compat over an SDL2 we build |
 | [0018](adr/0018-hw-model-identifies-the-logic-board-not-the-installed-gpu.md) | `hw.model` identifies the logic board, not the installed GPU (documented limitation, no code change) |

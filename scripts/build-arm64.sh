@@ -58,6 +58,9 @@ PREFIX="${Q3_ARM64_PREFIX:-$HOME/.cache/oldmac-q3-arm64}"
 # Pinned, because "whatever the machine happens to have" is how a port stops
 # being reproducible. Bump deliberately, then re-bench.
 SDL2_VER="${Q3_ARM64_SDL2_VER:-2.32.4}"
+# sha256 of the signed libsdl.org tarball; it equals matthewdeaves/SDL tag
+# retro/arm64-base (upstream release-2.32.4). Bumping SDL2_VER needs this too.
+SDL2_SHA256="${Q3_ARM64_SDL2_SHA256:-f15b478253e1ff6dac62257ded225ff4e7d0c5230204ac3450f1144ee806f934}"
 SDL12_URL="https://github.com/libsdl-org/sdl12-compat.git"
 SDL12_TAG="${Q3_ARM64_SDL12_TAG:-release-1.2.76}"
 
@@ -78,7 +81,11 @@ if [ "$(cat "$PREFIX/.sdl2-built-from" 2>/dev/null)" != "$SDL2_WANT" ]; then
   SRC="$PREFIX/src/SDL2-$SDL2_VER"
   if [ ! -d "$SRC" ]; then
     mkdir -p "$PREFIX/src"
-    curl -fsSL "https://www.libsdl.org/release/SDL2-$SDL2_VER.tar.gz" | tar xz -C "$PREFIX/src"
+    TGZ="$PREFIX/src/SDL2-$SDL2_VER.tar.gz"
+    curl -fsSL -o "$TGZ" "https://www.libsdl.org/release/SDL2-$SDL2_VER.tar.gz"
+    echo "$SDL2_SHA256  $TGZ" | shasum -a 256 -c - >/dev/null || {
+      echo "build-arm64.sh: $TGZ is not sha256 $SDL2_SHA256" >&2; rm -f "$TGZ"; exit 1; }
+    tar xzf "$TGZ" -C "$PREFIX/src" && rm -f "$TGZ"
   fi
   # Shared, not static: the shim dlopen()s it by name at runtime, so a static
   # archive would simply be unreachable. Built out of tree so a re-run with a

@@ -14,11 +14,22 @@
 # both against the 10.3.9 SDK at min 10.3, lion x86_64 at min 10.6, lipo'd with
 # re-stamped and asserted ppc cpusubtypes).
 #
+# NEVER run this piped through `| tail` (or anything else) without `set -o
+# pipefail` first: without it, a shell reports the PIPELINE's exit status
+# (the last command's — tail's, 0), not this script's, so a real failure here
+# (e.g. a stale arm64 slice below, which exits 1 and skips the lipo entirely)
+# reads as success. Bit an agent on 2026-09-25: build/ioquake3-fat was not
+# regenerated, `build-fat.sh | tail -80` still reported exit 0. old-mac-quake3#67.
+#
 set -euo pipefail
 
 PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$PROJ_LOCAL/build"
+# Belt-and-suspenders freshness check (this script's own exit-1 paths already
+# cover the known stale/missing cases; this catches any future path that
+# forgets to). Compared at the end against build/ioquake3-fat's mtime.
+BUILD_FAT_START_TS="$(date +%s)"
 
 # Source hashing for the arm64 slice. See scripts/source-stamp.sh, which is a
 # byte-identical copy of the canonical file in old-mac-build-host; a drift check
@@ -190,6 +201,16 @@ WANT_SET=$(printf '%s\n' $WANT | LC_ALL=C sort | tr '\n' ' ')
 case " $GOT " in
   *" ppc "*) echo "build-fat.sh: fat contains a generic ppc member"; exit 1;;
 esac
+
+# Freshness assert (see the BUILD_FAT_START_TS comment near the top): every
+# exit-1 path above already stops before this point, so this should never
+# trip. It exists for the path nobody has written yet.
+FAT_MTIME="$(stat -f %m "$OUT/ioquake3-fat" 2>/dev/null || echo 0)"
+if [ "$FAT_MTIME" -lt "$BUILD_FAT_START_TS" ]; then
+  echo "build-fat.sh: build/ioquake3-fat predates this run (mtime $FAT_MTIME <" \
+    "start $BUILD_FAT_START_TS) -- refusing to call this done" >&2
+  exit 1
+fi
 
 echo "==> fat binary -> build/ioquake3-fat"
 echo "    architectures: $GOT"

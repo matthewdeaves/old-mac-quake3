@@ -234,7 +234,26 @@ out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
 
   if [ $AUTOCFG = 1 ]; then
     echo \"CFG:hw.model \$(sysctl -n hw.model 2>/dev/null)\"
-    grep -E 'GL_RENDERER|MODE: | com_gpu | (r|cg)_(mode|custom[a-z]*|fullscreen|picmip|texturebits|colorbits|depthbits|ext_multisample|ext_texture_filter_anisotropic|textureMode|dynamiclight|flares|fastsky|subdivisions|lodbias|vertexLight|swapInterval|detailtextures|drawSun|marks|shadows|simpleItems|gibs|brass) ' baseq3/qconsole.log 2>/dev/null | sed 's/^/CFG:/'
+    # Fixed-string (-F), not -E: Lion's BSD grep refuses a long ERE alternation
+    # with \"Regular expression too big\", and since stderr was thrown away
+    # below this failed SILENTLY -- every CFG: line but hw.model came back
+    # empty on mini-intel/mini-intel2, even though the data was in the log
+    # (old-mac-quake3#67). -F has no such compiled-pattern size limit.
+    grep -F -e 'GL_RENDERER' -e 'MODE: ' -e ' com_gpu ' -e ' r_custom' -e ' cg_custom' \
+      -e ' r_mode \"' -e ' cg_mode \"' -e ' r_fullscreen \"' -e ' cg_fullscreen \"' \
+      -e ' r_picmip \"' -e ' cg_picmip \"' -e ' r_texturebits \"' -e ' cg_texturebits \"' \
+      -e ' r_colorbits \"' -e ' cg_colorbits \"' -e ' r_depthbits \"' -e ' cg_depthbits \"' \
+      -e ' r_ext_multisample \"' -e ' cg_ext_multisample \"' \
+      -e ' r_ext_texture_filter_anisotropic \"' -e ' cg_ext_texture_filter_anisotropic \"' \
+      -e ' r_textureMode \"' -e ' cg_textureMode \"' -e ' r_dynamiclight \"' -e ' cg_dynamiclight \"' \
+      -e ' r_flares \"' -e ' cg_flares \"' -e ' r_fastsky \"' -e ' cg_fastsky \"' \
+      -e ' r_subdivisions \"' -e ' cg_subdivisions \"' -e ' r_lodbias \"' -e ' cg_lodbias \"' \
+      -e ' r_vertexLight \"' -e ' cg_vertexLight \"' -e ' r_swapInterval \"' -e ' cg_swapInterval \"' \
+      -e ' r_detailtextures \"' -e ' cg_detailtextures \"' -e ' r_drawSun \"' -e ' cg_drawSun \"' \
+      -e ' r_marks \"' -e ' cg_marks \"' -e ' r_shadows \"' -e ' cg_shadows \"' \
+      -e ' r_simpleItems \"' -e ' cg_simpleItems \"' -e ' r_gibs \"' -e ' cg_gibs \"' \
+      -e ' r_brass \"' -e ' cg_brass \"' \
+      baseq3/qconsole.log 2>/dev/null | sed 's/^/CFG:/'
     # Restore only once the engine is gone: it writes q3config.cfg as it quits,
     # which would otherwise land on top of the player's restored file.
     if killall -0 ioquake3 2>/dev/null; then

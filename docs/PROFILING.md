@@ -295,6 +295,25 @@ resolution drop, which is blocked: native-only is the safe fullscreen on these
 GPUs (`docs/adr/0009`). Untested candidates, all effect trades: `cg_shadows 0`,
 coarser `r_subdivisions`, aniso 2 -> 0.
 
+### 2x FSAA shipped, spending headroom (2026-09-25, old-mac-quake3#70)
+
+This class had by far the largest unspent headroom in the fleet (~200% over the
+25 fps floor) and FSAA had never been tried on this GPU. Bench-CONFIRMED at
+1024x768, vsync-off, `bench-evidence`/`bench-compare` (2 rounds/side, cold
+start discarded, n=1/side per build-host#116):
+
+| Config | fps |
+|---|---|
+| `r_ext_multisample 0` (previous shipped default: unset) | 76.2 |
+| `r_ext_multisample 2` | 38.4 |
+
+VERDICT: WORSE, ~50% cost - consistent with the fill-rate-bound finding above
+(MSAA multiplies fragment/sample work, and this GPU has no fill headroom to
+absorb it for free the way quicksilver's aniso did). Still comfortably clears
+the floor (38.4 vs 25), so shipped in `autoexec-mini-g4.cfg` despite the real
+cost; confirmed again through the actual shipped config (`AUTOCONFIG=1`,
+not the pinned+EXTRA test profile): 38.3 fps, same run.
+
 ---
 
 ## imac-g5 (PPC 970 2.0 GHz: Radeon 9600) - ~60 fps GPU-bound at native, not vsync-capped

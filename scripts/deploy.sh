@@ -131,5 +131,10 @@ fi
 "$HERE/lsregister-app.sh" "$MACHINE" || true
 
 echo "==> [$MACHINE] verify"
-ssh "$MACHINE" "cd $REMOTE_DIR && file ioquake3-bench | sed 's/^/    /' && echo '    app binary:' && file ioquake3.app/Contents/MacOS/ioquake3 | sed 's/^/    /' && ls -la baseq3/autoexec.cfg 2>/dev/null"
+# baseq3/autoexec.cfg is the PLAYER's file and is correctly absent on a clean
+# deploy (#63) -- `|| true` so its absence (the common case) doesn't fail this
+# whole verify step under set -e and mask a real deploy as failed (found
+# 2026-09-25, old-mac-quake3#70: this line alone turned a fully successful
+# deploy into an exit-1, skipping the "deployed." line below).
+ssh "$MACHINE" "cd $REMOTE_DIR && file ioquake3-bench | sed 's/^/    /' && echo '    app binary:' && file ioquake3.app/Contents/MacOS/ioquake3 | sed 's/^/    /'; ls -la baseq3/autoexec.cfg 2>/dev/null || true"
 echo "==> [$MACHINE] deployed."

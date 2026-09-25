@@ -314,6 +314,19 @@ the floor (38.4 vs 25), so shipped in `autoexec-mini-g4.cfg` despite the real
 cost; confirmed again through the actual shipped config (`AUTOCONFIG=1`,
 not the pinned+EXTRA test profile): 38.3 fps, same run.
 
+**Aniso 2 -> 16, on top of the FSAA change, also shipped.** A/B (same method,
+2x FSAA held fixed both sides): 39.3 -> 38.9 fps, a -0.4 fps diff inside this
+host's own same-build noise floor (1.1 fps, #68's bench-compare demo /
+build-host#116) - not distinguishable from noise. Raised to 16 to match the
+G5's value since it costs nothing measurable. Real shipped config
+(`AUTOCONFIG=1`) after both changes: 38.1 fps.
+
+This reverses the "aniso is not presumed free here" caution above for the
+*current*, FSAA-on config specifically: the fill-rate-bound argument still
+holds architecturally, but aniso's own marginal cost on top of it did not
+show up above the noise floor at n=1/side. Worth a cleaner A/B (more rounds)
+if this needs tighter confidence later; not blocking given the floor margin.
+
 ---
 
 ## imac-g5 (PPC 970 2.0 GHz: Radeon 9600) - ~60 fps GPU-bound at native, not vsync-capped

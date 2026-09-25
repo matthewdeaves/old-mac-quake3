@@ -61,8 +61,15 @@ jobs:
     # quotes) are the deliberate ones: those paths must reach the REMOTE shell
     # unexpanded so the tilde resolves in the bench machine's home, not this
     # runner's or the workstation's. Issue #27.
+    #
+    # scripts/shared.sh is the one exception, and it is a file-level skip, not
+    # a suppression: it is old-mac-build-host's pinned wrapper (#71, ADR 0007
+    # there), dropped in byte-identical and never hand-edited by this repo, so
+    # a per-site fix here would just be reverted by the next pin bump. Its own
+    # SC2155 (line ~121, "declare and assign separately") is buildhost's to
+    # fix or accept upstream, not ours to suppress in a file we don't own.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -S warning scripts/*.sh tests/*.sh
+        run: shellcheck -S warning $(printf '%s\n' scripts/*.sh | grep -v '^scripts/shared\.sh$') tests/*.sh

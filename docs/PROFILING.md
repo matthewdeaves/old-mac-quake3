@@ -355,9 +355,17 @@ once at GL init):
 worst frame. MSAA on this R300-class part roughly triples frame cost at 4x; 2x is
 the sweet spot, killing the worst jaggies for ~43% cost. **Don't re-try 4x.**
 
-Remaining G5 levers are trades, not free, now that 2x FSAA spent the headroom:
-4x if a cheaper effect is dropped; `r_subdivisions` 4 -> 2 (finer curves, small
-cost); aniso 8 -> 16 (near-free but marginal perceptually at 1440x900).
+Aniso 8 -> 16 and `r_subdivisions` 4 -> 1 (finer than the 4 -> 2 once proposed
+here) both shipped 2026-09-22 (commit `9af62e74`), bundled with expanded
+weapon effects: paired A/B, 38.25 -> 36.95 fps, within quality budget (see
+"Further quality budget, same day" below). The G5 is now genuinely maxed --
+every other lever (picmip, texture/color/depth bits, dlights, flares, shadows,
+compressed textures, trilinear) is already at its ceiling. The only remaining
+trade is 4x FSAA, already rejected above; re-testing it against the current
+(slightly higher, aniso-16) baseline isn't worth G5 wall-clock -- the 43%
+observed 2x cost and ~66% 4x cost are relative to the GPU's fill rate, so
+projecting the same relative 4x cost onto 36.8 fps still lands around 12 fps,
+nowhere near the 25 fps floor (old-mac-quake3#70).
 
 **Op note:** the two June-29 crashlogs on the box are stale ssh-launch
 `NSApplication` aborts, a WindowServer-session hazard of launching a Cocoa app

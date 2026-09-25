@@ -431,3 +431,66 @@ now-understood-correct ~37 fps). The reboot backstop is doing its job --
 this half is recorded as evidence for whoever profiles the G5 next, not as a
 new rule to add. Not yet bisected against the pre-2x-FSAA build to know if
 it's new.
+
+---
+
+## build-host#105's pinned shared scripts (#71): two structural gaps, one of them already live and breaking lock-ownership visibility
+
+**The smell:** the ADR (`old-mac-build-host/docs/adr/0007-pinned-shared-scripts.md`)
+and alephone#43's precedent both read as "add `scripts/shared.sh` +
+`shared-scripts.pin`, repoint every caller, delete the copies" for all eight
+scripts (`pick-build-host.sh`, `pick-bench-host.sh`, `deploy-dmg.sh`,
+`smoke-dmg.sh`, `bench-evidence.sh`, `bench-compare.sh`,
+`gui-precondition.sh`, `clear-launch-quarantine.sh`). Migrating this repo's
+copy of all eight blind, the way the ticket reads, would have shipped two real
+bugs.
+
+**Gap 1, live right now: `pick-build-host.sh`/`pick-bench-host.sh` derive
+`REPO_NAME` from their own file's path (`dirname .. /..` of `$BASH_SOURCE[0]`),
+not from the calling repo.** Once exec'd from the pin's cache
+(`~/.cache/retro-shared/<sha>/pick-bench-host.sh`), that walk lands on
+`retro-shared` (the cache root's basename) instead of the port's own name.
+`REPO_NAME` feeds `ME`, which is written into every lock's `OWNER` field
+(`pick-bench-host.sh:629`) and used to tell two sessions apart for
+`--release-all` (`pick-bench-host.sh:730`). **Confirmed live** 2026-09-25,
+14:10: `pick-bench-host.sh --status` (this repo's own un-migrated copy,
+read-only) showed `yosemite-tiger`'s owner as
+`matt@Hayleys-Air:retro-shared claim=... quake2 bench-evidence ...` -- that
+claim belongs to old-mac-quake2's session, which had already migrated. An
+hour earlier the same host's claim correctly read `...:old-mac-quake2`. The
+label text after `claim=` still names the port (a separate, caller-supplied
+string), so `hosts.txt` is misleading, not silently corrupted, but
+`REPO_NAME`-based session disambiguation (the exact thing issue #7 built ME
+for) now collapses every migrated port's sessions on one workstation onto the
+same `ME`. Filed to buildhost, not worked around here: this repo keeps its
+own `pick-build-host.sh`/`pick-bench-host.sh` as real local copies until it's
+fixed.
+
+**Gap 2: `deploy-dmg.sh`, `smoke-dmg.sh` and `bench-evidence.sh` each re-exec
+themselves under `$SELF_DIR/pick-bench-host.sh`, and `smoke-dmg.sh` also calls
+`$SELF_DIR/gui-precondition.sh`.** `$SELF_DIR` is the pin's cache directory
+once any of these three are migrated, so `pick-bench-host.sh` (and, for
+smoke-dmg.sh, `gui-precondition.sh`) must ALSO already exist in that exact
+cache path, i.e. must ALSO be migrated -- these five scripts
+(`pick-bench-host.sh`, `deploy-dmg.sh`, `smoke-dmg.sh`, `bench-evidence.sh`,
+`gui-precondition.sh`) can only move as one atomic group, never individually,
+for as long as their source keeps these as bare sibling-relative paths rather
+than going through the wrapper themselves. Blocked transitively by Gap 1
+(`pick-bench-host.sh` is in that group).
+
+**Gap 3, not a bug, a constraint: `clear-launch-quarantine.sh` ships inside
+the DMG** (`make-dmg.sh` copies it verbatim into `fix-support/` for the end
+user, who has no `old-mac-build-host` checkout or wrapper). It must stay a
+real, directly-committed file in this repo regardless of the pin model.
+
+**What actually migrated tonight:** `bench-compare.sh` only -- the one script
+in the set of eight with no `SELF_DIR`-relative dependency on another shared
+script and no shipped-to-users role. Confirmed working through the wrapper
+(`scripts/shared.sh bench-compare.sh --baseline ... --candidate ...`), and it
+picked up build-host#116's real fix (2-round gate raised to 3) that this
+repo's stale local copy didn't have yet -- the whole point of the model.
+`pick-build-host.sh`, `pick-bench-host.sh`, `deploy-dmg.sh`, `smoke-dmg.sh`,
+`gui-precondition.sh`, `clear-launch-quarantine.sh` and `source-stamp.sh`
+(sourced, not exec'd, per the ticket's own documented option) all stay real
+local copies for now. old-mac-quake3#71 is left open, not closed, tracking
+the rest once buildhost fixes Gap 1.

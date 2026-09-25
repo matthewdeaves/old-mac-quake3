@@ -409,15 +409,25 @@ documented recovery path. `docs/adr/0009` covers the known G5/R300 hang on a
 the confirmed native one throughout, and the hang came after the demo had
 already finished and printed its result, not during a mode switch.
 
-**The 36.8 fps number itself is the other half of this.** `docs/PROFILING.md`'s
-2026-07-05 table has imac-g5 at 59.5 fps, maxed config, same native res. A
-same-config drop from ~59.5 to 36.8 fps landing in the same run that then hung
-the host is a pattern worth watching for, not dismissing as one flaky run --
-retest before trusting either number, and if it repeats, treat the fps drop and
-the post-run hang as evidence of the same underlying problem rather than two
-unrelated things.
+**Correction, same day.** The "36.8 vs 59.5 fps" framing above was wrong --
+checked before comparing against the right number. `docs/PROFILING.md`'s 59.5
+fps (2026-07-05) predates 2x FSAA being shipped to imac-g5;
+`autoexec-imac-g5.cfg`'s own header already documents "60.0 -> 34.5 fps [at 2x
+FSAA]" from that same round of work. Today's qconsole.log confirms
+`r_ext_multisample 2` plus aniso bumped 8 -> 16 since. 36.8-37.0 fps is in
+line with -- slightly above -- the documented 34.5 fps figure at a *heavier*
+config than that figure used. Not a regression; 59.5 was simply the wrong
+(pre-FSAA) baseline to reach for. Full check: `old-mac-quake3#69`.
 
-**Lesson.** The G5 hang hazard is not fully bounded by "native resolution
-only." Something can still wedge the display driver on a clean, same-mode
-timedemo. The reboot backstop is doing its job -- this is recorded as evidence
-for whoever profiles the G5 next, not as a new rule to add.
+**Lesson.** Before calling two numbers from the same box a regression, check
+whether the shipped config actually changed between them -- `PROFILING.md`
+and the cfg files' own headers usually say so directly, and it's a five-minute
+read against real G5 wall-clock and hang risk to find out the hard way.
+
+**The hang itself stands, separately.** The G5 hang hazard is not fully
+bounded by "native resolution only." Something can still wedge the display
+driver on a clean, same-mode timedemo (2 of 3 runs today, all at the
+now-understood-correct ~37 fps). The reboot backstop is doing its job --
+this half is recorded as evidence for whoever profiles the G5 next, not as a
+new rule to add. Not yet bisected against the pre-2x-FSAA build to know if
+it's new.

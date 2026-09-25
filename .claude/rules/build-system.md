@@ -19,6 +19,8 @@ scripts/distribute-data.sh <machine>     # ship baseq3 pk3s from mini-intel
 scripts/safebench.sh <machine> <WxH>     # THE safe timedemo. Use this.
 scripts/bench.sh <machine> <demo> <WxH> [runs]
 scripts/parallel-bench.sh [--quick|--reset|--no-<machine>]
+scripts/bench-evidence.sh <machine> <round-label>   # evidence bundle + VALID/INVALID verdict, wraps safebench.sh via scripts/bench-adapter.sh. Needs BENCH_RES=<WxH> (native, never guessed). Synced from old-mac-build-host (build-host#104); bench-adapter.sh is port-owned, never synced.
+scripts/bench-compare.sh --baseline <bundle...> --candidate <bundle...>   # BETTER/WORSE/NO-DIFFERENCE/INCONCLUSIVE verdict from bench-evidence.sh bundles. Quote this instead of eyeballing numbers.
 scripts/build-server-linux.sh [--arch x86_64|aarch64]
 scripts/install-host-tools.sh <host>     # one-time reboot-recovery setup
 ```

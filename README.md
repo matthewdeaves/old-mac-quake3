@@ -72,14 +72,14 @@ genuine SDL 1.2. See `docs/adr/0017`.
 
 Each Mac gets the settings its class can carry, at its own desktop resolution. These
 are the shipped defaults on a fresh install, `four` timedemo, median of three warm
-runs (2026-09-23; v0.6.17, except the G5 row (v0.6.18) and the imac-2019 row
-(v0.6.19 settings, pinned bench legs)):
+runs (2026-09-23; v0.6.17, except the G5 row (v0.6.18), the imac-2019 row
+(v0.6.19 settings, pinned bench legs) and the G4 row (v0.6.20, 2x FSAA + 16x aniso)):
 
 | Class | Machine, resolution | fps |
 |---|---|---:|
 | G3, Panther | yosemite, 800×600 | 25.8 |
 | G3, Tiger | yosemite, 800×600 | 32.9 |
-| G4 | mini-g4, 1024×768 | 71.7 |
+| G4 | mini-g4, 1024×768, 2x FSAA, 16x aniso | 38.1 |
 | G5 Dual 2.7 | g5 tower, 1680×1050, 2x FSAA, full textures | 47.2 |
 | Intel GMA 950 | mini-intel, 1920×1080, vsync on | 40.9 |
 | modern Intel | imac-2019, 2560×1440, 4x FSAA, trilinear | 537.5 |

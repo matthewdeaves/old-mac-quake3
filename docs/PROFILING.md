@@ -379,6 +379,51 @@ fps. Deployed and user-confirmed.
 Untested candidate: `r_smp` on the two cores - historically flaky, gate and test
 carefully.
 
+### Dynamic lights, tested and REJECTED (2026-09-25, old-mac-quake3#70)
+
+Ticket's own caveat first: this GPU's driver paces swaps to ~60 Hz regardless
+of `r_swapInterval` (see the vsync-on note above and `autoexec-mini-intel.cfg`),
+so even the vsync-off pinned bench profile reads mildly quantised
+(~17.5 ms/frame, not a clean 16.7/33.3 ms multiple). Isolated config-only A/B
+anyway, `bench-evidence`/`bench-compare`, native 1920x1080, pinned profile
+(3 rounds/side, cold start discarded, build-host#116):
+
+| Config | fps (2 warm rounds) |
+|---|---|
+| `r_dynamiclight 0` (shipped) | 57.1 / 57.4, mean 57.25 |
+| `r_dynamiclight 1` (candidate) | 51.7 / 52.1, mean 51.90 |
+
+VERDICT: WORSE, diff -5.35 fps (~9%), well outside the 0.28 fps noise band -
+a real cost, not the "driver paces regardless of settings" case the cfg's
+vsync note might suggest. This class' real *play-time* margin is the vsync-on
+shipped profile's 15-17 fps over the 25 fps floor (see the ticket, #70), the
+thinnest of any measured class; a 9% GPU-side cost is not worth spending
+there. REJECTED, `r_dynamiclight` stays `0`. Real-shipped-profile
+(`AUTOCONFIG=1`, vsync-on) confirmation run not completed this pass - host
+contention (mini-intel shared with other repos' sessions) - but not needed to
+support a REJECT decision.
+
+### Anisotropic filtering, tested and SHIPPED (2026-09-25, old-mac-quake3#70)
+
+Previously off entirely (`r_ext_texture_filter_anisotropic 0`, never measured
+on this GPU per #70's table). Same isolated method, native 1920x1080, pinned
+profile (3 rounds/side, cold start discarded):
+
+| Config | fps (2 warm rounds) |
+|---|---|
+| off (shipped) | 51.6 / 52.3, mean 51.95 |
+| `r_ext_texture_filter_anisotropic 1`, `r_ext_max_anisotropy 16` | 51.1 / 51.4, mean 51.25 |
+
+VERDICT: WORSE, diff -0.70 fps (~1.3%), just outside the 0.495 fps noise band
+- a small but real cost on this fill-bound GPU, unlike G4/G5 where aniso read
+as free. Shipped anyway: the magnitude is negligible against this class' 15-17
+fps real margin. `autoexec-mini-intel.cfg` now ships aniso 16 (matching
+G4/G5). Confirmed through the real shipped profile (`AUTOCONFIG=1`, vsync-on,
+aniso 16 + dlight 0): **40.6 fps**, inside the previously-documented 40.6-42.5
+fps vsync-quantised range, comfortably above the 25 fps floor.
+
+Lion done for this pass. G5 remains gated on #69's post-timedemo hang.
+
 ---
 
 ## Native-resolution confirmations (2026-07-05: deployed `ee6ed80b` configs, vsync-off bench)

@@ -392,3 +392,32 @@ that machine renders in software and never finishes at any allowance.
 An engine TERMed mid-demo does not necessarily die. On the machines above it
 survived TERM and kept running after the script returned, outliving the bench
 lock. See the entry on released locks.
+
+---
+
+## imac-g5 went unresponsive after a clean timedemo at native resolution (2026-09-25)
+
+**What happened.** `bench-evidence.sh imac-g5 baseline-r1` at `BENCH_RES=1440x900`
+(imac-g5's confirmed native resolution, `docs/PROFILING.md`, no mode switch
+involved) ran a real timedemo to completion -- 1260 frames, 34.2 seconds, 36.8
+fps printed by `CL_DemoCompleted()` -- and then the host went unresponsive.
+`safebench.sh`'s own backstop caught it: `qsreboot.sh` rebooted the machine and
+it came back up, confirmed independently by a fresh `ssh imac-g5 uptime` after
+the bundle finished. No manual intervention, no KILL, nothing outside the
+documented recovery path. `docs/adr/0009` covers the known G5/R300 hang on a
+**non-native** fullscreen mode switch; this was not that -- the resolution was
+the confirmed native one throughout, and the hang came after the demo had
+already finished and printed its result, not during a mode switch.
+
+**The 36.8 fps number itself is the other half of this.** `docs/PROFILING.md`'s
+2026-07-05 table has imac-g5 at 59.5 fps, maxed config, same native res. A
+same-config drop from ~59.5 to 36.8 fps landing in the same run that then hung
+the host is a pattern worth watching for, not dismissing as one flaky run --
+retest before trusting either number, and if it repeats, treat the fps drop and
+the post-run hang as evidence of the same underlying problem rather than two
+unrelated things.
+
+**Lesson.** The G5 hang hazard is not fully bounded by "native resolution
+only." Something can still wedge the display driver on a clean, same-mode
+timedemo. The reboot backstop is doing its job -- this is recorded as evidence
+for whoever profiles the G5 next, not as a new rule to add.

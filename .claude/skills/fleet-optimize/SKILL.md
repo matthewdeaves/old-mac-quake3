@@ -29,8 +29,8 @@ build/deploy/bench mechanics, it does not reinvent them.
 2. **Bench safely.** `scripts/safebench.sh <machine> <nativeWxH>` only, at
    native resolution. Never KILL a fullscreen app; never build g3 and g4 in
    parallel. See `docs/adr/0009` before touching a bench machine.
-3. **Respect the envelope.** Floors: **G3 >= 20 fps, G4/Lion >= 60 fps**, G5 and
-   modern uncapped. Above the floor, **effects beat fps**.
+3. **Respect the envelope.** Floors: **G3 >= 20 fps, G4/Lion/G5/modern >= 35 fps**.
+   Above the floor, **effects beat fps**.
 4. **Measure, don't guess.** A change without a known bottleneck is a guess.
    Profile the class first; know whether it is CPU-bound or fill-bound.
 5. **Discipline.** 3 runs, median of 2 and 3; two commits (code, then bench

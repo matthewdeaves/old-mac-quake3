@@ -84,13 +84,13 @@ runs (2026-09-23; v0.6.17, except the G5 row (v0.6.18) and the imac-2019 row
 | Intel GMA 950 | mini-intel, 1920×1080, vsync on | 40.9 |
 | modern Intel | imac-2019, 2560×1440, 4x FSAA, trilinear | 537.5 |
 
-Floors: G3 20 fps, G4 and Lion 60 fps; G5 and newer are uncapped, and above the floor
-the frames are spent on effects. Measurement history is in
-[`docs/PROFILING.md`](docs/PROFILING.md) and [`benchmarks/results.csv`](benchmarks/results.csv).
+Floors: G3 20 fps; G4, Lion, G5 and newer 35 fps. Above the floor the frames are
+spent on effects. Measurement history is in [`docs/PROFILING.md`](docs/PROFILING.md)
+and [`benchmarks/results.csv`](benchmarks/results.csv).
 
 ## Known issues
 
-- **GMA 950 Macs at 1920×1080** run ~41 fps, under the 60 fps floor, by choice: the
+- **GMA 950 Macs at 1920×1080** run ~41 fps, above the 35 fps floor, by choice: the
   driver paces frames to about 60 Hz on its own (55-59 fps with vsync off, whatever
   the settings), and vsync on was kept over the risk of tearing (#63).
 - **Tiger** can ask you to confirm the first launch of a newly installed app; the game

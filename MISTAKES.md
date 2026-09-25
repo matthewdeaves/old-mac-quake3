@@ -494,3 +494,48 @@ repo's stale local copy didn't have yet -- the whole point of the model.
 (sourced, not exec'd, per the ticket's own documented option) all stay real
 local copies for now. old-mac-quake3#71 is left open, not closed, tracking
 the rest once buildhost fixes Gap 1.
+
+---
+
+## #71 follow-up: Gap 1 fixed (build-host#119/6b42c47, shared-v2), Gap 2 still open, plus a Jenkins caller found
+
+Pin bumped to `shared-v2` tonight (2026-09-25), verified empirically: a real
+claim through `scripts/shared.sh pick-bench-host.sh --run mini-sl ...` now
+shows `OWNER` as `matt@Hayleys-Air:old-mac-quake3`, not `retro-shared`. Good
+to build on, but two more things came up before completing the rest of the
+eight-script migration, so it stayed at just `bench-compare.sh` again
+tonight:
+
+**Jenkins has at least one fixed-path caller.** `pick-bench-host.sh`'s own
+`cmd_check_boot_intent` header says "Jenkins calls this immediately before a
+boot" -- consistent with halflife#49's finding (9+ Jenkins jobs with fixed
+paths to `pick-build-host.sh`/`pick-bench-host.sh`/`deploy-dmg.sh`/
+`smoke-dmg.sh`, kept as thin shims there rather than deleted). This repo's
+Jenkins job configs are not in this git tree (external, presumably on the
+Jenkins server or in infra), so their exact paths could not be checked from
+here. Converting these four to shims (`exec scripts/shared.sh <name> "$@"`)
+rather than deleting them outright is very likely the right move, matching
+halflife's precedent, but wants the same external-caller check halflife did
+before doing it, not a guess.
+
+**Gap 2 (the `$SELF_DIR`-relative cross-script dependency noted in the
+previous entry) is unaffected by the #119 fix and still real.**
+`deploy-dmg.sh`/`smoke-dmg.sh`/`bench-evidence.sh` exec
+`$SELF_DIR/pick-bench-host.sh` (and `smoke-dmg.sh` also
+`$SELF_DIR/gui-precondition.sh`), where `$SELF_DIR` is the pin's content-
+addressed cache once any of them run through the wrapper. That only resolves
+if the referenced sibling script has ALSO already been fetched into that
+exact cache directory by some earlier wrapper call -- `scripts/shared.sh`
+fetches only the one script named on its own command line, never a script's
+own internal dependencies. Workable in practice as long as something warms
+the cache first (as tonight's sanity check for `pick-bench-host.sh` did,
+incidentally, for anything on this workstation that later calls
+`bench-evidence.sh`/`deploy-dmg.sh`/`smoke-dmg.sh` and needs
+`pick-bench-host.sh` alongside it) but fragile on a fresh cache, a different
+machine, or after `RETRO_SHARED_CACHE` is cleared -- the first real
+invocation would fail with a bare "no such file", not an obvious message
+about a missing dependency. Worth a look from buildhost's side (either
+`shared.sh` pre-fetching known cross-references, or these five scripts
+routing their sibling calls through the wrapper themselves instead of
+`$SELF_DIR`) before migrating this group; not filed as a ticket yet since it
+hasn't caused a real failure, unlike Gap 1.

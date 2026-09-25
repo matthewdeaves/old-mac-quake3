@@ -11,6 +11,7 @@
 # is correct: safebench.sh's own reboot backstop already catches a stuck
 # engine (scripts/CLAUDE.md), a live two-sample poll would add nothing.
 
+# shellcheck disable=SC2034  # read by bench-evidence.sh after sourcing this file
 PORT=quake3
 
 # bench-evidence.sh always does "$HOME/$INSTALL_BIN" (old-mac-build-host#107 --
@@ -23,6 +24,7 @@ PORT=quake3
 # future host's $HOME sits at a different depth, this breaks and the hash
 # check drops to "not checked" (sh_host's shasum finds nothing), never a
 # false pass. Switch back to the plain absolute path once #107 is fixed.
+# shellcheck disable=SC2034  # read by bench-evidence.sh after sourcing this file
 INSTALL_BIN='../../Applications/Quake3/ioquake3.app/Contents/MacOS/ioquake3'
 
 BENCH_DEMO="${BENCH_DEMO:-four}"
@@ -34,7 +36,7 @@ BENCH_DEMO="${BENCH_DEMO:-four}"
 # source of truth. Caller must pass the host's confirmed native resolution as
 # BENCH_RES (see docs/PROFILING.md's native-resolution confirmations table).
 bench_launch() {
-	local host="$1" round="$2" workdir="$3"
+	local host="$1" workdir="$3"  # $2 (round) is unused: the contract passes it, this adapter doesn't need it
 	local self_dir out rc fps
 	self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

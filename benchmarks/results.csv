@@ -116,3 +116,4 @@ timestamp,commit,machine,demo,res,run1_fps,run2_fps,run3_fps,median_fps
 2026-09-23T10:40:00Z,v0.6.17-7bf9d76c,mini-intel2,four,1920x1080,40.8,40.9,41.0,40.90,"AUTOCONFIG (shipped default, fresh install, vsync on); 3 runs only"
 2026-09-23T10:40:00Z,v0.6.17-7bf9d76c,imac-2019,four,2560x1440,680.3,715.1,720.8,715.10,"AUTOCONFIG (shipped default, fresh install); runs 2-4: 715.1 720.8 713.5"
 2026-09-23T12:00:00Z,v0.6.17-7bf9d76c,yosemite-tiger,four,800x600,26.8,32.4,32.9,32.90,"AUTOCONFIG (shipped default, fresh install); runs 2-4: 32.4 32.9 33.4"
+2026-09-27T21:42:00Z,659e69e7,qemu-tiger3d,four,1024x768,63.7,76.0,74.3,74.30,"VM (qemu-tiger3d, QemuMac emulated PowerMac3,1/G4 + ATI Radeon 9700 PRO, Tiger 10.4.6); AUTOCONFIG shipped default; run1 63.7fps is cold-start GL warmup, runs 2-3 74.3-76.0fps warm; plain bench.sh run, not a bench-evidence.sh artefact-verified bundle"

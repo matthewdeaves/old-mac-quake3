@@ -3,6 +3,20 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-09-27** `safebench.sh`'s reboot backstop (`reboot_m()`) reported
+  "REBOOTING via qsreboot.sh... back up" from ssh-reachability polling
+  alone, which cannot tell a genuine power-cycle apart from a host that
+  was already unreachable when the function was called and self-recovered
+  on its own -- the "wait for it to go down" loop exits immediately in
+  that case, so the `qsreboot.sh` command it sends may never even reach
+  the host. Reproduced live on imac-g5 (#69): the backstop claimed a
+  reboot, but `kern.boottime` was byte-identical before and after --
+  a ~5 minute sshd/network stall, not a reboot, and (on this evidence)
+  not necessarily the GPU-driver wedge earlier sessions on #69 inferred
+  from the same false "reboot-confirmed" signal. Fix: capture
+  `kern.boottime` right after the initial reachability check and compare
+  it once the host answers ssh again; the printed line now says which
+  actually happened. #69
 - **2026-09-23** `deploy-dmg.sh` never detached the DMG on Panther: it
   detached by mountpoint, and Panther's `hdiutil detach` takes only a device
   name, so it failed silently (`-force` too). g5-panther had 10 images

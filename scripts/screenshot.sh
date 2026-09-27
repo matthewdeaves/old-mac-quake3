@@ -58,12 +58,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REMOTE_DIR="/Applications/Quake3"
 
 case "$HOST" in
-  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|mini-intel|imac-2019) ;;
+  yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|imac-g5|mini-intel|imac-2019|qemu-tiger3d) ;;
   *) echo "screenshot: unknown machine '$HOST'" >&2; exit 2 ;;
 esac
 case "$HOST" in
   yosemite|yosemite-tiger) TMO=300 ;; sawtooth|quicksilver|mini-g4) TMO=200 ;;
   imac-g5) TMO=120 ;; mini-intel) TMO=120 ;; imac-2019) TMO=90 ;;
+  qemu-tiger3d) TMO=300 ;;  # QemuMac emulated G4 + Radeon 9700; fps/timing follows host load
 esac
 
 # Capture resolution. Default 1024x768 fullscreen for consistent dimensions.

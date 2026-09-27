@@ -39,3 +39,10 @@ demo launches passed after the fix. Neither a passing FPS run nor one clean
 picture establishes that every rendering path is correct. Audio improved in user testing but
 occasional glitches remain. Frozen-demo diagnostic runs can display
 `Connection Interrupted`; use normal continuous gameplay for playback checks.
+
+Follow-ups: qemu#13 tracks occasional audio glitches; qemu#14 tracks the
+brightness difference from native rendering. Three final evidence runs
+matched the installed v0.6.20 release binary and requested 1024x768 fullscreen
+settings, measuring 84.9, 67.0 and 87.7 fps. A concurrent VM claimant was
+discovered afterward, so these are informal measurements, not a controlled
+performance comparison. Reacquire exclusive ownership before further benches.

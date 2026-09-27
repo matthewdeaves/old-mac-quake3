@@ -14,18 +14,9 @@
 # shellcheck disable=SC2034  # read by bench-evidence.sh after sourcing this file
 PORT=quake3
 
-# bench-evidence.sh always does "$HOME/$INSTALL_BIN" (old-mac-build-host#107 --
-# filed: the contract doc says INSTALL_BIN may be absolute, but the script
-# does not special-case a leading '/'). quake3's install is root-level
-# (/Applications/Quake3, deploy.sh:57), not under any user's $HOME, so this is
-# a path-traversal value that resolves correctly rather than a real absolute
-# path. Verified $HOME is /Users/<name> (2 components) on every active bench
-# host (mini-g4, imac-g5, mini-sl, mini-intel, mini-intel2, imac-2019); if a
-# future host's $HOME sits at a different depth, this breaks and the hash
-# check drops to "not checked" (sh_host's shasum finds nothing), never a
-# false pass. Switch back to the plain absolute path once #107 is fixed.
+# Shared evidence tooling supports absolute installed paths (build-host#107).
 # shellcheck disable=SC2034  # read by bench-evidence.sh after sourcing this file
-INSTALL_BIN='../../Applications/Quake3/ioquake3.app/Contents/MacOS/ioquake3'
+INSTALL_BIN='/Applications/Quake3/ioquake3.app/Contents/MacOS/ioquake3'
 
 BENCH_DEMO="${BENCH_DEMO:-four}"
 

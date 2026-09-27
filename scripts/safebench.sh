@@ -130,9 +130,20 @@ if [ "$_TOTAL_PLUS" -gt 31 ]; then
 fi
 
 reachable() { ssh $SSHO "$M" 'true' 2>/dev/null; }
+boottime()  { ssh $SSHO "$M" 'sysctl -n kern.boottime' 2>/dev/null; }
 # Reboot and VERIFY it actually cycles — qsreboot.sh's Finder fallback can report
 # a false success without the machine ever going down, so we confirm it drops off
-# the network and returns rather than trusting the exit code.
+# the network and returns rather than trusting the exit code. Reachability alone
+# is not enough either: reboot_m is only ever called once the host is ALREADY
+# unreachable, so the "wait for it to go down" loop below exits on its very
+# first check (t stays 0) whether or not qsreboot.sh's ssh command was even
+# delivered — a host that was merely stalled (sshd/network hiccup) and
+# self-recovers within the 240s window prints the same "back up" a real
+# power-cycle would. quake3#69, 2026-09-27: this genuinely happened —
+# safebench printed REBOOTING/"back up" for imac-g5, but kern.boottime
+# (captured before the run, compared after) was byte-identical, proving no
+# reboot occurred. $BOOT_BEFORE is set by the caller right after the initial
+# `reachable` check.
 reboot_m()  {
   echo "[$M] REBOOTING via qsreboot.sh (verifying it cycles)"
   # shellcheck disable=SC2088
@@ -142,11 +153,25 @@ reboot_m()  {
   local t=0
   while [ $t -lt 60 ]; do ssh $SSHO "$M" true 2>/dev/null || break; sleep 5; t=$((t+5)); done
   if [ $t -ge 60 ]; then echo "[$M] did NOT go down — reboot FAILED (run 'sudo ~/bin/qsreboot-setup.sh')"; return 1; fi
-  t=0; while [ $t -lt 240 ]; do ssh $SSHO "$M" true 2>/dev/null && { echo "[$M] back up"; return 0; }; sleep 5; t=$((t+5)); done
+  t=0
+  while [ $t -lt 240 ]; do
+    if ssh $SSHO "$M" true 2>/dev/null; then
+      local boot_after
+      boot_after="$(boottime)"
+      if [ -n "$BOOT_BEFORE" ] && [ -n "$boot_after" ] && [ "$boot_after" = "$BOOT_BEFORE" ]; then
+        echo "[$M] back up — but kern.boottime is UNCHANGED ($boot_after): this was NOT a reboot, the host self-recovered from a stall (sshd/network hiccup, not a driver wedge)"
+      else
+        echo "[$M] back up — kern.boottime changed ($BOOT_BEFORE -> $boot_after): confirmed real reboot"
+      fi
+      return 0
+    fi
+    sleep 5; t=$((t+5))
+  done
   echo "[$M] did not come back within 240s"; return 1
 }
 
 reachable || { echo "[$M] unreachable"; exit 3; }
+BOOT_BEFORE="$(boottime)"
 
 # One ssh session does it all: pre-clean, launch backgrounded (the session stays
 # alive via the poll loop, so the app keeps its WindowServer session and renders),

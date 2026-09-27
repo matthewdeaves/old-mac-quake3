@@ -128,6 +128,8 @@ case "$MACHINE" in
   imac-g5)                 TMO=90;  COOLDOWN=2 ;;
   mini-intel)              TMO=90;  COOLDOWN=1 ;;
   imac-2019)               TMO=60;  COOLDOWN=1 ;;
+  # QemuMac's emulated G4 + Radeon 9700 PRO; old-mac-quakespasm/scripts/qemu-vm.sh starts it
+  qemu-tiger3d)            TMO=300; COOLDOWN=3 ;;
   *) echo "bench.sh: unknown machine '$MACHINE'"; exit 2 ;;
 esac
 

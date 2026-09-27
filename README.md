@@ -40,6 +40,7 @@ Rosetta).
 | mini-sl | Core 2 Duo 2.26 GHz | GeForce 9400 | 10.6.8 | x86_64 |
 | imac-2019 | i5-9600K | Radeon Pro 580X 8 GB | 15.7 | x86_64 |
 | (desk Mac) | Apple M5 | - | 26 (dev build) | arm64 |
+| qemu-tiger3d | [QemuMac](https://github.com/matthewdeaves/QemuMac) VM, emulated G4 | emulated Radeon 9700 PRO 128 MB | 10.4.6 | ppc7400 |
 
 ### Which OS each CPU needs
 

@@ -9,3 +9,6 @@ Makefile.local
 /dist/
 .venv/
 benchmarks/results.csv.bak.*
+
+# Codex CLI state
+.codex/

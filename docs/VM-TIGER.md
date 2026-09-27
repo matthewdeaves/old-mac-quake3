@@ -32,8 +32,10 @@ to physical Macs and does not disable graphics effects or texture compression.
 
 The 2026-09-27 investigation reproduced RGB texture corruption and swapped
 colour channels in QEMU's compressed texture path. Fixes are tracked in
-matthewdeaves/qemu#12. A remaining intermittent turquoise lighting patch is
-still under investigation; neither a passing FPS run nor one clean picture
-establishes that all rendering is correct. Audio improved in user testing but
+matthewdeaves/qemu#12. The later turquoise lighting fault was a depth-clear overrun, fixed by
+`bee98d449e`: an earlier draw's 769-row bound was incorrectly reused to clear
+a 768-row buffer, overwriting the adjacent lightmap. Repeated compressed
+demo launches passed after the fix. Neither a passing FPS run nor one clean
+picture establishes that every rendering path is correct. Audio improved in user testing but
 occasional glitches remain. Frozen-demo diagnostic runs can display
 `Connection Interrupted`; use normal continuous gameplay for playback checks.

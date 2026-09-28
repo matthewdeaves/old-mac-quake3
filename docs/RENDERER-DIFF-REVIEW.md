@@ -1,5 +1,8 @@
 # Review: upstream ioquake3 diff since our pin, for cherry-pickable fixes
 
+> **Summary.** Triage of 1817 upstream ioq3 commits since our pin (2013-01-17) for fixes worth cherry-picking. As of the 2026-08-28 status note, nine increments have landed and all but two of ~55 named candidates are applied or rejected. Read "Status" first; the triage sections keep their 2026-08-23 "not yet" wording as history.
+> Sections: Applied so far, Method, What's NOT here, Candidates by confidence, Status, historical notes. Find one with `grep -n '^## ' docs/RENDERER-DIFF-REVIEW.md`.
+
 Reviewed 2026-08-23 against upstream `ioquake/ioq3` at `58839361`
 (2026-07-19), diffed from our pin `4432a80a` (2013-01-17). 1817 commits
 between the two. Closes the scoping half of issue #17.

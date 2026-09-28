@@ -1,5 +1,8 @@
 # KNOBS - Quake III tuning inventory
 
+> **Summary.** Every cvar and cmdline flag used for per-machine tuning, grouped by area. Defaults per machine are in `scripts/bundle/autoexec-<machine>.cfg`; measured effects are in `docs/PROFILING.md`.
+> Sections: Resolution, Texture/VRAM, Lighting/geometry, Framerate/HUD, Sound, Game modules, Cmdline flags, Still open.
+
 Cvars and cmdline flags used for per-machine tuning. Every per-target knob must
 be flippable at runtime (cvar) or at launch (cmdline) so a round-end review can
 A/B contributions without a rebuild. Per-machine defaults live in

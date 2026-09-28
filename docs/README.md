@@ -37,6 +37,11 @@ their evidence live in [`adr/`](adr/).
 - [`PROFILING.md`](PROFILING.md) - the on-hardware profiling method and every
   measured result, wins and negatives, per machine class.
 - [`KNOBS.md`](KNOBS.md) - the cvar and cmdline inventory used for tuning.
+- [`BUILD-FACTS.md`](BUILD-FACTS.md) - slices, build facts and traps.
+- [`TICKETING.md`](TICKETING.md) - tickets, claims, cross-repo rules.
+- [`RENDERER-DIFF-REVIEW.md`](RENDERER-DIFF-REVIEW.md) - upstream ioq3 diff triage and which fixes landed.
+- [`VM-TIGER.md`](VM-TIGER.md) - capture and frame checks on the `qemu-tiger3d` VM.
+- [`../BUGFIXES.md`](../BUGFIXES.md) - real fixes, newest first.
 - [`../MISTAKES.md`](../MISTAKES.md) - what already broke, and the lesson.
 - [`../scripts/README.md`](../scripts/README.md) - pipeline and host matrix.
 - [`../server/README.md`](../server/README.md) - the Linux dedicated server.

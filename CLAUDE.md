@@ -21,3 +21,4 @@ Quake III Arena (ioquake3, last SDL 1.2 commit) as ONE fat binary for PowerPC, I
 - Measured numbers: `docs/PROFILING.md`, `benchmarks/results.csv`
 - Tuning knobs: `docs/KNOBS.md`; release steps: `docs/RELEASE.md`
 - Past breakages: `MISTAKES.md`, `BUGFIXES.md`
+- Every other doc: `docs/README.md`

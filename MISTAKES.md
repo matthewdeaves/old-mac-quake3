@@ -1,5 +1,7 @@
 # MISTAKES
 
+> **Summary.** One `##` entry per breakage, oldest first, with the date in the heading. List them with `grep -n '^## ' MISTAKES.md`; read only the entry you need.
+
 Append-only log of approaches that broke, or would have broken. **Read before
 lighting up an idea that smells "easy", "modern is better", or "load-time, zero
 risk".** Mechanisms are in `docs/adr/`; measured performance negatives are in

@@ -1,5 +1,8 @@
 # Review: what the ioQuake3-Wii port has that we can use
 
+> **Summary.** The Wii port shares our G3-class CPU (PPC750CL) and fill-limited GPU, so its diff was read for reusable ideas (issue #7). Result: a few items taken (`r_primitives` is a per-GPU answer), most rejected with reasons, plus two traps checked against our tree.
+> Sections: Why read it, Taken, Rejected, Corroboration, Two traps, One claim debunked, What the diff is not good for. Find one with `grep -n '^## ' docs/WII-PORT-REVIEW.md`.
+
 Reviewed 2026-08-22 against [Mayo1970/ioQuake3-wii](https://github.com/Mayo1970/ioQuake3-wii)
 at `fd92c04`. Closes issue #7.
 

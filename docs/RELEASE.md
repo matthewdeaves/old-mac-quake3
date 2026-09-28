@@ -1,5 +1,8 @@
 # Release process
 
+> **Summary.** `scripts/release-check.sh` is the gate; it refuses to pass until a human has opened the installed app the way a user does (no script can). Fleet POLICY has the release order; this file has the gate's reasons and checks.
+> Sections: Why there is a manual step, Order, What the gate checks, Related.
+
 The gate is `scripts/release-check.sh`. It refuses to pass until a human has
 confirmed the one thing that cannot be automated here.
 

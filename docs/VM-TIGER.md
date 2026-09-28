@@ -1,5 +1,8 @@
 # Tiger QEMU playback and capture
 
+> **Summary.** How to capture and judge frames from the emulated G4 + Radeon 9700 Tiger VM (`qemu-tiger3d`): `scripts/screenshot.sh`, playback pacing, and what a VM run can and cannot prove. Builds and VM tooling belong to `old-mac-build-host` (`docs/qemu-vm.md` there).
+> Sections: Capture, Playback pacing, Validation limits.
+
 Builds, deployments and shared VM tooling are owned by `old-mac-build-host`.
 The installed game lives in `/Applications/Quake3` in `qemu-tiger3d`.
 

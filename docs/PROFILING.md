@@ -1,5 +1,7 @@
 # Profiling and measured results
 
+> **Summary.** Measured numbers and recorded negatives per machine class (yosemite G3, quicksilver/mini-g4 G4, imac-g5, mini-intel, Panther). Find a machine or a negative with `grep -n '^##' docs/PROFILING.md` or `grep -n NEGATIVE docs/PROFILING.md`.
+
 Every measured number, per machine class, including the negatives. **Never
 re-chase a recorded negative.** Method first, then findings.
 

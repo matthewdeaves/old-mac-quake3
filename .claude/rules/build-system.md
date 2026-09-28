@@ -62,3 +62,5 @@ BENCH_LOCK_WAIT=1800 scripts/pick-bench-host.sh --run qemu-tiger3d <label> -- <d
 - **Never modify `mini-intel:/Users/mini/Games/ioquake3/`** or the shared `/Developer/SDKs` - recovery is multi-hour.
 - **`mini-intel` sleeps** - "No route to host" means asleep; wake and retry.
 - **`benchmarks/results.csv` is rolling history** - never wipe it mid-round.
+
+Every remote game start goes through `scripts/launch-game.sh <host> ioquake3 -- <cmd>` (shim onto the pinned shared script): it refuses (rc 3) while any game runs on the host, holds its ssh for the game's life, and `--stop <host> <pid>` is TERM only. safebench.sh, bench.sh, screenshot.sh and join-smoke.sh use it; never add a bare `nohup ... &`. Proved on mini-g4, quake3#78.

@@ -105,8 +105,19 @@ PROJ_LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 # commit per row (old-mac-build-host#15) should point both at a gitignored
 # path instead. Redirect both together — BENCH_CSV alone would still leave
 # raw qconsole.log copies landing in the tracked benchmarks/raw/.
-CSV="${BENCH_CSV:-$PROJ_LOCAL/benchmarks/results.csv}"
-RAWDIR="${BENCH_RAW_DIR:-$PROJ_LOCAL/benchmarks/raw}"
+#
+# build-host#135/old-mac-quake3#75: a peer driving this script through
+# old-mac-build-host's bench-evidence.sh (shared-v17+) exports BENCH_OUT_DIR
+# as the bundle's own port-out/ directory before calling in, precisely so a
+# peer-run bench never leaves unattributed, uncommitted output in this
+# repo's tree (POLICY: never edit another repo's tree). BENCH_CSV/
+# BENCH_RAW_DIR still win if set explicitly; BENCH_OUT_DIR is the fallback
+# default for both together, ahead of the tracked path, which is now used
+# only for an owner's own manual run (BENCH_OUT_DIR unset).
+CSV="${BENCH_CSV:-${BENCH_OUT_DIR:+$BENCH_OUT_DIR/results.csv}}"
+CSV="${CSV:-$PROJ_LOCAL/benchmarks/results.csv}"
+RAWDIR="${BENCH_RAW_DIR:-${BENCH_OUT_DIR:+$BENCH_OUT_DIR/raw}}"
+RAWDIR="${RAWDIR:-$PROJ_LOCAL/benchmarks/raw}"
 # shellcheck disable=SC2088
 # tilde stays unexpanded on purpose: it must
 # resolve on the REMOTE host's home, not this workstation's. See ci.yml.

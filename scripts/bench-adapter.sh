@@ -10,6 +10,18 @@
 # PID empty. bench-evidence.sh then records liveness as "not checked", which
 # is correct: safebench.sh's own reboot backstop already catches a stuck
 # engine (scripts/CLAUDE.md), a live two-sample poll would add nothing.
+#
+# build-host#135/old-mac-quake3#75: a peer running this port's bench through
+# bench-evidence.sh must never leave uncommitted output in THIS repo's
+# tree. bench_launch below already satisfies that unconditionally: its only
+# writes are "$workdir"/log.txt and stats.{txt,unit} -- $workdir is
+# bench-evidence.sh's own bundle dir (its $EVROOT), never this repo's
+# benchmarks/. safebench.sh, which it wraps, writes nothing into this repo
+# either (checked: no REPO_ROOT/PROJ_LOCAL/benchmarks/ reference in it). The
+# only path in this port that writes into the tracked benchmarks/ tree is
+# scripts/bench.sh, an owner-run script bench_launch never calls; it now
+# honours BENCH_OUT_DIR too (see its own header) for the same reason, in
+# case that ever changes.
 
 # shellcheck disable=SC2034  # read by bench-evidence.sh after sourcing this file
 PORT=quake3

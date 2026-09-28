@@ -1,3 +1,9 @@
+---
+paths:
+  - "scripts/**"
+  - "docs/adr/**"
+---
+
 # Legacy Mac Hardware & Environments
 
 ## Machines

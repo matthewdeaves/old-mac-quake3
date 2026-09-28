@@ -1,3 +1,11 @@
+---
+paths:
+  - "scripts/**"
+  - "code/**"
+  - "Makefile"
+  - "shared-scripts.pin"
+---
+
 # Build System & Facts
 
 **Centralized CI & Builds:**

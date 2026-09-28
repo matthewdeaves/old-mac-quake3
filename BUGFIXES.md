@@ -3,6 +3,16 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-09-28** `safebench.sh` ran a full `qsreboot.sh` cycle the instant a
+  single post-run `reachable()` check failed, even though (per the
+  2026-09-27 fix below) we already knew this box can go briefly unreachable
+  and self-recover with no reboot at all. Reproduced live on imac-g5 (#69):
+  round 1 of 3 hit exactly this, `kern.boottime` unchanged, host answered
+  ssh again 5s later on its own. Fix: poll for up to `STALL_GRACE` (default
+  90s) before invoking `reboot_m()`; a genuine wedge still falls through to
+  the existing reboot path unchanged. Verified same session: the reproduced
+  stall recovered in 5s and the run completed normally instead of exiting 1
+  and spending a real reboot cycle. #69
 - **2026-09-27** `safebench.sh`'s reboot backstop (`reboot_m()`) reported
   "REBOOTING via qsreboot.sh... back up" from ssh-reachability polling
   alone, which cannot tell a genuine power-cycle apart from a host that

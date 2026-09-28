@@ -304,8 +304,27 @@ sleep 1
 
 # health check; a machine that went unresponsive or left a stuck (driver-wedged)
 # engine gets rebooted so we never leave the fleet in a bad state.
+#
+# A single failed reachable() right after a fullscreen timedemo can be a
+# transient sshd/network stall under the sustained CPU/GPU load, not a real
+# wedge: quake3#69 (2026-09-27 and 2026-09-28, imac-g5) both showed
+# kern.boottime UNCHANGED across a "host UNRESPONSIVE" call — no reboot ever
+# happened, the host just answered ssh again on its own within reboot_m's
+# recovery poll. Give it a short grace window to self-recover BEFORE running
+# a real qsreboot.sh cycle: a genuine GPU-driver wedge won't clear here and
+# still falls through to reboot_m below.
 if ! reachable; then
-  echo "[$M $RES] ${fps:-NO-FPS} — host UNRESPONSIVE after run"; reboot_m; exit 1
+  echo "[$M $RES] ${fps:-NO-FPS} — host unresponsive after run; polling up to ${STALL_GRACE:-90}s for a self-recovery before rebooting (quake3#69)"
+  recovered=0; st=0
+  while [ $st -lt "${STALL_GRACE:-90}" ]; do
+    sleep 5; st=$((st+5))
+    if reachable; then recovered=1; break; fi
+  done
+  if [ $recovered = 1 ]; then
+    echo "[$M] host answered again after ${st}s — self-recovered stall, no reboot needed"
+  else
+    echo "[$M $RES] ${fps:-NO-FPS} — still UNRESPONSIVE after ${st}s"; reboot_m; exit 1
+  fi
 fi
 if [ "${stuck:-0}" = 1 ]; then
   echo "[$M $RES] ${fps:-NO-FPS} — engine STUCK in exit (GPU-driver wedge); rebooting"; reboot_m; exit 1

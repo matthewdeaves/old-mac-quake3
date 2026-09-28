@@ -237,6 +237,7 @@ out="$(ssh $SSHO "$M" "
   fi
   killall -TERM ioquake3 2>/dev/null; sleep 2
   rm -f \"$PIDF\"; mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null
+  exit 0   # mv fails when there is no old log; that must not read as a pre-clean failure
 " 2>&1)"
 pre_rc=$?
 

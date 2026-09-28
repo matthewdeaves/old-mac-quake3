@@ -3,6 +3,13 @@
 One line-or-three per real bug fixed: what it was, what the fix was. Newest
 first. Not a changelog; routine work and refactors do not belong here.
 
+- **2026-09-29** `safebench.sh` never launched the game when `baseq3/qconsole.log`
+  was absent: the pre-clean ssh ended on `mv -f qconsole.log qconsole.log.prev`,
+  which returns 1 with no old log, so `pre_rc=1` skipped the launch and the run
+  read NO-FPS-LINE with empty output. Each such run moved nothing and wrote no
+  new log, so it repeated forever. Seen on qemu-tiger3d (QemuMac baseline 0/10
+  VALID). Fix: the pre-clean script ends with `exit 0`. Verified on
+  qemu-tiger3d: 1260 frames, 96.1 fps, launch-game.sh held the session.
 - **2026-09-28** `safebench.sh` ran a full `qsreboot.sh` cycle the instant a
   single post-run `reachable()` check failed, even though (per the
   2026-09-27 fix below) we already knew this box can go briefly unreachable

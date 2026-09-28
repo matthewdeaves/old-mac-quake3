@@ -1,29 +1,23 @@
-# ioquake3 old-Mac port (Agent Router)
+# ioquake3 old-Mac port
 
-Quake III Arena on ioquake3 as ONE fat binary across PowerPC and Intel Macs, from a single `ioquake3.app`. 
-Sister projects on the same fleet and tooling: **old-mac-quakespasm**, **old-mac-quake2**, **old-mac-halflife**. QuakeSpasm is the mature template.
+Quake III Arena (ioquake3, last SDL 1.2 commit) as ONE fat binary for PowerPC, Intel and Apple Silicon Macs. Floors: G3 20 fps, every other class 25. A feature stays on while its class holds the floor; win fps by optimising code.
 
-## Goal in one line
-Best-looking ioquake3 that stays playable on each machine class, from one fat binary that auto-tunes per machine. Floors: **G3 >= 20 fps, G4/Lion/G5/modern >= 25 fps**. A feature that keeps its
-class at or above the floor stays on; win frame rate by optimising code, not by
-switching features off.
+## Rules (each from a real mistake)
+- old-mac-build-host owns builds and CI; never hardcode a mini. Release DMG only on a Tiger G4 (docs/adr/0005).
+- Bench only with `scripts/safebench.sh`. Never KILL a fullscreen engine; native resolution only (docs/adr/0009, MISTAKES.md).
+- Start games only through `scripts/launch-game.sh`, never a bare `nohup ... &` (#78).
+- Check slices with `scripts/macho-archs.sh`, never `file` or workstation `lipo` (#57).
+- rsync to `<host>:oldmac/quake3/src/`, never `oldmac/` itself (#50).
+- Public repo: no addresses, keys, tunnel tokens or `.env` content from retro-server-infra.
+- We ship code, not id assets. No em dashes. No Claude co-author line. Never rate or praise work.
+- Record every negative result in docs/PROFILING.md.
 
-## Centralized CI
-All documentation strictly points to `old-mac-build-host` as the centralized source of truth for builds and CI. 
-
-## Documentation Router
-
-> **CRITICAL**: This file is a lightweight router. Do not bloat it with context. Dive into the specific files below when working on those topics.
-
-* **Build System & Commands:** Read `.claude/rules/build-system.md` for build scripts, compilation facts, slices, deployment commands, and hard rules.
-* **Hardware & Traps:** Read `.claude/rules/legacy-mac-hardware.md` for the fleet matrix, old macOS quirks, hardware wedge hazards, and platform traps.
-* **Ticketing & Cross-Repo:** Read `.claude/rules/ticketing-workflow.md` before making any GitHub issues, dealing with cross-repo tasks, or using the shared fleet locking mechanism.
-
-## Shared Agent Block
-See `SHARED-BLOCK.md` for global agent instructions (if present). Do not attempt to edit `SHARED-BLOCK.md` yourself.
-
-## Architecture Decision Records (ADRs) & History
-* **Reasoning and rejected alternatives:** `docs/adr/`
-* **Measured numbers:** `docs/PROFILING.md` and `benchmarks/results.csv`
-* **Lessons from breakages:** `MISTAKES.md`
-* **Tuning Inventory:** `docs/KNOBS.md`
+## Where to look
+- Build, deploy, bench commands: `.claude/rules/build-system.md`
+- Slices, build facts and traps: `docs/BUILD-FACTS.md`
+- Machines and hardware hazards: `.claude/rules/legacy-mac-hardware.md`
+- Tickets, claims, cross-repo: `docs/TICKETING.md`, fleet POLICY
+- Decisions and rejected options: `docs/adr/`
+- Measured numbers: `docs/PROFILING.md`, `benchmarks/results.csv`
+- Tuning knobs: `docs/KNOBS.md`; release steps: `docs/RELEASE.md`
+- Past breakages: `MISTAKES.md`, `BUGFIXES.md`

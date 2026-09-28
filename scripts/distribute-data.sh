@@ -56,7 +56,7 @@ ONLY_PK3=(--include='*.pk3' --include='*.PK3' --exclude='*')
 
 case "$MACHINE" in
   yosemite|yosemite-tiger|sawtooth|quicksilver|mini-g4|mini-sl|mini-intel|mini-intel2|imac-2019|imac-g5|workstation) ;;
-  # Multi-boot G5 aliases (ticketing-workflow.md): three OS partitions on the
+  # Multi-boot G5 aliases (fleet POLICY, Machines): three OS partitions on the
   # G5 Dual 2.7 (g5-panther/g5-tiger/g5-desktop), two on the G5 Quad
   # (quad-tiger/quad-leopard). Missing from this list until a fresh boot
   # round made g5-panther reachable and this script refused it outright -

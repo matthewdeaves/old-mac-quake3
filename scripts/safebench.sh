@@ -206,7 +206,24 @@ run_deadline() {
   fi
   wait "$_p" 2>/dev/null
 }
-out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
+# Launch through the shared guard (build-host#147, quake3#78): scripts/launch-game.sh
+# refuses while ANY known game runs on the host, backgrounds the engine on the
+# guest with its own watchdog, and --stop is TERM only. It replaces the
+# in-session `&` launch this script used to do. Proven not to lose the WindowServer
+# session on Lion even though the launching ssh returns (mini-intel, 2026-09-28).
+SB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GPID=""
+stop_game() {
+  [ -n "$GPID" ] || return 0
+  "$SB_DIR/launch-game.sh" --stop "$M" "$GPID" >/dev/null 2>&1
+  GPID=""
+}
+trap stop_game EXIT
+trap 'stop_game; exit 130' INT TERM
+
+# 1. pak0 check and gentle pre-clean. No KILL here — a wedged fullscreen app
+#    won't die cleanly to KILL, and the health check reboots if anything is stuck.
+out="$(ssh $SSHO "$M" "
   cd $RDIR || exit 9
   # Refuse before opening a display or a missing-data dialog. File names on
   # the fleet include both pak0.pk3 and PAK0.PK3.
@@ -218,43 +235,59 @@ out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
     echo 'Missing readable baseq3/pak0.pk3; restore game data before benching.'
     exit 9
   fi
-  # gentle pre-clean: TERM any stray + clear the stale pid/log. No KILL here — a
-  # wedged fullscreen app won't die cleanly to KILL, and the health check reboots
-  # if anything is still stuck.
   killall -TERM ioquake3 2>/dev/null; sleep 2
   rm -f \"$PIDF\"; mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null
+" 2>&1)"
+pre_rc=$?
 
+# 2. the one-game guard, then the launch. A stray ioquake3 was TERMed above; any
+#    OTHER game still running (whoever started it) refuses the run.
+if [ "$pre_rc" = 0 ]; then
+  busy="$("$SB_DIR/launch-game.sh" --check "$M" 2>&1)"
+  if [ -n "$busy" ]; then
+    echo "[$M] REFUSING: a game is already running on the host: $busy" >&2
+    exit 3
+  fi
   # nextdemo=quit → when the timedemo finishes, CL_DemoCompleted prints the fps
   # line and runs 'quit', so the engine exits the NORMAL way (SDL restores the
   # display, pid removed). No signal is ever sent to a rendering fullscreen app.
-  if [ $AUTOCFG = 1 ]; then
-    for c in q3config autoexec; do
+  if [ "$AUTOCFG" = 1 ]; then
+    ENGINE_ARGS="+set fs_basepath $RDIR +set fs_homepath $RDIR +set logfile 2 $EXTRA +set nextdemo quit +set timedemo 1 +cvarlist +demo $DEMO"
+    ssh $SSHO "$M" "cd $RDIR && for c in q3config autoexec; do
       if [ -f baseq3/\$c.cfg ]; then mv -f baseq3/\$c.cfg baseq3/\$c.cfg.safebench-aside; else touch baseq3/.safebench-no-\$c; fi
-    done
-    ./ioquake3.app/Contents/MacOS/ioquake3 \
-      +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" +set logfile 2 \
-      $EXTRA +set nextdemo quit +set timedemo 1 +cvarlist +demo $DEMO >/dev/null 2>&1 &
+    done" 2>&1
   else
-  ./ioquake3.app/Contents/MacOS/ioquake3 +set com_archAutoexec 0 \
-    +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" +set logfile 2 \
-    +set r_swapInterval 0 +set r_mode -1 +set r_customwidth $W +set r_customheight $H +set r_fullscreen 1 \
-    $EXTRA +set nextdemo quit +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &
+    ENGINE_ARGS="+set com_archAutoexec 0 +set fs_basepath $RDIR +set fs_homepath $RDIR +set logfile 2 +set r_swapInterval 0 +set r_mode -1 +set r_customwidth $W +set r_customheight $H +set r_fullscreen 1 $EXTRA +set nextdemo quit +set timedemo 1 +demo $DEMO"
   fi
+  launched="$("$SB_DIR/launch-game.sh" "$M" ioquake3 --max-secs "$DEADLINE" -- \
+    sh -c "cd $RDIR && exec ./ioquake3.app/Contents/MacOS/ioquake3 $ENGINE_ARGS" 2>&1)"
+  GPID="$(printf '%s\n' "$launched" | sed -n 's/^PID //p' | tail -1)"
+  [ -n "$GPID" ] || echo "[$M] launch-game.sh did not start the engine: $launched" >&2
 
-  # wait for the engine to self-quit (process gone) or error out; self-bounded
-  budget=\$(( $DEADLINE - 25 )); j=0
-  while [ \$j -lt \$budget ]; do
-    killall -0 ioquake3 2>/dev/null || break            # self-quit = clean exit
-    if grep -qE 'ERROR:|Error:' baseq3/qconsole.log 2>/dev/null; then break; fi
-    sleep 1; j=\$((j+1))
-  done
+  # 3. wait for the engine to self-quit (process gone) or error out; self-bounded
+  #    on an integer counter, host-side deadline is a last backstop.
+  poll="$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
+    cd $RDIR || exit 9
+    budget=\$(( $DEADLINE - 25 )); j=0
+    while [ \$j -lt \$budget ]; do
+      killall -0 ioquake3 2>/dev/null || break            # self-quit = clean exit
+      if grep -qE 'ERROR:|Error:' baseq3/qconsole.log 2>/dev/null; then break; fi
+      sleep 1; j=\$((j+1))
+    done
+    killall -0 ioquake3 2>/dev/null && echo 'STILL-RUNNING' || true
+  " 2>&1)"
+  # backstop ONLY if it didn't self-quit: a gentle TERM via launch-game.sh --stop
+  # (handler restores the display). NEVER KILL a fullscreen ioquake3 — that wedges
+  # the GPU driver.
+  case "$poll" in *STILL-RUNNING*) stop_game ;; esac
+  out="$poll"
+fi
 
-  # backstop ONLY if it didn't self-quit: a gentle TERM (handler restores the
-  # display). NEVER KILL a fullscreen ioquake3 — that wedges the GPU driver.
-  if killall -0 ioquake3 2>/dev/null; then
-    killall -TERM ioquake3 2>/dev/null
-    g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
-  fi
+# 4. read the result and restore the player's cfgs once the engine is gone.
+[ "$pre_rc" = 0 ] && out="$out
+$(ssh $SSHO "$M" "
+  cd $RDIR || exit 9
+  g=0; while [ \$g -lt 12 ]; do killall -0 ioquake3 2>/dev/null || break; sleep 1; g=\$((g+1)); done
   rm -f \"$PIDF\"
 
   if [ $AUTOCFG = 1 ]; then
@@ -292,7 +325,7 @@ out=$(run_deadline "$DEADLINE" ssh $SSHO "$M" "
   fi
   echo \"FPSLINE:\$(grep -E 'seconds .*fps' baseq3/qconsole.log 2>/dev/null | tail -1)\"
   killall -0 ioquake3 2>/dev/null && echo 'STUCK:1' || echo 'STUCK:0'
-" 2>&1)
+" 2>&1)"
 
 fps=$(printf '%s\n' "$out" | sed -n 's/^FPSLINE://p' | tail -1)
 [ "$AUTOCFG" = 1 ] && printf '%s\n' "$out" | sed -n 's/^CFG:/  cfg: /p'

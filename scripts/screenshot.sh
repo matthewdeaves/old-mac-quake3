@@ -96,29 +96,34 @@ if [ "$HOST" = qemu-tiger3d ]; then
   mkdir -p "$OUT"
   RUN_HOME="/tmp/q3shot-$(date -u +%Y%m%dT%H%M%SZ)-$$"
   ssh "$HOST" "mkdir -p '$RUN_HOME/baseq3'; cp '$REMOTE_DIR/baseq3/q3config.cfg' '$RUN_HOME/baseq3/'; : > '$RUN_HOME/game.log'"
-  ssh "$HOST" "cd '$REMOTE_DIR' && exec ./ioquake3.app/Contents/MacOS/ioquake3 \
+  # Launch through the shared one-game guard (build-host#147, quake3#78); the
+  # guest watchdog TERMs the engine if this script dies before the demo ends.
+  LG_OUT="$("$REPO_ROOT/scripts/launch-game.sh" "$HOST" ioquake3 --max-secs "$((TMO + 120))" -- \
+    sh -c "cd '$REMOTE_DIR' && exec ./ioquake3.app/Contents/MacOS/ioquake3 \
     +set fs_basepath '$REMOTE_DIR' +set fs_homepath '$RUN_HOME' \
     +set r_mode -1 +set r_customwidth 1024 +set r_customheight 768 +set r_fullscreen 1 \
     +set r_ext_compressed_textures 1 +set logfile 2 +set com_maxfps 60 +set timedemo 0 \
-    +set nextdemo quit +demo '$DEMO' > '$RUN_HOME/game.log' 2>&1" &
-  SESSION_PID=$!
+    +set nextdemo quit +demo '$DEMO' > '$RUN_HOME/game.log' 2>&1" 2>&1)" || { echo "[shot $HOST] $LG_OUT" >&2; exit 2; }
+  GPID="$(printf '%s\n' "$LG_OUT" | sed -n 's/^PID //p' | tail -1)"
+  trap '"$REPO_ROOT/scripts/launch-game.sh" --stop "$HOST" "$GPID" >/dev/null 2>&1' EXIT
+  engine_up() { ssh "$HOST" "kill -0 $GPID 2>/dev/null"; }
   ready=0
   for ((i=0; i<TMO; i++)); do
-    kill -0 "$SESSION_PID" 2>/dev/null || break
+    engine_up || break
     if ssh "$HOST" "grep -q 'CL_InitCGame' '$RUN_HOME/baseq3/qconsole.log' 2>/dev/null"; then ready=1; break; fi
     sleep 1
   done
   n=0
   if [ "$ready" = 1 ]; then
     sleep 2
-    while [ "$n" -lt "$COUNT" ] && kill -0 "$SESSION_PID" 2>/dev/null; do
+    while [ "$n" -lt "$COUNT" ] && engine_up; do
       printf -v idx '%02d' "$n"
       "$REPO_ROOT/scripts/shared.sh" qemu-vm.sh screendump "$OUT/q3-$HOST-$idx.png"
       n=$((n+1))
       sleep 2
     done
   fi
-  wait "$SESSION_PID"
+  w=0; while engine_up && [ "$w" -lt "$TMO" ]; do sleep 1; w=$((w+1)); done
   scp -q "$HOST:$RUN_HOME/baseq3/qconsole.log" "$OUT/qconsole.log"
   ssh "$HOST" "rm -rf '$RUN_HOME'"
   [ "$n" -gt 0 ] || { echo "No gameplay frames captured" >&2; exit 1; }
@@ -148,15 +153,19 @@ ssh "$HOST" "
   if killall -TERM ioquake3 2>/dev/null; then sleep 2; fi
   killall -KILL ioquake3 2>/dev/null || true
   sleep 1
+  cd $REMOTE_DIR || exit 9"
+# Launch through the shared one-game guard (build-host#147, quake3#78).
+LG_OUT="$("$REPO_ROOT/scripts/launch-game.sh" "$HOST" ioquake3 --max-secs "$((TMO + 120))" -- \
+  sh -c "cd $REMOTE_DIR && exec ./ioquake3.app/Contents/MacOS/ioquake3 \
+  +set fs_basepath $REMOTE_DIR +set fs_homepath $REMOTE_DIR \
+  +set r_mode -1 +set r_customwidth $SS_W +set r_customheight $SS_H +set r_fullscreen 1 \
+  +set com_maxfps 0 +set timedemo 1 +demo $DEMO +exec autoshot.cfg" 2>&1)" || { echo "[shot $HOST] $LG_OUT" >&2; exit 2; }
+GPID="$(printf '%s\n' "$LG_OUT" | sed -n 's/^PID //p' | tail -1)"
+ssh "$HOST" "
   cd $REMOTE_DIR || exit 9
-  ./ioquake3.app/Contents/MacOS/ioquake3 \\
-    +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
-    +set r_mode -1 +set r_customwidth $SS_W +set r_customheight $SS_H +set r_fullscreen 1 \\
-    +set com_maxfps 0 +set timedemo 1 +demo $DEMO +exec autoshot.cfg > /dev/null 2>&1 &
-  PID=\$!
   j=0
   while [ \$j -lt $TMO ]; do
-    if ! kill -0 \$PID 2>/dev/null; then break; fi
+    if ! kill -0 $GPID 2>/dev/null; then break; fi
     sleep 1; j=\$((j+1))
   done
   killall -TERM ioquake3 2>/dev/null; sleep 2; killall -KILL ioquake3 2>/dev/null || true

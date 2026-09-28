@@ -59,7 +59,8 @@ if [ "$HOST" = workstation ]; then
   killall -TERM ioquake3 2>/dev/null || true
   g=0; while [ "$g" -lt 10 ]; do pgrep -x ioquake3 >/dev/null 2>&1 || break; sleep 1; g=$((g+1)); done
 else
-  BUSY="$(ssh "$HOST" "ps ax 2>/dev/null | grep -i ioquake3 | grep -v grep || true")"
+  # One-game guard (build-host#147, quake3#78): any known game, whoever started it.
+  BUSY="$("$HERE/launch-game.sh" --check "$HOST" 2>&1 || true)"
   if [ -n "$BUSY" ] && [ "${FORCE:-0}" != 1 ]; then
     echo "join-smoke $HOST: ABORT — already running a game (shared bench):" >&2
     echo "$BUSY" | sed 's/^/    /' >&2
@@ -75,15 +76,19 @@ else
     *) OPEN_ARGS_OK=0 ;;
   esac
 
+  ssh "$HOST" "cd $REMOTE_DIR || { echo NO_INSTALL; exit 9; }
+    mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null || true"
   if [ "$OPEN_ARGS_OK" = 1 ]; then
     LAUNCH='open -n ./ioquake3.app --args +set fs_homepath "$PWD" +set logfile 2 +connect '"$ADDR"' >/dev/null 2>&1 &'
   else
-    LAUNCH='./ioquake3.app/Contents/MacOS/ioquake3 +set fs_basepath "$PWD" +set fs_homepath "$PWD" +set logfile 2 +connect '"$ADDR"' >/dev/null 2>&1 &'
+    # Direct exec through the shared one-game guard (build-host#147, quake3#78).
+    "$HERE/launch-game.sh" "$HOST" ioquake3 --max-secs "$((WAIT_SECS + 60))" -- \
+      sh -c "cd $REMOTE_DIR && exec ./ioquake3.app/Contents/MacOS/ioquake3 +set fs_basepath $REMOTE_DIR +set fs_homepath $REMOTE_DIR +set logfile 2 +connect $ADDR" || exit 2
+    LAUNCH=':'
   fi
 
   ssh "$HOST" "
     cd $REMOTE_DIR || { echo NO_INSTALL; exit 9; }
-    mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null || true
     $LAUNCH
     sleep $WAIT_SECS
     killall -TERM ioquake3 2>/dev/null || true

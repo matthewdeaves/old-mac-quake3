@@ -269,11 +269,16 @@ for ((r=1; r<=RUNS; r++)); do
     cd $REMOTE_DIR
     engine_kill TERM
     g=0; while [ \$g -lt 12 ]; do alive || break; sleep 1; g=\$((g+1)); done
-    mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null; rm -f \"$PIDF\"
-    ./ioquake3-bench +set com_archAutoexec 0 +set fs_basepath \"\$PWD\" +set fs_homepath \"\$PWD\" \\
-      +set logfile 2 +set com_maxfps 0 +set r_fullscreen 1 \\
-      +set r_mode -1 +set r_customwidth $W +set r_customheight $H \\
-      ${EXTRA_CVARS:+$EXTRA_CVARS }+set nextdemo quit +set timedemo 1 +demo $DEMO >/dev/null 2>&1 &
+    mv -f baseq3/qconsole.log baseq3/qconsole.log.prev 2>/dev/null; rm -f \"$PIDF\"" 2>/dev/null || true
+  # Launch through the shared one-game guard (build-host#147, quake3#78): refuses
+  # while any other known game runs on the host, backgrounds the engine on the
+  # guest with a watchdog. Replaces the ad-hoc `&` launch inside the ssh below.
+  LG_OUT="$("$(dirname "$0")/launch-game.sh" "$MACHINE" ioquake3 --max-secs $((TMO + 120)) -- \
+    sh -c "cd $REMOTE_DIR && exec ./ioquake3-bench +set com_archAutoexec 0 +set fs_basepath $REMOTE_DIR +set fs_homepath $REMOTE_DIR +set logfile 2 +set com_maxfps 0 +set r_fullscreen 1 +set r_mode -1 +set r_customwidth $W +set r_customheight $H ${EXTRA_CVARS:+$EXTRA_CVARS }+set nextdemo quit +set timedemo 1 +demo $DEMO" 2>&1)" || {
+    echo "bench.sh: launch-game.sh refused or failed: $LG_OUT" >&2; exit 3; }
+  ssh "$MACHINE" "$ALIVE_FN
+    $KILL_FN
+    cd $REMOTE_DIR
     # FIRST wait for the engine to actually come up. Polling 'has it exited yet?'
     # straight after backgrounding is a race: on a slower Mac the process has not
     # exec'd yet, the check finds nothing, and we would 'break' immediately and

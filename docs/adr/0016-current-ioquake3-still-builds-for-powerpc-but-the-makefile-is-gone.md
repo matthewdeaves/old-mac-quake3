@@ -1,5 +1,9 @@
 # 16. Current ioquake3 still builds for PowerPC, but the Makefile is gone
 
+Recorded decision: Record the result.
+Record status: accepted (measured); no engine bump is proposed yet. Date: 2026-08-20.
+Sections: Context, What upstream did, What was measured, The PowerPC JIT is broken upstream, Decision, Consequences.
+
 Date: 2026-08-20
 Status: accepted (measured); no engine bump is proposed yet
 

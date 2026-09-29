@@ -1,5 +1,9 @@
 # 13. watchlink is a cvar-gated UDP feed: inert by default
 
+Recorded decision: `code/client/cl_watchlink.c` emits newline-delimited JSON over UDP, on its own non-blocking socket, and is completely inert unless the `watch_host` cvar is set.
+Record status: accepted. Date: 2026-08-20.
+Sections: Context, Decision, Alternatives rejected, Consequences.
+
 Date: 2026-08-20
 Status: accepted
 

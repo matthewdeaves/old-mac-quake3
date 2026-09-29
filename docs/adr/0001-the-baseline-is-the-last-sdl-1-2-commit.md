@@ -1,5 +1,9 @@
 # 1. The engine baseline is the last SDL 1.2 commit
 
+Recorded decision: The tree is pinned to `4432a80a` (2013-01-17, "Add vim stuff to .gitignore"), the commit immediately before `f478761e` "Use SDL 2 instead of SDL 1.2".
+Record status: accepted. The original premise was tested on 2026-08-21 and found wrong. Date: 2026-08-20.
+Sections: Context, Decision, Re-examined 2026-08-20: the premise is the one unmeasured claim in the project, Measured 2026-08-21: SDL2 on 10.3/10.4 is partial, not impossible, Alternatives rejected, Consequences.
+
 Date: 2026-08-20
 Status: accepted. The original premise was tested on 2026-08-21 and found wrong
 as stated; the decision stands on a narrower measured reason. See "Measured"

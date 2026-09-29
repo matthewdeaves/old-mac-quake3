@@ -1,24 +1,26 @@
 # ioquake3 old-Mac port
 
-Quake III Arena (ioquake3, last SDL 1.2 commit) as ONE fat binary for PowerPC, Intel and Apple Silicon Macs. Floors: G3 20 fps, every other class 25. A feature stays on while its class holds the floor; win fps by optimising code.
+Quake III Arena on ioquake3's last SDL 1.2 commit, as one fat binary for PowerPC, Intel and Apple Silicon Macs.
 
-## Rules (each from a real mistake)
-- old-mac-build-host owns builds and CI; never hardcode a mini. Release DMG only on a Tiger G4 (docs/adr/0005).
-- Bench only with `scripts/safebench.sh`. Never KILL a fullscreen engine; native resolution only (docs/adr/0009, MISTAKES.md).
-- Start games only through `scripts/launch-game.sh`, never a bare `nohup ... &` (#78).
-- Check slices with `scripts/macho-archs.sh`, never `file` or workstation `lipo` (#57).
-- rsync to `<host>:oldmac/quake3/src/`, never `oldmac/` itself (#50).
+## Traps
+- Package release DMGs on a Tiger G4 (see docs/BUILD-FACTS.md).
+- Bench through `scripts/safebench.sh`, at native resolution; never KILL a fullscreen engine (see docs/HARDWARE.md).
+- Launch through `scripts/launch-game.sh`; see docs/BUILD-FACTS.md, #78.
+- Inspect slices with `scripts/macho-archs.sh`, never `file` or workstation `lipo` (see docs/BUILD-FACTS.md, #57).
+- rsync to `<host>:oldmac/quake3/src/`, never `oldmac/` (see docs/SCRIPT-CONTRACTS.md, #50).
+- old-mac-build-host owns builds and CI; never hardcode a mini.
 - Public repo: no addresses, keys, tunnel tokens or `.env` content from retro-server-infra.
 - We ship code, not id assets. No em dashes. No Claude co-author line. Never rate or praise work.
-- Record every negative result in docs/PROFILING.md.
+- Record negative performance results in `docs/PROFILING.md` so failed experiments stay findable.
 
 ## Where to look
-- Build, deploy, bench commands: `.claude/rules/build-system.md`
-- Slices, build facts and traps: `docs/BUILD-FACTS.md`
-- Machines and hardware hazards: `.claude/rules/legacy-mac-hardware.md`
-- Tickets, claims, cross-repo: `docs/TICKETING.md`, fleet POLICY
-- Decisions and rejected options: `docs/adr/`
-- Measured numbers: `docs/PROFILING.md`, `benchmarks/results.csv`
-- Tuning knobs: `docs/KNOBS.md`; release steps: `docs/RELEASE.md`
-- Past breakages: `MISTAKES.md`, `BUGFIXES.md`
-- Every other doc: `docs/README.md`
+- Docs → `docs/README.md`
+- Build → `docs/BUILD-COMMANDS.md`
+- Deploy → `docs/BUILD-COMMANDS.md`
+- Smoke → `docs/BUILD-COMMANDS.md`
+- Bench → `docs/BENCH-COMMANDS.md`
+- Tests → `docs/TESTS.md`
+- Release → `docs/RELEASE.md`
+- Tickets → `docs/TICKETING.md`
+- History → `BUGFIXES.md`, `MISTAKES.md`, `docs/archive/`
+- VM → `docs/VM-TIGER.md`

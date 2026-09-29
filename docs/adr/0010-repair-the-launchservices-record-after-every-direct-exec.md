@@ -1,5 +1,9 @@
 # 10. Repair the LaunchServices record after every direct exec of the bundle
 
+Recorded decision: `scripts/lsregister-app.sh <machine>` repairs the record, and every script that direct-execs the engine calls it on its way out.
+Record status: accepted. Date: 2026-08-20.
+Sections: Context, Decision, Alternatives rejected, Consequences.
+
 Date: 2026-08-20
 Status: accepted
 

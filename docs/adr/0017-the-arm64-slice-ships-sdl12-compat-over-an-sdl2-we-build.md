@@ -1,5 +1,9 @@
 # 0017. The arm64 slice ships sdl12-compat over an SDL2 we build
 
+Recorded decision: Ship an arm64 slice.
+Record status: accepted. Supersedes the conclusion of. Date: 2026-08-20.
+Sections: Context, Decision, The engine fix this needed, Consequences, What is still open.
+
 Date: 2026-08-20
 
 Status: accepted. Supersedes the conclusion of

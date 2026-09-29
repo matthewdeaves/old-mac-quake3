@@ -1,5 +1,9 @@
 # docs/ - index
 
+Use this index after choosing a task in `CLAUDE.md`.
+Task guides link to commands; topic references hold constraints and evidence.
+History is reached by ticket or date through the active logs and `docs/archive/`.
+
 Sticky facts live in the repo-root [`CLAUDE.md`](../CLAUDE.md). Decisions and
 their evidence live in [`adr/`](adr/).
 
@@ -48,3 +52,20 @@ their evidence live in [`adr/`](adr/).
 
 `images/` and `screenshots/` hold the README artwork and the per-machine
 in-game captures produced by `scripts/screenshot.sh`.
+
+## Task guides and topic references
+
+- [BENCH-COMMANDS.md](BENCH-COMMANDS.md): Benchmark commands
+- [BUILD-COMMANDS.md](BUILD-COMMANDS.md): Build and deployment commands
+- [CONFIG.md](CONFIG.md): Config model
+- [HARDWARE.md](HARDWARE.md): Legacy Mac Hardware & Environments
+- [RENDERER-CANDIDATES.md](RENDERER-CANDIDATES.md): Renderer candidate review
+- [SCRIPT-CONTRACTS.md](SCRIPT-CONTRACTS.md): scripts/ - contracts and gotchas
+- [TESTS.md](TESTS.md): Test entry points
+- [profiling/august-experiments.md](profiling/august-experiments.md): August renderer experiments
+- [profiling/hardware-baselines.md](profiling/hardware-baselines.md): Hardware profiling baselines
+- [profiling/september-experiments.md](profiling/september-experiments.md): September quality and renderer experiments
+
+## History archive
+
+Older and superseded accounts: [archive/](archive/). Search by ticket or date.

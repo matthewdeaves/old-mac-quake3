@@ -1,5 +1,9 @@
 # 7. One app self-tunes: by architecture then by `hw.model`
 
+Recorded decision: `ioquake3.app` ships one binary and one set of configs and works out what it is running on at startup.
+Record status: accepted. Date: 2026-08-20.
+Sections: Context, Decision, Deliberate divergence, no iMac G4 / eMac profile, Alternatives rejected, Consequences.
+
 Date: 2026-08-20
 Status: accepted
 

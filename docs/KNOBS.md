@@ -1,5 +1,11 @@
 # KNOBS - Quake III tuning inventory
 
+Cvars and launch flags used for per-machine Quake III tuning.
+Shipping defaults live in `scripts/bundle/autoexec-<machine>.cfg`; measurements in `docs/PROFILING.md`.
+Sections group knobs by rendering, sound, game modules and launch options.
+
+## Context
+
 > **Summary.** Every cvar and cmdline flag used for per-machine tuning, grouped by area. Defaults per machine are in `scripts/bundle/autoexec-<machine>.cfg`; measured effects are in `docs/PROFILING.md`.
 > Sections: Resolution, Texture/VRAM, Lighting/geometry, Framerate/HUD, Sound, Game modules, Cmdline flags, Still open.
 

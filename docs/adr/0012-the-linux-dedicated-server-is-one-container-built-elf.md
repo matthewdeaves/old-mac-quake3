@@ -1,5 +1,9 @@
 # 12. The Linux dedicated server is one container-built ELF
 
+Recorded decision: `scripts/build-server-linux.sh` builds one ELF in a Debian 11 container, so the result depends on glibc 2.31 rather than on whatever the build machine happens to have.
+Record status: accepted. Date: 2026-08-20.
+Sections: Context, Decision, One diagnosed behaviour worth recording, Tuned for the clients that will actually connect `sv_minPing` and, Alternatives rejected, Consequences.
+
 Date: 2026-08-20
 Status: accepted
 

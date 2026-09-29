@@ -1,5 +1,9 @@
 # 20. imac-2019 is not a build host yet
 
+Recorded decision: `imac-2019` is not wired into `scripts/build.sh` or `scripts/build-fat.sh` today, for either the PPC or the Intel slices.
+Record status: accepted, PPC (g3/g4) superseded 2026-08-29 - see Follow-up 7. i386/lion. Date: 2026-08-28.
+Sections: Context, Investigation, Follow-up: the missing-`-isysroot` theory, tested and ruled out, Follow-up 2: likely actual root cause, from old-mac-build-host (not independently re-verified here), Follow-up 3: a separate PPC compile blocker, from old-mac-build-host (not independently re-verified here), Follow-up 4: real g4 source build attempted, one blocker cleared, a new one found, Follow-up 5: the AltiVec gap has a real root cause, and a real second layer under it, Follow-up 6: the definitive answer - a real, full build.sh attempt, all targets, Decision, Consequences, Follow-up 7: g3 and g4 now build and link clean end-to-end via imac-2019 (2026-08-29), Follow-up 8: a specific reason not to skip the real-hardware step above (2026-09-03).
+
 Date: 2026-08-28
 Status: accepted, PPC (g3/g4) superseded 2026-08-29 - see Follow-up 7. i386/lion
 still an open negative result; revisit only with new evidence.

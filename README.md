@@ -1,3 +1,11 @@
+# ioquake3 old-Mac port
+
+Quake III Arena ships as one fat binary for PowerPC, Intel and Apple Silicon.
+Five slices cover the declared Mac OS X 10.3.9 through current macOS range.
+The sections below cover tested targets, installation, configuration and builds.
+
+## Overview
+
 <div align="center">
 
 <img src="docs/images/ioquake3-icon-256.png" width="150" alt="ioquake3 old-Mac port icon">

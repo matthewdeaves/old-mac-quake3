@@ -1,5 +1,9 @@
 # 9. Bench in one ssh session: at native resolution, and let the engine quit itself
 
+Recorded decision: One ssh session that outlives the app, native resolution only, and the engine quits itself.
+Record status: accepted. Date: 2026-08-20.
+Sections: Context, Decision, Bench discipline, Consequences.
+
 Date: 2026-08-20
 Status: accepted
 

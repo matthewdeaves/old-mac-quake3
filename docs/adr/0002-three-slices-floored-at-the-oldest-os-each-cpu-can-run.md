@@ -1,5 +1,9 @@
 # 2. Three slices in one fat binary: floored at the oldest OS each CPU can run
 
+Recorded decision: Three slices - `ppc750`, `ppc7400`, `x86_64` - in one Mach-O, each built against the oldest OS its CPU family can run.
+Record status: accepted. Date: 2026-08-20.
+Sections: Context, Decision, Evidence: lowering the floors cost nothing, Alternatives rejected, Consequences.
+
 Date: 2026-08-20
 Status: accepted
 

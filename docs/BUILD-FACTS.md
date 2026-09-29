@@ -1,7 +1,7 @@
 # Build facts, hard rules and traps
 
 Facts about how this port is built and shipped, and the traps that cost time before.
-Commands live in `.claude/rules/build-system.md`; machines in `.claude/rules/legacy-mac-hardware.md`.
+Commands live in `docs/BUILD-COMMANDS.md` and `docs/BENCH-COMMANDS.md`; machines in `docs/HARDWARE.md`.
 Read the section for the slice or step you are touching, not the whole file.
 
 Sections: Facts, Hard rules, Build Traps, Launching games.
@@ -22,9 +22,6 @@ Sections: Facts, Hard rules, Build Traps, Launching games.
 - **Build the release DMG only on a Tiger G4**, `-format UDZO`, and md5 every binary inside the finished image. `docs/adr/0005`.
 - **We ship code, not content.** No id assets, ever. `docs/adr/0011`.
 - **Measure, don't guess.** 3 runs, median of 2 and 3; revert any regression; **record every negative result** in `docs/PROFILING.md`.
-- **No em dashes anywhere**, prose or shipped strings.
-- **Never rate or praise work**, ours or upstream's; attribution is a fact.
-- No Claude co-author on commits.
 
 ## Build Traps
 - **`mini-intel`/`mini-intel2` are the only build hosts, and that's deliberate, not unfinished.** `imac-2019` looks tempting (fastest Intel box in the fleet, and `/Users/mini/gcc14-ppc` really is present there) but a real same-day test - built the `lion` slice there with its own clang, correct subtype and `-mmacosx-version-min=10.6` stamp, then ran it on real Lion 10.7.5 hardware - segfaulted instantly, no output. A correct version-min flag does not mean a modern toolchain's SDK generation produces something that runs on a decade-older dyld. `docs/adr/0020`, `MISTAKES.md`.

@@ -1,5 +1,9 @@
 # 18. `hw.model` identifies the logic board, not the installed GPU
 
+Recorded decision: Document the limitation.
+Record status: accepted (documented limitation, no code change). Date: 2026-08-23.
+Sections: Context, What was measured, Decision, What this does NOT affect, Consequences.
+
 Date: 2026-08-23
 Status: accepted (documented limitation, no code change)
 
